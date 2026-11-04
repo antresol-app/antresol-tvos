@@ -1,0 +1,25 @@
+{
+    "audio": [
+        {
+            "index": 1,
+            "codec": "aac",
+            "lang": "und",
+            "title": "",
+            "channels": 1,
+            "default": true
+        }
+    ],
+    "audioIndex": 1,
+    "durationMs": 40000,
+    "hlsComplete": true,
+    "mode": "transcode",
+    "quality": {
+        "selected": "480",
+        "applied": "480",
+        "remote": false
+    },
+    "reason": "height 720 is above the allowed 480; bitrate is above the allowed limit",
+    "startSec": 10,
+    "subtitles": [],
+    "url": "/api/hls/cc22eea043fa6c02/index.m3u8"
+}

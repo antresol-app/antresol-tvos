@@ -1,0 +1,39 @@
+{
+    "items": [
+        {
+            "id": 8,
+            "title": "Song 01",
+            "artist": "Test Artist",
+            "artistId": 6,
+            "albumId": 7,
+            "album": "Test Album",
+            "discNo": 1,
+            "trackNo": 1,
+            "durationMs": 15047,
+            "fileId": 4,
+            "lossless": false,
+            "hasLyrics": false,
+            "cover": "",
+            "starred": false,
+            "cue": false
+        },
+        {
+            "id": 9,
+            "title": "Song 02",
+            "artist": "Test Artist",
+            "artistId": 6,
+            "albumId": 7,
+            "album": "Test Album",
+            "discNo": 1,
+            "trackNo": 2,
+            "durationMs": 15047,
+            "fileId": 5,
+            "lossless": false,
+            "hasLyrics": false,
+            "cover": "",
+            "starred": false,
+            "cue": false
+        }
+    ],
+    "total": 5
+}

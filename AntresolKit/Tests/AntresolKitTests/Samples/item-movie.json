@@ -1,0 +1,79 @@
+{
+    "id": 19,
+    "kind": "movie",
+    "title": "Big Buck Demo",
+    "subtitle": "",
+    "year": 2019,
+    "poster": "/api/images/local/19/poster",
+    "backdrop": "/api/images/local/19/backdrop",
+    "logo": "",
+    "progress": 0,
+    "badges": [
+        "1080p",
+        "Audio EN RU",
+        "Subtitles EN"
+    ],
+    "onServer": true,
+    "overview": "",
+    "genres": [],
+    "cast": [],
+    "seasons": [],
+    "files": [
+        {
+            "id": 12,
+            "name": "Big Buck Demo (2019).mkv",
+            "size": 102389245,
+            "durationMs": 60046,
+            "resolution": "1080p",
+            "audio": [
+                {
+                    "index": 1,
+                    "codec": "aac",
+                    "lang": "eng",
+                    "title": "English Stereo",
+                    "channels": 2,
+                    "default": true
+                },
+                {
+                    "index": 2,
+                    "codec": "ac3",
+                    "lang": "rus",
+                    "title": "Russian 5.1",
+                    "channels": 6,
+                    "default": false
+                }
+            ],
+            "subs": [
+                {
+                    "index": 3,
+                    "codec": "subrip",
+                    "lang": "eng",
+                    "title": "",
+                    "forced": false,
+                    "default": false,
+                    "external": false,
+                    "burnIn": false,
+                    "url": "/api/subs/12/3.vtt"
+                },
+                {
+                    "index": 1000,
+                    "codec": "subrip",
+                    "lang": "ru",
+                    "title": "",
+                    "forced": false,
+                    "default": false,
+                    "external": true,
+                    "burnIn": false,
+                    "url": "/api/subs/12/1000.vtt?src=b70596c2"
+                }
+            ]
+        }
+    ],
+    "inWatchlist": true,
+    "actions": {
+        "play": true,
+        "toServer": false,
+        "toDevice": true,
+        "watchNow": false
+    }
+}

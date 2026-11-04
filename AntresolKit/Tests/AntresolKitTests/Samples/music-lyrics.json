@@ -1,0 +1,15 @@
+{
+    "lines": [
+        {
+            "t": 1,
+            "text": "First lyric line"
+        },
+        {
+            "t": 5,
+            "text": "Second lyric line"
+        }
+    ],
+    "lyrics": "[00:01.00]First lyric line\n[00:05.00]Second lyric line",
+    "source": "file",
+    "synced": true
+}

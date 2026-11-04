@@ -1,0 +1,33 @@
+{
+    "items": [
+        {
+            "id": 18,
+            "kind": "audiobook",
+            "title": "Chapter Book",
+            "subtitle": "Jane Writer",
+            "poster": "/api/images/local/18/poster",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "badges": [
+                "1 MB"
+            ],
+            "onServer": true
+        },
+        {
+            "id": 10,
+            "kind": "audiobook",
+            "title": "Test Audiobook",
+            "subtitle": "",
+            "poster": "",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "badges": [
+                "1 MB"
+            ],
+            "onServer": true
+        }
+    ],
+    "total": 2
+}

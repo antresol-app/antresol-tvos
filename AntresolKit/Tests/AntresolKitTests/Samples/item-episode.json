@@ -1,0 +1,46 @@
+{
+    "id": 4,
+    "kind": "episode",
+    "title": "Episode 1",
+    "subtitle": "Test Show \u00b7 Season 1, Episode 1",
+    "poster": "/api/images/local/2/poster",
+    "backdrop": "",
+    "logo": "",
+    "progress": 0,
+    "badges": [
+        "720p"
+    ],
+    "onServer": true,
+    "seriesId": 2,
+    "overview": "",
+    "genres": [],
+    "cast": [],
+    "seasons": [],
+    "files": [
+        {
+            "id": 2,
+            "name": "Test Show S01E01.mkv",
+            "size": 6694395,
+            "durationMs": 20023,
+            "resolution": "720p",
+            "audio": [
+                {
+                    "index": 1,
+                    "codec": "aac",
+                    "lang": "",
+                    "title": "",
+                    "channels": 1,
+                    "default": false
+                }
+            ],
+            "subs": []
+        }
+    ],
+    "inWatchlist": false,
+    "actions": {
+        "play": true,
+        "toServer": false,
+        "toDevice": true,
+        "watchNow": false
+    }
+}

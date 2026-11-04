@@ -1,0 +1,9 @@
+{
+    "id": 2,
+    "name": "Kiddo",
+    "avatar": "grad-4",
+    "hasPassword": false,
+    "isAdmin": false,
+    "isKid": true,
+    "maxRating": "6+"
+}

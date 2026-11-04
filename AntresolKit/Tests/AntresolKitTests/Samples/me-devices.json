@@ -1,0 +1,22 @@
+{
+    "items": [
+        {
+            "id": 7,
+            "name": "Docs Sample Device",
+            "model": "Pixel 8",
+            "version": "0.1.0",
+            "createdAt": "2026-11-04T20:13:39Z",
+            "lastSeen": "2026-11-04T20:13:39Z",
+            "current": false
+        },
+        {
+            "id": 2,
+            "name": "Living Room Apple TV",
+            "model": "AppleTV14,1",
+            "version": "1.0.0",
+            "createdAt": "2026-11-04T19:58:20Z",
+            "lastSeen": "2026-11-04T20:13:30Z",
+            "current": true
+        }
+    ]
+}

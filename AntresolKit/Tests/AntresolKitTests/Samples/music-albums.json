@@ -1,0 +1,28 @@
+{
+    "items": [
+        {
+            "id": 14,
+            "kind": "album",
+            "title": "Sample Record",
+            "subtitle": "Sample Band",
+            "year": 2021,
+            "poster": "/api/images/local/14/poster",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true
+        },
+        {
+            "id": 7,
+            "kind": "album",
+            "title": "Test Album",
+            "subtitle": "Test Artist",
+            "poster": "",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true
+        }
+    ],
+    "total": 2
+}

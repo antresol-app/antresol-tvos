@@ -1,0 +1,79 @@
+{
+    "card": {
+        "id": 14,
+        "kind": "album",
+        "title": "Sample Record",
+        "subtitle": "Sample Band",
+        "year": 2021,
+        "poster": "/api/images/local/14/poster",
+        "backdrop": "",
+        "logo": "",
+        "progress": 0,
+        "onServer": true
+    },
+    "artist": {
+        "id": 13,
+        "name": "Sample Band"
+    },
+    "year": 2021,
+    "genres": [
+        "Rock"
+    ],
+    "durationMs": 60000,
+    "trackCount": 3,
+    "quality": "Lossless \u00b7 FLAC",
+    "tracks": [
+        {
+            "id": 15,
+            "title": "Track Number 1",
+            "artist": "Sample Band",
+            "artistId": 13,
+            "albumId": 14,
+            "album": "Sample Record",
+            "discNo": 1,
+            "trackNo": 1,
+            "durationMs": 20000,
+            "fileId": 8,
+            "lossless": true,
+            "hasLyrics": true,
+            "cover": "/api/images/local/14/poster",
+            "starred": false,
+            "cue": false
+        },
+        {
+            "id": 16,
+            "title": "Track Number 2",
+            "artist": "Sample Band",
+            "artistId": 13,
+            "albumId": 14,
+            "album": "Sample Record",
+            "discNo": 1,
+            "trackNo": 2,
+            "durationMs": 20000,
+            "fileId": 9,
+            "lossless": true,
+            "hasLyrics": false,
+            "cover": "/api/images/local/14/poster",
+            "starred": false,
+            "cue": false
+        },
+        {
+            "id": 17,
+            "title": "Track Number 3",
+            "artist": "Sample Band",
+            "artistId": 13,
+            "albumId": 14,
+            "album": "Sample Record",
+            "discNo": 1,
+            "trackNo": 3,
+            "durationMs": 20000,
+            "fileId": 10,
+            "lossless": true,
+            "hasLyrics": false,
+            "cover": "/api/images/local/14/poster",
+            "starred": false,
+            "cue": false
+        }
+    ],
+    "starred": false
+}

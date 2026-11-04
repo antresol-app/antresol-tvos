@@ -1,0 +1,24 @@
+{
+    "audio": [
+        {
+            "index": 1,
+            "codec": "aac",
+            "lang": "und",
+            "title": "",
+            "channels": 1,
+            "default": true
+        }
+    ],
+    "audioIndex": 1,
+    "durationMs": 40000,
+    "mode": "direct",
+    "quality": {
+        "selected": "auto",
+        "applied": "original",
+        "remote": false
+    },
+    "reason": "",
+    "startSec": 0,
+    "subtitles": [],
+    "url": "/api/stream/14"
+}

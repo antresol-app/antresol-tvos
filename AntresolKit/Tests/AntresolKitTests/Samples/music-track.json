@@ -1,0 +1,17 @@
+{
+    "id": 15,
+    "title": "Track Number 1",
+    "artist": "Sample Band",
+    "artistId": 13,
+    "albumId": 14,
+    "album": "Sample Record",
+    "discNo": 1,
+    "trackNo": 1,
+    "durationMs": 20000,
+    "fileId": 8,
+    "lossless": true,
+    "hasLyrics": true,
+    "cover": "/api/images/local/14/poster",
+    "starred": true,
+    "cue": false
+}

@@ -1,0 +1,63 @@
+{
+    "card": {
+        "id": 23,
+        "kind": "audiobook",
+        "title": "Two Part Story",
+        "subtitle": "Ann Author",
+        "poster": "",
+        "backdrop": "",
+        "logo": "",
+        "progress": 0,
+        "badges": [
+            "1 MB"
+        ],
+        "onServer": true
+    },
+    "kind": "audiobook",
+    "authors": [
+        "Ann Author"
+    ],
+    "narrator": "",
+    "series": null,
+    "description": "",
+    "year": 0,
+    "lang": "",
+    "files": [
+        {
+            "id": 15,
+            "format": "MP3",
+            "size": 240658,
+            "durationMs": 30041
+        },
+        {
+            "id": 16,
+            "format": "MP3",
+            "size": 240658,
+            "durationMs": 30041
+        }
+    ],
+    "seriesId": 0,
+    "nextId": 0,
+    "readFileId": 0,
+    "progress": null,
+    "want": false,
+    "durationMs": 60082,
+    "chapters": [
+        {
+            "idx": 0,
+            "title": "Part 1",
+            "fileId": 15,
+            "startMs": 0,
+            "endMs": 30041
+        },
+        {
+            "idx": 1,
+            "title": "Part 2",
+            "fileId": 16,
+            "startMs": 30041,
+            "endMs": 60082
+        }
+    ],
+    "volumes": [],
+    "direction": ""
+}

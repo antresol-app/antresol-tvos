@@ -1,0 +1,25 @@
+{
+    "audio": [
+        {
+            "index": 1,
+            "codec": "eac3",
+            "lang": "",
+            "title": "",
+            "channels": 1,
+            "default": false
+        }
+    ],
+    "audioIndex": 1,
+    "durationMs": 20001,
+    "hlsComplete": true,
+    "mode": "remux",
+    "quality": {
+        "selected": "auto",
+        "applied": "original",
+        "remote": false
+    },
+    "reason": "HEVC without the hvc1 tag: the video is repackaged; container mkv isn\u2019t supported by the browser",
+    "startSec": 0,
+    "subtitles": [],
+    "url": "/api/hls/4ec75a49b1804f25/index.m3u8"
+}

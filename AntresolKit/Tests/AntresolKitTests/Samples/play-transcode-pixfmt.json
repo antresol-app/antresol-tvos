@@ -1,0 +1,25 @@
+{
+    "audio": [
+        {
+            "index": 1,
+            "codec": "aac",
+            "lang": "und",
+            "title": "",
+            "channels": 1,
+            "default": true
+        }
+    ],
+    "audioIndex": 1,
+    "durationMs": 30000,
+    "hlsComplete": true,
+    "mode": "transcode",
+    "quality": {
+        "selected": "auto",
+        "applied": "original",
+        "remote": false
+    },
+    "reason": "browsers don\u2019t play 10-bit or non-4:2:0 H.264",
+    "startSec": 0,
+    "subtitles": [],
+    "url": "/api/hls/cf203cb9a8779c36/index.m3u8"
+}

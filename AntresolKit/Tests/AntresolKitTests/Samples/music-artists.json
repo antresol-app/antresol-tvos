@@ -1,0 +1,27 @@
+{
+    "items": [
+        {
+            "id": 13,
+            "kind": "artist",
+            "title": "Sample Band",
+            "subtitle": "",
+            "poster": "/api/images/local/14/poster",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true
+        },
+        {
+            "id": 6,
+            "kind": "artist",
+            "title": "Test Artist",
+            "subtitle": "",
+            "poster": "",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true
+        }
+    ],
+    "total": 2
+}

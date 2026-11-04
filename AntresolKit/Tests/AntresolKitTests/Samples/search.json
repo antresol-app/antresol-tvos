@@ -1,0 +1,78 @@
+{
+    "albums": [
+        {
+            "id": 7,
+            "kind": "album",
+            "title": "Test Album",
+            "subtitle": "Test Artist",
+            "poster": "",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "badges": [
+                "MP3 64"
+            ],
+            "onServer": true
+        }
+    ],
+    "artists": [
+        {
+            "id": 6,
+            "kind": "artist",
+            "title": "Test Artist",
+            "subtitle": "",
+            "poster": "",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true
+        }
+    ],
+    "audiobooks": [
+        {
+            "id": 10,
+            "kind": "audiobook",
+            "title": "Test Audiobook",
+            "subtitle": "",
+            "poster": "",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "badges": [
+                "1 MB"
+            ],
+            "onServer": true
+        }
+    ],
+    "books": [],
+    "comics": [],
+    "library": [
+        {
+            "id": 1,
+            "kind": "movie",
+            "title": "Test Film",
+            "subtitle": "",
+            "year": 2020,
+            "poster": "",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "badges": [
+                "720p"
+            ],
+            "onServer": true
+        },
+        {
+            "id": 2,
+            "kind": "series",
+            "title": "Test Show",
+            "subtitle": "",
+            "poster": "/api/images/local/2/poster",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true
+        }
+    ],
+    "songs": []
+}

@@ -1,0 +1,14 @@
+{
+    "token": "YgOHoHtThoaWYWNXceGJJFy489hyNyZtFrlH1A8654g",
+    "user": {
+        "id": 1,
+        "name": "Admin",
+        "avatar": "grad-1",
+        "hasPassword": true,
+        "isAdmin": true,
+        "isKid": false,
+        "maxRating": null,
+        "remote": false,
+        "libraryOnly": true
+    }
+}

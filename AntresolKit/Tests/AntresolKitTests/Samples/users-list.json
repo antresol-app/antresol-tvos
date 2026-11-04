@@ -1,0 +1,20 @@
+[
+    {
+        "id": 1,
+        "name": "Admin",
+        "avatar": "grad-1",
+        "hasPassword": true,
+        "isAdmin": true,
+        "isKid": false,
+        "maxRating": null
+    },
+    {
+        "id": 2,
+        "name": "Kiddo",
+        "avatar": "grad-4",
+        "hasPassword": false,
+        "isAdmin": false,
+        "isKid": true,
+        "maxRating": "6+"
+    }
+]

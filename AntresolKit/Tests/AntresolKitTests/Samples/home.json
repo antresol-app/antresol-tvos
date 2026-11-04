@@ -1,0 +1,289 @@
+{
+    "hero": [
+        {
+            "id": 19,
+            "kind": "movie",
+            "title": "Big Buck Demo",
+            "subtitle": "",
+            "year": 2019,
+            "poster": "/api/images/local/19/poster",
+            "backdrop": "/api/images/local/19/backdrop",
+            "logo": "",
+            "progress": 0.3330779735536089,
+            "badges": [
+                "1080p",
+                "Audio EN RU",
+                "Subtitles EN"
+            ],
+            "onServer": true
+        }
+    ],
+    "shelves": [
+        {
+            "id": "continue",
+            "title": "Continue Watching",
+            "cards": [
+                {
+                    "id": 19,
+                    "kind": "movie",
+                    "title": "Big Buck Demo",
+                    "subtitle": "",
+                    "year": 2019,
+                    "poster": "/api/images/local/19/poster",
+                    "backdrop": "/api/images/local/19/backdrop",
+                    "logo": "",
+                    "progress": 0.3330779735536089,
+                    "badges": [
+                        "1080p",
+                        "Audio EN RU",
+                        "Subtitles EN"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 22,
+                    "kind": "movie",
+                    "title": "Plain Clip",
+                    "subtitle": "",
+                    "year": 2018,
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.15,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 12,
+                    "kind": "episode",
+                    "title": "Episode 1",
+                    "subtitle": "Test Show \u00b7 Season 2, Episode 1",
+                    "poster": "/api/images/local/2/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true,
+                    "seriesId": 2
+                }
+            ]
+        },
+        {
+            "id": "recently-played",
+            "title": "Recently Played",
+            "cards": [
+                {
+                    "id": 14,
+                    "kind": "album",
+                    "title": "Sample Record",
+                    "subtitle": "Sample Band",
+                    "year": 2021,
+                    "poster": "/api/images/local/14/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "reading",
+            "title": "Currently Reading",
+            "cards": [
+                {
+                    "id": 21,
+                    "kind": "comic_volume",
+                    "title": "Hero Tales",
+                    "subtitle": "Volume 1",
+                    "poster": "/api/images/ecec1d180b69649a93a8419e257d4b19fed0cf54.jpg",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.6667,
+                    "onServer": true,
+                    "seriesId": 20
+                },
+                {
+                    "id": 23,
+                    "kind": "audiobook",
+                    "title": "Two Part Story",
+                    "subtitle": "Ann Author",
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.19972703971239306,
+                    "badges": [
+                        "1 MB"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 18,
+                    "kind": "audiobook",
+                    "title": "Chapter Book",
+                    "subtitle": "Jane Writer",
+                    "poster": "/api/images/local/18/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.4166666666666667,
+                    "badges": [
+                        "1 MB"
+                    ],
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "recent-movies",
+            "title": "Recently Added Movies",
+            "cards": [
+                {
+                    "id": 26,
+                    "kind": "movie",
+                    "title": "Hevc Demo",
+                    "subtitle": "",
+                    "year": 2022,
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 25,
+                    "kind": "movie",
+                    "title": "Extra Clip",
+                    "subtitle": "",
+                    "year": 2017,
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 22,
+                    "kind": "movie",
+                    "title": "Plain Clip",
+                    "subtitle": "",
+                    "year": 2018,
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.15,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 19,
+                    "kind": "movie",
+                    "title": "Big Buck Demo",
+                    "subtitle": "",
+                    "year": 2019,
+                    "poster": "/api/images/local/19/poster",
+                    "backdrop": "/api/images/local/19/backdrop",
+                    "logo": "",
+                    "progress": 0.3330779735536089,
+                    "badges": [
+                        "1080p",
+                        "Audio EN RU",
+                        "Subtitles EN"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 1,
+                    "kind": "movie",
+                    "title": "Test Film",
+                    "subtitle": "",
+                    "year": 2020,
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "recent-series",
+            "title": "New Episodes",
+            "cards": [
+                {
+                    "id": 2,
+                    "kind": "series",
+                    "title": "Test Show",
+                    "subtitle": "",
+                    "poster": "/api/images/local/2/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "watchlist",
+            "title": "Want to Watch",
+            "cards": [
+                {
+                    "id": 2,
+                    "kind": "series",
+                    "title": "Test Show",
+                    "subtitle": "",
+                    "poster": "/api/images/local/2/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                },
+                {
+                    "id": 22,
+                    "kind": "movie",
+                    "title": "Plain Clip",
+                    "subtitle": "",
+                    "year": 2018,
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.15,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 19,
+                    "kind": "movie",
+                    "title": "Big Buck Demo",
+                    "subtitle": "",
+                    "year": 2019,
+                    "poster": "/api/images/local/19/poster",
+                    "backdrop": "/api/images/local/19/backdrop",
+                    "logo": "",
+                    "progress": 0.3330779735536089,
+                    "badges": [
+                        "1080p",
+                        "Audio EN RU",
+                        "Subtitles EN"
+                    ],
+                    "onServer": true
+                }
+            ]
+        }
+    ]
+}

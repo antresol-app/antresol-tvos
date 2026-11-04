@@ -1,0 +1,14 @@
+[
+    {
+        "id": 1,
+        "name": "Admin",
+        "avatar": "grad-1",
+        "hasPassword": true
+    },
+    {
+        "id": 2,
+        "name": "Kiddo",
+        "avatar": "grad-4",
+        "hasPassword": false
+    }
+]

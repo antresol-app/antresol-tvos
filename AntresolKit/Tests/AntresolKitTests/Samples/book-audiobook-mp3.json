@@ -1,0 +1,48 @@
+{
+    "card": {
+        "id": 10,
+        "kind": "audiobook",
+        "title": "Test Audiobook",
+        "subtitle": "",
+        "poster": "",
+        "backdrop": "",
+        "logo": "",
+        "progress": 0,
+        "badges": [
+            "1 MB"
+        ],
+        "onServer": true
+    },
+    "kind": "audiobook",
+    "authors": [],
+    "narrator": "",
+    "series": null,
+    "description": "",
+    "year": 0,
+    "lang": "",
+    "files": [
+        {
+            "id": 6,
+            "format": "MP3",
+            "size": 200659,
+            "durationMs": 25051
+        }
+    ],
+    "seriesId": 0,
+    "nextId": 0,
+    "readFileId": 0,
+    "progress": null,
+    "want": false,
+    "durationMs": 25051,
+    "chapters": [
+        {
+            "idx": 0,
+            "title": "Chapter 1",
+            "fileId": 6,
+            "startMs": 0,
+            "endMs": 25051
+        }
+    ],
+    "volumes": [],
+    "direction": ""
+}

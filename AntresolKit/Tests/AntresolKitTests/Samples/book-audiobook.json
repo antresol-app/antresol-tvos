@@ -1,0 +1,64 @@
+{
+    "card": {
+        "id": 18,
+        "kind": "audiobook",
+        "title": "Chapter Book",
+        "subtitle": "Jane Writer",
+        "poster": "/api/images/local/18/poster",
+        "backdrop": "",
+        "logo": "",
+        "progress": 0,
+        "badges": [
+            "1 MB"
+        ],
+        "onServer": true
+    },
+    "kind": "audiobook",
+    "authors": [
+        "Jane Writer"
+    ],
+    "narrator": "",
+    "series": null,
+    "description": "",
+    "year": 0,
+    "lang": "",
+    "files": [
+        {
+            "id": 11,
+            "format": "M4B",
+            "size": 496471,
+            "durationMs": 60000
+        }
+    ],
+    "seriesId": 0,
+    "nextId": 0,
+    "readFileId": 0,
+    "progress": null,
+    "want": false,
+    "durationMs": 60000,
+    "chapters": [
+        {
+            "idx": 0,
+            "title": "Opening",
+            "fileId": 11,
+            "startMs": 0,
+            "endMs": 20000
+        },
+        {
+            "idx": 1,
+            "title": "Middle",
+            "fileId": 11,
+            "startMs": 20000,
+            "endMs": 40000
+        },
+        {
+            "idx": 2,
+            "title": "Ending",
+            "fileId": 11,
+            "startMs": 40000,
+            "endMs": 60000
+        }
+    ],
+    "volumes": [],
+    "direction": ""
+}

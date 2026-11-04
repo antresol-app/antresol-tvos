@@ -1,0 +1,114 @@
+{
+    "id": 2,
+    "kind": "series",
+    "title": "Test Show",
+    "subtitle": "",
+    "poster": "/api/images/local/2/poster",
+    "backdrop": "",
+    "logo": "",
+    "progress": 0,
+    "onServer": true,
+    "overview": "",
+    "genres": [],
+    "cast": [],
+    "seasons": [
+        {
+            "id": 3,
+            "number": 1,
+            "title": "Season 1",
+            "episodes": [
+                {
+                    "id": 4,
+                    "kind": "episode",
+                    "title": "Episode 1",
+                    "subtitle": "Test Show \u00b7 Season 1, Episode 1",
+                    "poster": "/api/images/local/2/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true,
+                    "seriesId": 2,
+                    "seasonNo": 1,
+                    "episodeNo": 1,
+                    "durationMs": 20023,
+                    "watched": false
+                },
+                {
+                    "id": 5,
+                    "kind": "episode",
+                    "title": "Episode 2",
+                    "subtitle": "Test Show \u00b7 Season 1, Episode 2",
+                    "poster": "/api/images/local/2/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true,
+                    "seriesId": 2,
+                    "seasonNo": 1,
+                    "episodeNo": 2,
+                    "durationMs": 20023,
+                    "watched": false
+                }
+            ]
+        },
+        {
+            "id": 11,
+            "number": 2,
+            "title": "Season 2",
+            "episodes": [
+                {
+                    "id": 12,
+                    "kind": "episode",
+                    "title": "Episode 1",
+                    "subtitle": "Test Show \u00b7 Season 2, Episode 1",
+                    "poster": "/api/images/local/2/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "badges": [
+                        "720p"
+                    ],
+                    "onServer": true,
+                    "seriesId": 2,
+                    "seasonNo": 2,
+                    "episodeNo": 1,
+                    "durationMs": 20023,
+                    "watched": false
+                }
+            ]
+        }
+    ],
+    "files": [],
+    "next": {
+        "id": 4,
+        "kind": "episode",
+        "title": "Episode 1",
+        "subtitle": "Test Show \u00b7 Season 1, Episode 1",
+        "poster": "/api/images/local/2/poster",
+        "backdrop": "",
+        "logo": "",
+        "progress": 0,
+        "badges": [
+            "720p"
+        ],
+        "onServer": true,
+        "seriesId": 2,
+        "seasonNo": 1,
+        "episodeNo": 1,
+        "durationMs": 20023,
+        "watched": false
+    },
+    "inWatchlist": false,
+    "actions": {
+        "play": true,
+        "toServer": false,
+        "toDevice": false,
+        "watchNow": false
+    }
+}

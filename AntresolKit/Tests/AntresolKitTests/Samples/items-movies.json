@@ -1,0 +1,37 @@
+{
+    "items": [
+        {
+            "id": 19,
+            "kind": "movie",
+            "title": "Big Buck Demo",
+            "subtitle": "",
+            "year": 2019,
+            "poster": "/api/images/local/19/poster",
+            "backdrop": "/api/images/local/19/backdrop",
+            "logo": "",
+            "progress": 0,
+            "badges": [
+                "1080p",
+                "Audio EN RU",
+                "Subtitles EN"
+            ],
+            "onServer": true
+        },
+        {
+            "id": 1,
+            "kind": "movie",
+            "title": "Test Film",
+            "subtitle": "",
+            "year": 2020,
+            "poster": "",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "badges": [
+                "720p"
+            ],
+            "onServer": true
+        }
+    ],
+    "total": 2
+}

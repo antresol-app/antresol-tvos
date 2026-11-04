@@ -1,0 +1,16 @@
+{
+    "running": false,
+    "queued": false,
+    "startedAt": "2026-11-04T20:11:24.459043456Z",
+    "finishedAt": "2026-11-04T20:11:24.545744722Z",
+    "movies": 5,
+    "episodes": 3,
+    "albums": 2,
+    "tracks": 6,
+    "books": 0,
+    "audiobooks": 3,
+    "comics": 1,
+    "files": 19,
+    "skipped": 0,
+    "removed": 0
+}

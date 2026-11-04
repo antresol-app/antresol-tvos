@@ -1,0 +1,16 @@
+{
+    "items": [
+        {
+            "id": 20,
+            "kind": "comic",
+            "title": "Hero Tales",
+            "subtitle": "1 volume",
+            "poster": "/api/images/ecec1d180b69649a93a8419e257d4b19fed0cf54.jpg",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true
+        }
+    ],
+    "total": 1
+}

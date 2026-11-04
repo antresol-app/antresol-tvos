@@ -1,0 +1,16 @@
+{
+    "items": [
+        {
+            "id": 2,
+            "kind": "series",
+            "title": "Test Show",
+            "subtitle": "",
+            "poster": "/api/images/local/2/poster",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true
+        }
+    ],
+    "total": 1
+}

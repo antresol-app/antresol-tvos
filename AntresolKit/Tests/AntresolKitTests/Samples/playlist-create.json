@@ -1,0 +1,11 @@
+{
+    "id": 1,
+    "name": "Evening Mix",
+    "trackCount": 2,
+    "durationMs": 35047,
+    "cover": "/api/images/local/14/poster",
+    "covers": [
+        "/api/images/local/14/poster"
+    ],
+    "updatedAt": "2026-11-04T20:05:27.4622897Z"
+}

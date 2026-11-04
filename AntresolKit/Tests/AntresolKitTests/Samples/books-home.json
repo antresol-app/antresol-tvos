@@ -1,0 +1,115 @@
+{
+    "shelves": [
+        {
+            "id": "reading",
+            "title": "Currently Reading",
+            "cards": [
+                {
+                    "id": 21,
+                    "kind": "comic_volume",
+                    "title": "Hero Tales",
+                    "subtitle": "Volume 1",
+                    "poster": "/api/images/ecec1d180b69649a93a8419e257d4b19fed0cf54.jpg",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.6667,
+                    "onServer": true,
+                    "seriesId": 20
+                },
+                {
+                    "id": 23,
+                    "kind": "audiobook",
+                    "title": "Two Part Story",
+                    "subtitle": "Ann Author",
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.19972703971239306,
+                    "badges": [
+                        "1 MB"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 18,
+                    "kind": "audiobook",
+                    "title": "Chapter Book",
+                    "subtitle": "Jane Writer",
+                    "poster": "/api/images/local/18/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.4166666666666667,
+                    "badges": [
+                        "1 MB"
+                    ],
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "audiobooks",
+            "title": "Audiobooks",
+            "cards": [
+                {
+                    "id": 23,
+                    "kind": "audiobook",
+                    "title": "Two Part Story",
+                    "subtitle": "Ann Author",
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.19972703971239306,
+                    "badges": [
+                        "1 MB"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 18,
+                    "kind": "audiobook",
+                    "title": "Chapter Book",
+                    "subtitle": "Jane Writer",
+                    "poster": "/api/images/local/18/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0.4166666666666667,
+                    "badges": [
+                        "1 MB"
+                    ],
+                    "onServer": true
+                },
+                {
+                    "id": 10,
+                    "kind": "audiobook",
+                    "title": "Test Audiobook",
+                    "subtitle": "",
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "badges": [
+                        "1 MB"
+                    ],
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "comics",
+            "title": "Manga & Comics",
+            "cards": [
+                {
+                    "id": 20,
+                    "kind": "comic",
+                    "title": "Hero Tales",
+                    "subtitle": "1 volume",
+                    "poster": "/api/images/ecec1d180b69649a93a8419e257d4b19fed0cf54.jpg",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                }
+            ]
+        }
+    ]
+}

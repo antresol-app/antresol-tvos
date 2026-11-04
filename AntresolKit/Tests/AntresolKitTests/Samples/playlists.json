@@ -1,0 +1,15 @@
+{
+    "items": [
+        {
+            "id": 1,
+            "name": "Renamed Mix",
+            "trackCount": 3,
+            "durationMs": 50094,
+            "cover": "/api/images/local/14/poster",
+            "covers": [
+                "/api/images/local/14/poster"
+            ],
+            "updatedAt": "2026-11-04T20:05:27.617429922Z"
+        }
+    ]
+}

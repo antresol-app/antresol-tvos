@@ -1,0 +1,96 @@
+{
+    "shelves": [
+        {
+            "id": "recent-albums",
+            "title": "Recently Added",
+            "cards": [
+                {
+                    "id": 14,
+                    "kind": "album",
+                    "title": "Sample Record",
+                    "subtitle": "Sample Band",
+                    "year": 2021,
+                    "poster": "/api/images/local/14/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                },
+                {
+                    "id": 7,
+                    "kind": "album",
+                    "title": "Test Album",
+                    "subtitle": "Test Artist",
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "recently-played",
+            "title": "Recently Played",
+            "cards": [
+                {
+                    "id": 14,
+                    "kind": "album",
+                    "title": "Sample Record",
+                    "subtitle": "Sample Band",
+                    "year": 2021,
+                    "poster": "/api/images/local/14/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "artists",
+            "title": "Artists",
+            "cards": [
+                {
+                    "id": 13,
+                    "kind": "artist",
+                    "title": "Sample Band",
+                    "subtitle": "",
+                    "poster": "/api/images/local/14/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                },
+                {
+                    "id": 6,
+                    "kind": "artist",
+                    "title": "Test Artist",
+                    "subtitle": "",
+                    "poster": "",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                }
+            ]
+        },
+        {
+            "id": "playlists",
+            "title": "Playlists",
+            "cards": [
+                {
+                    "id": 1,
+                    "kind": "playlist",
+                    "title": "Renamed Mix",
+                    "subtitle": "3 songs",
+                    "poster": "/api/images/local/14/poster",
+                    "backdrop": "",
+                    "logo": "",
+                    "progress": 0,
+                    "onServer": true
+                }
+            ]
+        }
+    ]
+}

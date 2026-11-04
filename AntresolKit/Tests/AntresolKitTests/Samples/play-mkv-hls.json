@@ -1,0 +1,56 @@
+{
+    "audio": [
+        {
+            "index": 1,
+            "codec": "aac",
+            "lang": "eng",
+            "title": "English Stereo",
+            "channels": 2,
+            "default": true
+        },
+        {
+            "index": 2,
+            "codec": "ac3",
+            "lang": "rus",
+            "title": "Russian 5.1",
+            "channels": 6,
+            "default": false
+        }
+    ],
+    "audioIndex": 1,
+    "durationMs": 60046,
+    "hlsComplete": true,
+    "mode": "remux",
+    "quality": {
+        "selected": "auto",
+        "applied": "original",
+        "remote": false
+    },
+    "reason": "container mkv isn\u2019t supported by the browser",
+    "startSec": 0,
+    "subtitles": [
+        {
+            "index": 3,
+            "codec": "subrip",
+            "lang": "eng",
+            "title": "",
+            "forced": false,
+            "default": false,
+            "external": false,
+            "burnIn": false,
+            "url": "/api/subs/12/3.vtt"
+        },
+        {
+            "index": 1000,
+            "codec": "subrip",
+            "lang": "ru",
+            "title": "",
+            "forced": false,
+            "default": false,
+            "external": true,
+            "burnIn": false,
+            "url": "/api/subs/12/1000.vtt?src=b70596c2"
+        }
+    ],
+    "url": "/api/hls/d4efc029ebb8590d/index.m3u8"
+}

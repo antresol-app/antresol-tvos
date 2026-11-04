@@ -1,0 +1,9 @@
+{
+    "genres": [
+        {
+            "name": "Rock",
+            "albums": 1,
+            "songs": 3
+        }
+    ]
+}

@@ -1,0 +1,46 @@
+{
+    "card": {
+        "id": 20,
+        "kind": "comic",
+        "title": "Hero Tales",
+        "subtitle": "1 volume",
+        "poster": "/api/images/ecec1d180b69649a93a8419e257d4b19fed0cf54.jpg",
+        "backdrop": "",
+        "logo": "",
+        "progress": 0,
+        "onServer": true
+    },
+    "kind": "comic",
+    "authors": [],
+    "narrator": "",
+    "series": null,
+    "description": "",
+    "year": 0,
+    "lang": "",
+    "files": [],
+    "seriesId": 0,
+    "nextId": 0,
+    "readFileId": 0,
+    "progress": null,
+    "want": false,
+    "durationMs": 0,
+    "chapters": [],
+    "volumes": [
+        {
+            "id": 21,
+            "kind": "comic_volume",
+            "title": "Hero Tales",
+            "subtitle": "Volume 1",
+            "poster": "/api/images/ecec1d180b69649a93a8419e257d4b19fed0cf54.jpg",
+            "backdrop": "",
+            "logo": "",
+            "progress": 0,
+            "onServer": true,
+            "seriesId": 20,
+            "pages": 3,
+            "direction": "rtl",
+            "fileId": 13
+        }
+    ],
+    "direction": "rtl"
+}
