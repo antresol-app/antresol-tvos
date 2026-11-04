@@ -1,0 +1,43 @@
+name: Antresol
+options:
+  bundleIdPrefix: app.antresol
+  developmentLanguage: en
+  deploymentTarget:
+    tvOS: "17.0"
+  createIntermediateGroups: true
+packages:
+  AntresolKit:
+    path: AntresolKit
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  AntresolTV:
+    type: application
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: AntresolTV
+    dependencies:
+      - package: AntresolKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.antresol.tv
+        INFOPLIST_FILE: AntresolTV/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "3"
+        ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: NO
+schemes:
+  AntresolTV:
+    build:
+      targets:
+        AntresolTV: all
+    run:
+      config: Debug
+    archive:
+      config: Release

@@ -1,10 +1,42 @@
 name: ci
+
 on:
   push:
+  pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  probe:
+  kit-linux:
+    name: AntresolKit (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.0.3-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        working-directory: AntresolKit
+        run: swift build
+      - name: Test
+        working-directory: AntresolKit
+        run: swift test
+
+  app-tvos:
+    name: AntresolTV (tvOS Simulator)
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - run: xcodebuild -version && xcodebuild -showsdks && ls /Applications | grep -i xcode && brew list xcodegen || true
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -project Antresol.xcodeproj -scheme AntresolTV \
+            -destination 'generic/platform=tvOS Simulator' \
+            -configuration Debug build CODE_SIGNING_ALLOWED=NO | tail -n 60

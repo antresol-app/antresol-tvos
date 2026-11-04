@@ -1,0 +1,6 @@
+/* Splash and session status */
+"No server configured" = "No server configured";
+"The server is not responding" = "The server is not responding";
+"Choose a profile" = "Choose a profile";
+"Signed in as %@" = "Signed in as %@";
+"Try Again" = "Try Again";

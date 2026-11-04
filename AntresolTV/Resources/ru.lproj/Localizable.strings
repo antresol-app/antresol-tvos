@@ -1,0 +1,6 @@
+/* Splash and session status */
+"No server configured" = "Сервер не настроен";
+"The server is not responding" = "Сервер не отвечает";
+"Choose a profile" = "Выберите профиль";
+"Signed in as %@" = "Вы вошли как %@";
+"Try Again" = "Повторить";
