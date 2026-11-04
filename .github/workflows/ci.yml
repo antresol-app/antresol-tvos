@@ -89,6 +89,22 @@ jobs:
           xcrun xcresulttool export attachments --path ui.xcresult --output-path screenshots || true
           cp mock-server.log screenshots/ || true
           ls screenshots
+      - name: Print screenshot previews
+        if: always()
+        # Small JPEGs as base64 lines ("SHOT <name> <data>"), readable from the job log
+        # where artifact downloads are not available.
+        run: |
+          cd screenshots
+          python3 - <<'PY'
+          import base64, json, os, subprocess
+          for test in json.load(open("manifest.json")):
+              for item in test["attachments"]:
+                  name = item["suggestedHumanReadableName"].split("_")[0]
+                  out = f"/tmp/{name}.jpg"
+                  subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "60", "-Z", "1280",
+                                  item["exportedFileName"], "--out", out], check=True, capture_output=True)
+                  print("SHOT", name, base64.b64encode(open(out, "rb").read()).decode())
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
