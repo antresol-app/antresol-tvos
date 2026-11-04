@@ -187,3 +187,78 @@ Running log between milestones. Newest entry last.
 - Music and Books tabs still show the "coming soon" placeholder; album/artist/book cards (including
   search results) open `ItemSummaryView` (header only) until milestone 5.
 - No "see all" pages for Home shelves; no filter by genre in the grids (the API has none).
+
+## Milestone 4 — Video player
+
+### What exists
+- **Full-timeline playback** (kit, `VideoPlaybackSession.start(at:options:)`): the server is asked
+  for the whole file (`startSec` 0) and the player seeks to the resume point itself. Direct play
+  always works that way; for HLS the media-key playlist is a complete VOD playlist from 0, and the
+  server produces any segment on demand (checked on the real server for remux and transcode: a
+  segment 40 s in arrives in ~0.3 s remux / ~1 s transcode). So the native transport bar can seek
+  anywhere, backwards included, without re-requesting. Only a growing (EVENT) playlist
+  (`hlsComplete` false) is requested at the position, replacing the first session.
+  `PlaybackSource.startPosition` / `initialPlayerSeek` carry the seek.
+- **Caps** (`VideoPlayerModel.caps`): containers mp4/mov/m4v (no mkv/webm: AVPlayer cannot open
+  them, so the server remuxes to HLS), h264 + hevc/av1 only where `VTIsHardwareDecodeSupported`
+  says so (max height 1080 without an HEVC decoder), aac/ac3/eac3, `hevcNeedsHvc1`.
+- **Player screen** (`Playback/VideoPlayerView`, `VideoPlayerModel`):
+  - Preparing view over the tinted artwork; **resume prompt** ("Resume from 12:34" / "Start Over",
+    progress bar, "N min left") for `StartPoint.ask` when the saved position is ≥ 5 s.
+  - `AVPlayerViewController` with the native transport bar and Info panel; `externalMetadata`
+    has title, context line, description, genre, rating and the poster artwork (loaded through
+    `ImagePipeline` with the Bearer header).
+  - **Transport-bar menus** (`PlayerMenus`, `transportBarCustomMenuItems`): Audio (server tracks,
+    re-plays with `audioIndex` at the current position), Subtitles (Off, text tracks side-loaded,
+    image tracks burned in with `burnSubtitle`), Quality (Auto (applied) / Original / 1080p / 720p /
+    480p, re-plays with `quality`). Changes replace the HLS session (`replaceSession`) and keep the
+    position and play/pause state; a failed change shows a banner instead of stopping playback.
+  - **Subtitles**: VTT downloaded with the header (`subtitleCues`, retries `Retry-After`), cues on
+    the file timeline looked up at `startSec + playerTime`, rendered by `SubtitleOverlayView` in
+    `contentOverlayView` (white semibold on a dark plate, lifted above the transport bar when
+    paused).
+  - **Preferences** (`PlayerPreferences`, UserDefaults): last audio language, last subtitle
+    language (or off), quality and `autoplayNext` (default on; settings UI is milestone 6).
+    Language codes are normalised to two letters so "eng" and "en" match.
+  - **Progress**: `ProgressReporter` every 10 s, plus a flush on pause, when the app leaves the
+    foreground and a final write on close (the full duration when the video ended). The final
+    write is awaited before the reporter stops (no racing Task).
+  - **Up Next** for episodes: the series' seasons give the next episode (`UpNext.episode(after:)`);
+    an `AVContentProposal` is attached at `UpNext.proposalTime` (25 s before the end, not before
+    80 %) and shown by `UpNextProposalViewController` (still, "UP NEXT", title, synopsis,
+    "Play in 10" countdown, Cancel). Accept, countdown or reaching the end with autoplay plays the
+    next episode in the same player; the finished episode is marked watched when ≥ 92 % was seen.
+    Cancel lets the episode end and the player close.
+  - **Errors**: a full-screen error with Try Again (from the last position) and Close. `429` shows
+    the server's message (fallback: "This profile is already watching on another device…").
+    A player item failure or a keepalive `404` restarts the session at the current position once;
+    a second failure within 30 s is shown as an error.
+- **Continue Watching** cards on Home now play directly (`.ask` → resume prompt); long press offers
+  Details and Play from Beginning. `TabNavigation` owns a `NavigationPath` and exposes
+  `\.openRoute` for such context-menu actions.
+- `TrackLabels` (shared by the player and the About panel) names tracks: "English Stereo",
+  "Russian · AC3 · 5.1", "English (Forced)".
+- **Tests**: kit 51 tests (new: growing-playlist start, full-timeline source, `UpNext` order and
+  timing; integration test `testHLSResumeKeepsFullTimeline` against the real server, passed
+  locally). Mock server: `/api/play` (direct), `/api/stream` with Range from
+  `scripts/fixtures/sample.mp4` (60 s generated clip with a running timecode, 280 KB),
+  `/api/subs` VTT. UI tests `test04Player` / `test05UpNext` capture the resume prompt, playback
+  with subtitles, the transport bar, the menu and Up Next.
+
+### Decisions
+- Request `startSec` 0 and seek locally instead of resuming server-side: one extra ffmpeg start at
+  0 is cheap, and in exchange the whole timeline is seekable natively.
+- Up Next uses the native `AVContentProposal` machinery rather than a SwiftUI overlay, so focus and
+  the Menu button behave like the system player.
+- Selecting a Continue Watching card plays (like the TV app's Up Next row); detail pages keep their
+  explicit Resume / Restart buttons and do not ask again.
+
+### Known gaps
+- HLS paths are verified by kit integration tests against the real server; the UI tests run with
+  the mock server's direct-play clip, so remux/transcode playback in AVPlayer was not seen on a
+  simulator.
+- No skip-intro/credits markers (the API has none); Up Next timing is a fixed 25 s lead.
+- Subtitle styling is fixed (no size/colour settings); ASS styling is flattened to text by the
+  server's VTT conversion.
+- OpenSubtitles search/download is not in the player (the server returns 503 when unconfigured).
+- Multiple versions of a movie (several files) always play the first file.
