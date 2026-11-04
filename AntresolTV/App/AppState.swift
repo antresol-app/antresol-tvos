@@ -53,6 +53,9 @@ final class AppState {
     func bootstrap() async {
         guard phase == .launching || isUnreachable else { return }
         phase = .launching
+        #if DEBUG
+        applyLaunchOverrides()
+        #endif
         guard let url = settings.serverURL else {
             phase = .needsServer
             return
@@ -174,6 +177,21 @@ final class AppState {
         }
         return error.localizedDescription
     }
+
+    #if DEBUG
+    /// UI-test hooks, passed as launch arguments (`-AntresolResetSession YES`,
+    /// `-AntresolServerURL <address>`): start from a clean session and/or a given server.
+    private func applyLaunchOverrides() {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: "AntresolResetSession") {
+            settings.serverURL = nil
+            settings.lastUserId = nil
+        }
+        if let address = defaults.string(forKey: "AntresolServerURL"), let url = ServerAddress.normalize(address) {
+            settings.serverURL = url
+        }
+    }
+    #endif
 
     private var isUnreachable: Bool {
         if case .serverUnreachable = phase { return true }

@@ -32,11 +32,29 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_PREVIEWS: YES
         LOCALIZATION_PREFERS_STRING_CATALOGS: NO
+  AntresolTVUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: AntresolTVUITests
+    dependencies:
+      - target: AntresolTV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.antresol.tv.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "3"
+        TEST_TARGET_NAME: AntresolTV
 schemes:
   AntresolTV:
     build:
       targets:
         AntresolTV: all
+    test:
+      config: Debug
+      targets:
+        - AntresolTVUITests
     run:
       config: Debug
     archive:

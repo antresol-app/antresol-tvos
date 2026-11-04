@@ -45,3 +45,52 @@ jobs:
           fi
           grep -E 'AntresolTV/.*warning:' xcodebuild.log | sort -u | head -n 100 || true
           tail -n 5 xcodebuild.log
+
+  ui-screenshots:
+    name: UI screenshots (tvOS Simulator)
+    runs-on: macos-15
+    # Visual review aid; a flaky simulator must not block the build.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Start mock server
+        run: |
+          nohup python3 scripts/mock-server.py --port 8421 > mock-server.log 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:8421/api/health
+      - name: Pick an Apple TV simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          tv = [d for runtime, items in devices.items() if "tvOS" in runtime for d in items]
+          tv.sort(key=lambda d: "4K" not in d["name"])
+          print(tv[0]["udid"])')
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+      - name: Run UI tests
+        run: |
+          if ! xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV \
+            -destination "id=$SIM_UDID" -resultBundlePath ui.xcresult > uitest.log 2>&1; then
+            grep -E 'error:|failed|Test Case' uitest.log | head -n 80
+            tail -n 40 uitest.log
+            exit 1
+          fi
+          grep -E 'Test Case|Executed' uitest.log | tail -n 10
+      - name: Export screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots
+          xcrun xcresulttool export attachments --path ui.xcresult --output-path screenshots || true
+          cp mock-server.log screenshots/ || true
+          ls screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-screenshots
+          path: screenshots
