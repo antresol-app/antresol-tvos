@@ -5,7 +5,18 @@ import SwiftUI
 /// (`AVPlayerItem.nextContentProposal`): the video keeps playing full screen while a
 /// panel with the next episode's still, title and countdown offers Play Now / Cancel.
 final class UpNextProposalViewController: AVContentProposalViewController {
+    private let model: VideoPlayerModel
     private var host: UIHostingController<UpNextPanel>?
+
+    init(model: VideoPlayerModel) {
+        self.model = model
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
 
     override var preferredPlayerViewFrame: CGRect {
         view.bounds
@@ -16,12 +27,9 @@ final class UpNextProposalViewController: AVContentProposalViewController {
         host?.view.removeFromSuperview()
         host?.removeFromParent()
         guard let proposal = contentProposal else { return }
-        let description = proposal.metadata
-            .first { $0.identifier == .commonIdentifierDescription }?
-            .stringValue
         let panel = UpNextPanel(
             title: proposal.title,
-            overview: description ?? "",
+            overview: model.upNextOverview,
             image: proposal.previewImage,
             autoplayDate: dateOfAutomaticAcceptance,
             play: { [weak self] in self?.dismissContentProposal(for: .accept, animated: true, completion: nil) },

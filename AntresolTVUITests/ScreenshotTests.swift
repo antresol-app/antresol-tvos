@@ -165,36 +165,48 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select)
         pause(3)
         snapshot(app, "20-player-transport")
-        remote.press(.down)
+        // Up from the scrubber reaches the menu buttons next to the title.
+        remote.press(.up)
         pause(2)
-        snapshot(app, "21-player-menu-row")
+        snapshot(app, "21-player-menu-button")
         remote.press(.select)
         pause(2)
         snapshot(app, "22-player-menu")
 
-        for _ in 0..<4 {
-            remote.press(.menu)
-            pause(2)
-            if app.buttons["Details"].exists { break }
-        }
-        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 20))
-        pause(2)
+        exitPlayer(app)
+    }
 
-        // The episode in Continue Watching: resume close to the end to get Up Next.
+    func test05UpNext() {
+        let app = signInAsKid()
+
+        // The episode in Continue Watching (third card); its resume point is close to
+        // the end, so the Up Next panel comes up right away.
+        remote.press(.down)
+        pause(1)
+        remote.press(.down)
+        pause(2)
         remote.press(.right)
         pause(1)
         remote.press(.right)
         pause(1)
         remote.press(.select)
         XCTAssertTrue(app.buttons["Start Over"].waitForExistence(timeout: 20))
+        pause(1)
+        snapshot(app, "23-episode-resume")
         remote.press(.select)
-        pause(7)
-        snapshot(app, "23-up-next")
+        pause(6)
+        snapshot(app, "24-up-next")
+        exitPlayer(app)
+    }
+
+    /// Menu until the player is gone (it may first close a panel or the transport bar).
+    private func exitPlayer(_ app: XCUIApplication) {
         for _ in 0..<4 {
             remote.press(.menu)
             pause(2)
             if app.buttons["Details"].exists { break }
         }
+        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 20))
     }
 
     /// Fresh session, then the passwordless second profile.

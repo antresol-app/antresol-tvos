@@ -5,6 +5,16 @@ import UIKit
 final class SubtitleOverlayView: UIView {
     private let label = UILabel()
     private let plate = UIView()
+    private var bottomConstraint: NSLayoutConstraint?
+
+    /// Lifts the subtitles above the transport bar while it is shown.
+    var raised = false {
+        didSet {
+            guard raised != oldValue else { return }
+            bottomConstraint?.constant = raised ? -260 : -96
+            UIView.animate(withDuration: 0.25) { self.layoutIfNeeded() }
+        }
+    }
 
     var text: String? {
         didSet {
@@ -36,9 +46,11 @@ final class SubtitleOverlayView: UIView {
         label.translatesAutoresizingMaskIntoConstraints = false
         plate.addSubview(label)
 
+        let bottom = plate.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -96)
+        bottomConstraint = bottom
         NSLayoutConstraint.activate([
             plate.centerXAnchor.constraint(equalTo: centerXAnchor),
-            plate.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -96),
+            bottom,
             plate.widthAnchor.constraint(lessThanOrEqualToConstant: 1500),
             label.leadingAnchor.constraint(equalTo: plate.leadingAnchor, constant: 22),
             label.trailingAnchor.constraint(equalTo: plate.trailingAnchor, constant: -22),

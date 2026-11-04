@@ -44,6 +44,8 @@ final class VideoPlayerModel {
     private(set) var menus = PlayerMenuState()
     /// The subtitle cue on screen, if any.
     private(set) var subtitleText: String?
+    /// Paused: the transport bar is up, so subtitles move above it.
+    private(set) var isPaused = false
 
     let player = AVPlayer()
 
@@ -159,6 +161,11 @@ final class VideoPlayerModel {
 
     func declineUpNext() {
         upNextDeclined = true
+    }
+
+    /// The offered episode's synopsis, for the Up Next panel.
+    var upNextOverview: String {
+        upNext?.overview ?? ""
     }
 
     // MARK: - Opening an item
@@ -409,9 +416,6 @@ final class VideoPlayerModel {
             previewImage: offer.image
         )
         proposal.automaticAcceptanceInterval = preferences.autoplayNext ? 10 : 0
-        if !offer.overview.isEmpty {
-            proposal.metadata = [Self.metadataItem(.commonIdentifierDescription, offer.overview)]
-        }
         playerItem.nextContentProposal = proposal
     }
 
@@ -419,6 +423,7 @@ final class VideoPlayerModel {
     /// release of the server session.
     private func finishCurrent(atEnd: Bool) async {
         guard let item else { return }
+        upNext = nil
         let position = atEnd ? durationSec : (currentFilePosition ?? durationSec)
         player.pause()
         await saveFinalPosition(atEnd: atEnd)
@@ -469,9 +474,7 @@ final class VideoPlayerModel {
             },
             center.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: playerItem, queue: .main) { [weak self] note in
                 let error = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
-                MainActor.assumeIsolated {
-                    Task { await self?.restart(reason: error ?? PlayerError.playbackFailed) }
-                }
+                Task { @MainActor in await self?.restart(reason: error ?? PlayerError.playbackFailed) }
             },
         ]
         keyValueObservers = [
@@ -481,8 +484,12 @@ final class VideoPlayerModel {
                 Task { @MainActor in await self?.restart(reason: error ?? PlayerError.playbackFailed) }
             },
             player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
-                guard player.timeControlStatus == .paused else { return }
-                Task { @MainActor in self?.flushProgress() }
+                let paused = player.timeControlStatus == .paused
+                Task { @MainActor in
+                    guard let self else { return }
+                    if self.isPaused != paused { self.isPaused = paused }
+                    if paused { self.flushProgress() }
+                }
             },
         ]
         attachProposal()

@@ -28,7 +28,7 @@ struct VideoPlayerView: View {
                     Task { await model.choose(resume: resume) }
                 }
             case .playing:
-                PlayerViewController(model: model, subtitle: model.subtitleText, menus: model.menus)
+                PlayerViewController(model: model, subtitle: model.subtitleText, subtitleRaised: model.isPaused, menus: model.menus)
                     .ignoresSafeArea()
                     .overlay {
                         if model.isSwitching {
@@ -74,6 +74,7 @@ struct VideoPlayerView: View {
 private struct PlayerViewController: UIViewControllerRepresentable {
     let model: VideoPlayerModel
     let subtitle: String?
+    let subtitleRaised: Bool
     let menus: PlayerMenuState
 
     func makeCoordinator() -> Coordinator {
@@ -84,7 +85,7 @@ private struct PlayerViewController: UIViewControllerRepresentable {
         let controller = AVPlayerViewController()
         controller.player = model.player
         controller.delegate = context.coordinator
-        controller.contentProposalViewController = UpNextProposalViewController()
+        controller.contentProposalViewController = UpNextProposalViewController(model: model)
         let overlay = SubtitleOverlayView()
         if let container = controller.contentOverlayView {
             overlay.frame = container.bounds
@@ -100,6 +101,7 @@ private struct PlayerViewController: UIViewControllerRepresentable {
             controller.player = model.player
         }
         context.coordinator.subtitleView?.text = subtitle
+        context.coordinator.subtitleView?.raised = subtitleRaised
         if context.coordinator.menus != menus {
             context.coordinator.menus = menus
             controller.transportBarCustomMenuItems = PlayerMenus.make(menus, model: model)
@@ -163,12 +165,10 @@ private struct ResumePromptView: View {
             HeroBackground(card: card)
                 .ignoresSafeArea()
             VStack(alignment: .leading, spacing: 18) {
-                if !card.subtitle.isEmpty {
-                    Text(verbatim: card.subtitle.uppercased())
-                        .font(Theme.Typography.eyebrow)
-                        .tracking(2)
-                        .foregroundStyle(Theme.Colors.label2)
-                }
+                Text(verbatim: (card.subtitle.isEmpty ? card.kind.displayName : card.subtitle).uppercased())
+                    .font(Theme.Typography.eyebrow)
+                    .tracking(2)
+                    .foregroundStyle(Theme.Colors.label2)
                 Text(verbatim: card.title)
                     .font(Theme.Typography.heroTitle)
                     .foregroundStyle(Theme.Colors.label)
