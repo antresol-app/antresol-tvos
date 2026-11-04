@@ -37,16 +37,24 @@ final class ScreenshotTests: XCTestCase {
         pause(4)
         snapshot(app, "04-home-hero")
 
+        // Details of the featured movie.
+        remote.press(.right)
+        remote.press(.select)
+        pause(4)
+        snapshot(app, "05-movie-detail")
+        remote.press(.menu)
+        pause(2)
+
         for _ in 0..<3 {
             remote.press(.down)
             pause(1)
         }
         pause(2)
-        snapshot(app, "05-home-shelves")
+        snapshot(app, "06-home-shelves")
 
         remote.press(.select)
         pause(4)
-        snapshot(app, "06-detail")
+        snapshot(app, "07-album-detail")
         remote.press(.menu)
         pause(2)
 
@@ -58,7 +66,7 @@ final class ScreenshotTests: XCTestCase {
             remote.press(.right)
         }
         pause(3)
-        snapshot(app, "07-account")
+        snapshot(app, "08-account")
     }
 
     private func launch(arguments: [String]) -> XCUIApplication {

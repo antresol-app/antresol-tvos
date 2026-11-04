@@ -46,6 +46,8 @@ struct ItemDetailView: View {
             }
             .padding(.horizontal, Theme.Layout.margin)
             .padding(.bottom, 100)
+            // Same left edge as Home, which lays out against the full screen width.
+            .ignoresSafeArea(edges: .horizontal)
             // Gives the page a focus target so the remote's Menu button and scrolling behave.
             .focusable()
         }

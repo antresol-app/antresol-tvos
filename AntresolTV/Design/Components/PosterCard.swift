@@ -95,7 +95,8 @@ struct WideCard: View {
             CardArtwork(
                 title: card.title,
                 paths: [card.backdrop, card.poster],
-                maxPixelSize: width * 2
+                maxPixelSize: width * 2,
+                placeholderAlignment: .topLeading
             )
             .overlay {
                 if card.progress > 0 {

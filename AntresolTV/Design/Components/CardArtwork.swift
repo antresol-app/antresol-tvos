@@ -10,9 +10,11 @@ struct CardArtwork: View {
     var cornerRadius: CGFloat = Theme.Radius.card
     var maxPixelSize: CGFloat = 600
     var showsPlaceholderTitle = true
+    /// Where the placeholder title sits; wide cards keep the bottom free for progress.
+    var placeholderAlignment: Alignment = .bottomLeading
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: placeholderAlignment) {
             Theme.Gradients.placeholder(seed: title)
             if showsPlaceholderTitle {
                 Text(verbatim: title)

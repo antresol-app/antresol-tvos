@@ -66,3 +66,64 @@ Running log between milestones. Newest entry last.
 - SSE (`/api/events`) is not wrapped (spec says it is an optional refresh hint and emits nothing on 0.3.0);
   `ServerURLs.events` exists if needed.
 - No image loader yet (milestone 2 should add one that sends `client.authorizationHeaders` and caches).
+
+## Milestone 2 — Design system, onboarding, profiles, shell
+
+### What exists
+- **Design system** (`AntresolTV/Design/`):
+  - `Theme`: DESIGN.md colours, gradients (brand, `grad-1..8` avatars, title-seeded placeholder
+    gradients via a stable FNV hash), typography scaled for the 1920x1080 pt TV canvas, radii,
+    layout constants (80 pt margins, card widths), motion (ease-out curve, focus 1.07 / card lift 1.04).
+  - `PillButtonStyle(.primary|.glass)`: white "Play" pill and dark glass pill (turns white when
+    focused). `CardButtonStyle` publishes focus as `\.isCardFocused` so a card lifts only its
+    artwork (`cardLift`: scale, shadow, light rim) while the caption shifts down, like tvOS lockups.
+  - Components: `RemoteImage`, `CardArtwork` (placeholder gradient + title overlay when there is
+    no image or it fails), `PosterCard` (2:3 posters, 1:1 album/playlist/audiobook covers, round
+    artists; progress bar; title, year/context line, badges), `WideCard` (16:9 backdrop → poster,
+    progress), `ShelfRow` (title + horizontal `LazyHStack`, focus section, unclipped lift),
+    `HeroView` + `HeroBackground` (backdrop with fades, glow tinted with the artwork's average colour
+    via CoreImage, title-seeded fallback), `AvatarView`, `BadgeRow`, `ProgressBar`,
+    `ErrorStateView`, `EmptyStateView`. `ItemKind.displayName` gives localized kind names.
+- **Images** (`Services/ImagePipeline.swift`): Bearer-authenticated loads, ImageIO downsampling to
+  the on-screen size, `NSCache` (192 MB cost limit) + disk cache in `Caches/Artwork` (7-day reuse,
+  stale copy used offline, files untouched for 30 days evicted at launch), in-flight de-duplication.
+- **Onboarding**: `ServerEntryView` (host, host:port or URL; default port 8420; validated with
+  `/api/health`; friendly errors), `ProfilePickerView` ("Who's watching?", avatar tiles with lock for
+  protected profiles, server version + address line, Change Server), `PasswordEntryView`
+  (SecureField, server error text such as "Wrong password", Menu = cancel).
+  Server URL and tokens are in the Keychain (`Keychain` helper); device registers as "Apple TV"
+  with a stable per-install UUID. Launch restores the session (`/api/me`); any 401 returns to the
+  profile picker (`AppState.message(for:)` routes errors).
+- **Shell** (`MainShellView`): native tvOS top tab bar — Search (icon), Home, Movies, TV Shows,
+  Music, Books, and the profile tab (user name). Each content tab gets `TabNavigation`
+  (NavigationStack + `Route` destinations). The profile tab (`AccountView`) shows the user, role,
+  server and version, and Switch Profile / Change Server / Sign Out (with confirmation).
+- **Home** (`Views/Home`): hero (first `hero` card, else first Continue Watching item; eyebrow
+  "NEW IN LIBRARY · MOVIE"; Play/Resume + Details), Continue Watching as wide cards, every other
+  non-empty shelf as poster cards in server order, loading / error (retry) / empty states. Home
+  refreshes whenever it reappears so Continue Watching stays current.
+- **Detail route**: `Route.item(Card)` → `ItemDetailView` stub (tinted header, kind, title, meta,
+  badges; overview, runtime, rating and genres from `/api/items/{id}` for video kinds).
+- **UI screenshots in CI**: job `ui-screenshots` runs `AntresolTVUITests/ScreenshotTests` on a tvOS
+  simulator against `scripts/mock-server.py` (serves the recorded samples, generates gradient
+  artwork). Screenshots are uploaded as an artifact and also printed as base64 JPEG lines
+  (`SHOT <name> <data>`) in the job log, because artifact blob downloads are blocked from the agent
+  sandbox. Decode with: `gh api repos/sidun-av/antresol-tvos/actions/jobs/<id>/logs` and
+  base64-decode each `SHOT` line. The job is `continue-on-error` (simulator flakiness must not block).
+  DEBUG-only launch arguments used by it: `-AntresolResetSession YES`, `-AntresolServerURL <addr>`.
+
+### Decisions
+- Native `TabView` top tab bar instead of a hand-built pill nav: on tvOS 17 it already renders as a
+  centred glass pill with a white selected pill, handles focus and hides on scroll. The brand logo
+  is therefore not in the nav bar (it is on onboarding screens and the splash).
+- Protected profiles always ask for their password on the picker even when a token is stored, so a
+  kid cannot walk into the admin profile; passwordless profiles reuse their stored token.
+- Hero "Play/Resume" opens the detail route for now; milestone 4 should wire it to the player.
+- Shelf titles come from the server (already localized via Accept-Language); shelf "see all"
+  chevrons are omitted until the category pages exist.
+
+### Known gaps
+- Search, Movies, TV Shows, Music and Books tabs show a "coming soon" placeholder
+  (`SectionPlaceholderView`) — milestones 3 and 5 replace them.
+- `ItemDetailView` is a stub: no seasons/episodes, cast, versions, watchlist or play actions (M3/M4).
+- Hero is a single item, not a carousel.
