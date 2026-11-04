@@ -1,0 +1,10 @@
+name: ci
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version && xcodebuild -showsdks && ls /Applications | grep -i xcode && brew list xcodegen || true
