@@ -13,6 +13,8 @@ final class PlaybackCoordinator {
         /// The saved position, or the beginning when there is none or it was finished.
         case resume
         case beginning
+        /// Offer "Resume from …" or "Start Over" when there is a saved position.
+        case ask
     }
 
     /// What to play: a movie, an episode, or a series (its next episode).

@@ -144,11 +144,11 @@ struct AboutPanel: View {
             if let resolution = file.resolution, !resolution.isEmpty, detail.files.count == 1 {
                 facts.append(Fact(label: String(localized: "Video"), value: resolution))
             }
-            let audio = file.audio.map(Self.describe)
+            let audio = file.audio.map(TrackLabels.describe)
             if !audio.isEmpty {
                 facts.append(Fact(label: String(localized: "Audio"), value: audio.joined(separator: ", ")))
             }
-            let subtitles = file.subs.map(Self.describe)
+            let subtitles = file.subs.map(TrackLabels.describe)
             if !subtitles.isEmpty {
                 facts.append(Fact(label: String(localized: "Subtitles"), value: subtitles.joined(separator: ", ")))
             }
@@ -158,25 +158,5 @@ struct AboutPanel: View {
             }
         }
         return facts
-    }
-
-    private static func describe(_ track: AudioTrack) -> String {
-        if !track.title.isEmpty { return track.title }
-        return [languageName(track.language), track.codec.uppercased()]
-            .compactMap { $0 }
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
-
-    private static func describe(_ track: SubtitleTrack) -> String {
-        var text = track.title.isEmpty ? (languageName(track.language) ?? track.codec.uppercased()) : track.title
-        if track.forced { text += " (" + String(localized: "Forced") + ")" }
-        return text
-    }
-
-    /// "English" for "eng" or "en", in the interface language.
-    private static func languageName(_ code: String?) -> String? {
-        guard let code else { return nil }
-        return Locale.current.localizedString(forLanguageCode: code) ?? code.uppercased()
     }
 }

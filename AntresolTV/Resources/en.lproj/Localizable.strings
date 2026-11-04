@@ -120,3 +120,23 @@
 "Audiobooks" = "Audiobooks";
 "Comics" = "Comics";
 "Manga & Comics" = "Manga & Comics";
+
+/* Player */
+"Resume from %@" = "Resume from %@";
+"Start Over" = "Start Over";
+"Can’t Play “%@”" = "Can’t Play “%@”";
+"Close" = "Close";
+"Quality" = "Quality";
+"Off" = "Off";
+"Burned In" = "Burned In";
+"Auto" = "Auto";
+"Original" = "Original";
+"Track %lld" = "Track %lld";
+"Mono" = "Mono";
+"Stereo" = "Stereo";
+"UP NEXT" = "UP NEXT";
+"Play in %lld" = "Play in %lld";
+"Play Now" = "Play Now";
+"Subtitles could not be loaded." = "Subtitles could not be loaded.";
+"This profile is already watching on another device. Stop playback there and try again." = "This profile is already watching on another device. Stop playback there and try again.";
+"The video stopped playing. Check the connection to the server and try again." = "The video stopped playing. Check the connection to the server and try again.";

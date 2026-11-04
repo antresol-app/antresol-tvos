@@ -120,3 +120,23 @@
 "Audiobooks" = "Аудиокниги";
 "Comics" = "Комиксы";
 "Manga & Comics" = "Манга и комиксы";
+
+/* Player */
+"Resume from %@" = "Продолжить с %@";
+"Start Over" = "Сначала";
+"Can’t Play “%@”" = "Не удаётся воспроизвести «%@»";
+"Close" = "Закрыть";
+"Quality" = "Качество";
+"Off" = "Выкл.";
+"Burned In" = "Вшитые";
+"Auto" = "Авто";
+"Original" = "Оригинал";
+"Track %lld" = "Дорожка %lld";
+"Mono" = "Моно";
+"Stereo" = "Стерео";
+"UP NEXT" = "ДАЛЕЕ";
+"Play in %lld" = "Смотреть через %lld";
+"Play Now" = "Смотреть";
+"Subtitles could not be loaded." = "Не удалось загрузить субтитры.";
+"This profile is already watching on another device. Stop playback there and try again." = "Этот профиль уже смотрит на другом устройстве. Остановите воспроизведение там и попробуйте снова.";
+"The video stopped playing. Check the connection to the server and try again." = "Воспроизведение прервалось. Проверьте подключение к серверу и попробуйте снова.";

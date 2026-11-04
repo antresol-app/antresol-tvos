@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
+    @Environment(\.openRoute) private var openRoute
     @State private var model = HomeModel()
 
     var body: some View {
@@ -46,11 +47,27 @@ struct HomeView: View {
                 }
 
                 if let shelf = content.continueWatching {
+                    // Like the TV app's Up Next row: select resumes (asking first), long
+                    // press offers the details page or a fresh start.
                     ShelfRow(title: shelf.title, items: shelf.cards, id: \.uniqueKey) { card in
-                        NavigationLink(value: Route.item(card)) {
+                        Button {
+                            playback.play(card, from: .ask)
+                        } label: {
                             WideCard(card: card)
                         }
                         .buttonStyle(CardButtonStyle())
+                        .contextMenu {
+                            Button {
+                                openRoute(.item(card))
+                            } label: {
+                                Label("Details", systemImage: "info.circle")
+                            }
+                            Button {
+                                playback.play(card, from: .beginning)
+                            } label: {
+                                Label("Play from Beginning", systemImage: "arrow.counterclockwise")
+                            }
+                        }
                     }
                 }
 

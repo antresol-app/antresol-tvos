@@ -74,9 +74,10 @@ enum ShellTab: Hashable {
 /// A tab's navigation stack with the app's routes registered.
 struct TabNavigation<Root: View>: View {
     @ViewBuilder let root: () -> Root
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             root()
                 .navigationDestination(for: Route.self) { route in
                     switch route {
@@ -85,6 +86,7 @@ struct TabNavigation<Root: View>: View {
                     }
                 }
         }
+        .environment(\.openRoute, OpenRouteAction { path.append($0) })
     }
 }
 
