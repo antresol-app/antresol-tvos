@@ -145,8 +145,12 @@ private struct UpNextPanel: View {
     private var countdownLabel: some View {
         if let autoplayDate {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                let seconds = max(0, Int(autoplayDate.timeIntervalSince(context.date).rounded(.up)))
-                Text("Play in \(seconds)")
+                let seconds = Int(autoplayDate.timeIntervalSince(context.date).rounded(.up))
+                if seconds > 0 {
+                    Text("Play in \(seconds)")
+                } else {
+                    Text("Play Now")
+                }
             }
         } else {
             Text("Play Now")
