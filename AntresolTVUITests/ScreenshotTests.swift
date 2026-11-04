@@ -37,15 +37,19 @@ final class ScreenshotTests: XCTestCase {
         pause(4)
         snapshot(app, "04-home-hero")
 
-        // Details of the featured movie.
+        // Focus starts on the tab bar: down to the hero's Resume pill, right to Details.
+        remote.press(.down)
+        pause(1)
         remote.press(.right)
+        pause(1)
         remote.press(.select)
         pause(4)
         snapshot(app, "05-movie-detail")
         remote.press(.menu)
         pause(2)
 
-        for _ in 0..<3 {
+        // Back on Details; move into the shelves.
+        for _ in 0..<2 {
             remote.press(.down)
             pause(1)
         }
