@@ -24,12 +24,17 @@ public struct DeviceCaps: Codable, Hashable, Sendable {
         self.hevcNeedsHvc1 = hevcNeedsHvc1
     }
 
-    /// AVPlayer on Apple TV. Pass `av1: true` only on hardware that decodes AV1.
-    public static func appleTV(maxHeight: Int = 2160, av1: Bool = false) -> DeviceCaps {
-        DeviceCaps(
-            videoCodecs: av1 ? ["h264", "hevc", "av1"] : ["h264", "hevc"],
+    /// AVPlayer on Apple TV. AVPlayer cannot open Matroska or WebM, so those files are
+    /// remuxed to HLS. Pass `hevc: false` on hardware without an HEVC decoder and
+    /// `av1: true` only on hardware that decodes AV1.
+    public static func appleTV(maxHeight: Int = 2160, hevc: Bool = true, av1: Bool = false) -> DeviceCaps {
+        var video = ["h264"]
+        if hevc { video.append("hevc") }
+        if av1 { video.append("av1") }
+        return DeviceCaps(
+            videoCodecs: video,
             audioCodecs: ["aac", "ac3", "eac3"],
-            containers: ["mp4", "mov"],
+            containers: ["mp4", "mov", "m4v"],
             maxHeight: maxHeight,
             maxBitrate: 0,
             hevcNeedsHvc1: true

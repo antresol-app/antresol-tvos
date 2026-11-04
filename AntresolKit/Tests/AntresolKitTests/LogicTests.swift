@@ -104,6 +104,26 @@ final class PlaybackLogicTests: XCTestCase {
         XCTAssertEqual(directSource.timelineOffset, 0)
         XCTAssertEqual(directSource.initialPlayerSeek, 42)
         XCTAssertTrue(directSource.canSeekInPlayer(toFilePosition: 0))
+
+        var full = hls
+        full.startSec = 0
+        let fullSource = PlaybackSource(response: full, url: URL(string: "http://x/a.m3u8")!, startPosition: 95)
+        XCTAssertEqual(fullSource.initialPlayerSeek, 95)
+    }
+
+    func testUpNext() throws {
+        // Seasons 1 (episodes 4, 5) and 2 (episode 12).
+        let series = try Samples.decode(ItemDetail.self, "item-series.json")
+        XCTAssertEqual(UpNext.episode(after: 4, in: series.seasons)?.id, 5)
+        XCTAssertEqual(UpNext.episode(after: 5, in: series.seasons)?.id, 12)
+        XCTAssertNil(UpNext.episode(after: 12, in: series.seasons))
+        XCTAssertNil(UpNext.episode(after: -1, in: series.seasons))
+
+        XCTAssertEqual(UpNext.proposalTime(durationSec: 2400), 2375)
+        XCTAssertEqual(UpNext.proposalTime(durationSec: 60), 48)
+        XCTAssertNil(UpNext.proposalTime(durationSec: 0))
+        XCTAssertTrue(UpNext.isFinished(positionSec: 56, durationSec: 60))
+        XCTAssertFalse(UpNext.isFinished(positionSec: 30, durationSec: 60))
     }
 
     func testComicProgress() {

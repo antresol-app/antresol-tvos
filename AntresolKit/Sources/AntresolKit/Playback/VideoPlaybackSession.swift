@@ -18,10 +18,14 @@ public struct PlaybackSource: Hashable, Sendable {
     public let response: PlayResponse
     /// Absolute URL, signed with the media key so the player needs no headers.
     public let url: URL
+    /// File position (seconds) where playback should begin.
+    public let startPosition: Double
 
-    public init(response: PlayResponse, url: URL) {
+    /// - Parameter startPosition: where to begin; defaults to the response's `startSec`.
+    public init(response: PlayResponse, url: URL, startPosition: Double? = nil) {
         self.response = response
         self.url = url
+        self.startPosition = max(0, startPosition ?? response.startSec)
     }
 
     public var mode: PlaybackMode { response.mode }
@@ -33,9 +37,10 @@ public struct PlaybackSource: Hashable, Sendable {
         mode.isHLS ? response.startSec : 0
     }
 
-    /// Where to seek after loading: direct play starts at 0 and seeks itself.
+    /// Where to seek after loading (player seconds): the start position on the player
+    /// timeline, never before its beginning.
     public var initialPlayerSeek: Double {
-        mode.isHLS ? 0 : response.startSec
+        max(0, playerTime(filePosition: startPosition))
     }
 
     public var durationSec: Double {
@@ -90,38 +95,50 @@ public actor VideoPlaybackSession {
         expirationHandler = handler
     }
 
-    /// Starts playback at `startSec` (file seconds), replacing the current HLS session
-    /// if there is one. Passing `options` changes quality, audio or burned subtitle.
+    /// Starts playback at `position` (file seconds), replacing the current HLS session if
+    /// there is one. Passing `options` changes quality, audio or burned subtitle.
+    ///
+    /// The server is asked for the whole file (`startSec` 0) and the player seeks to
+    /// `position` itself: direct play always works that way, and a complete (VOD) HLS
+    /// playlist then spans the full timeline, so the transport bar can seek anywhere,
+    /// backwards included; the server produces segments on demand. Only a growing (EVENT)
+    /// playlist, which covers just what has been produced, is requested at `position`.
     @discardableResult
-    public func start(at startSec: Double, options newOptions: PlaybackOptions? = nil) async throws -> PlaybackSource {
+    public func start(at position: Double, options newOptions: PlaybackOptions? = nil) async throws -> PlaybackSource {
         if let newOptions { options = newOptions }
-        let request = PlayRequest(
-            caps: caps,
-            startSec: max(0, startSec),
-            quality: options.quality,
-            audioIndex: options.audioIndex,
-            replaceSession: current?.hlsSessionID,
-            burnSubtitle: options.burnSubtitle
-        )
-        let response: PlayResponse
-        do {
-            response = try await client.play(fileId: fileId, request)
-        } catch let error as APIError where error.isNotFound && request.replaceSession != nil {
-            // The session to replace already expired: start a fresh one.
-            current = nil
-            response = try await client.play(fileId: fileId, PlayRequest(
-                caps: caps, startSec: request.startSec, quality: request.quality,
-                audioIndex: request.audioIndex, burnSubtitle: request.burnSubtitle
-            ))
+        let position = max(0, position)
+        var response = try await requestPlay(startSec: 0, replacing: current?.hlsSessionID)
+        if response.mode.isHLS, !response.hlsComplete, position > 0 {
+            response = try await requestPlay(startSec: position, replacing: response.hlsSessionID)
         }
         let key = try await mediaKeys.key()
         guard let url = client.urls.playback(response, mediaKey: key) else {
             throw APIError.invalidURL(response.url)
         }
-        let source = PlaybackSource(response: response, url: url)
+        let source = PlaybackSource(response: response, url: url, startPosition: position)
         current = source
         restartKeepAlive()
         return source
+    }
+
+    private func requestPlay(startSec: Double, replacing session: String?) async throws -> PlayResponse {
+        let request = PlayRequest(
+            caps: caps,
+            startSec: startSec,
+            quality: options.quality,
+            audioIndex: options.audioIndex,
+            replaceSession: session,
+            burnSubtitle: options.burnSubtitle
+        )
+        do {
+            return try await client.play(fileId: fileId, request)
+        } catch let error as APIError where error.isNotFound && session != nil {
+            // The session to replace already expired: start a fresh one.
+            current = nil
+            var fresh = request
+            fresh.replaceSession = nil
+            return try await client.play(fileId: fileId, fresh)
+        }
     }
 
     /// Stops keepalive and deletes the HLS session. Call when the player closes.

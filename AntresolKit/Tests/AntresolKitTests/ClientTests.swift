@@ -185,12 +185,15 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(caps["hevcNeedsHvc1"] as? Bool, true)
         XCTAssertNil(firstPlay.bodyJSON?["replaceSession"])
 
+        // A complete playlist is requested from the start; the player seeks to 30 s itself.
         let second = try await session.start(at: 30, options: PlaybackOptions(audioIndex: 2))
         XCTAssertEqual(second.hlsSessionID, "s2")
-        XCTAssertEqual(second.timelineOffset, 30)
+        XCTAssertEqual(second.timelineOffset, 0)
+        XCTAssertEqual(second.initialPlayerSeek, 30)
         let secondPlay = try XCTUnwrap(transport.requests.last { $0.url?.path == "/api/play/12" })
         XCTAssertEqual(secondPlay.bodyJSON?["replaceSession"] as? String, "s1")
         XCTAssertEqual(secondPlay.bodyJSON?["audioIndex"] as? Int, 2)
+        XCTAssertEqual(secondPlay.bodyJSON?["startSec"] as? Double, 0)
 
         await session.stop()
         let last = try XCTUnwrap(transport.requests.last)
@@ -198,6 +201,34 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(last.url?.path, "/api/hls/s2")
         let current = await session.current
         XCTAssertNil(current)
+    }
+
+    func testVideoSessionStartsGrowingPlaylistAtPosition() async throws {
+        let sessions = Locked(0)
+        let transport = MockTransport { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/api/auth/media-key"):
+                return .json(#"{"key":"mk1","expiresAt":"2099-01-01T00:00:00Z"}"#)
+            case ("POST", "/api/play/7"):
+                let n = sessions.withLock { value -> Int in value += 1; return value }
+                let start = (request.bodyJSON?["startSec"] as? Double) ?? 0
+                return .json(#"{"mode":"transcode","url":"/api/hls/e\#(n)/index.m3u8","startSec":\#(max(0, start - 2)),"durationMs":60000}"#)
+            default:
+                return .noContent
+            }
+        }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        let session = VideoPlaybackSession(client: client, mediaKeys: MediaKeyStore(client: client), fileId: 7, keepAliveInterval: 3600)
+
+        let source = try await session.start(at: 40)
+        let plays = transport.requests.filter { $0.url?.path == "/api/play/7" }
+        XCTAssertEqual(plays.count, 2)
+        XCTAssertEqual(plays[1].bodyJSON?["startSec"] as? Double, 40)
+        XCTAssertEqual(plays[1].bodyJSON?["replaceSession"] as? String, "e1")
+        XCTAssertEqual(source.hlsSessionID, "e2")
+        XCTAssertEqual(source.timelineOffset, 38)
+        XCTAssertEqual(source.initialPlayerSeek, 2)
+        await session.stop()
     }
 
     func testKeepAliveExpiry() async throws {

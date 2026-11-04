@@ -180,6 +180,35 @@ final class IntegrationTests: XCTestCase {
         XCTAssertTrue(modes.contains { $0.isHLS })
     }
 
+    /// A resume in the middle of an HLS file still gets the whole timeline (VOD playlist
+    /// from 0), and a segment far into it is produced on demand.
+    func testHLSResumeKeepsFullTimeline() async throws {
+        let client = try await client()
+        let keys = MediaKeyStore(client: client)
+        for card in try await client.items(kind: .movie).items {
+            let detail = try await client.item(id: card.id)
+            guard let file = detail.primaryFile, file.name.lowercased().hasSuffix(".mkv") else { continue }
+            let session = VideoPlaybackSession(client: client, mediaKeys: keys, fileId: file.id)
+            let position = Double(file.durationMs ?? 0) / 2000
+            let source = try await session.start(at: position)
+            XCTAssertTrue(source.mode.isHLS, "AVPlayer cannot open MKV; expected HLS")
+            XCTAssertTrue(source.response.hlsComplete)
+            XCTAssertEqual(source.timelineOffset, 0)
+            XCTAssertEqual(source.initialPlayerSeek, position, accuracy: 0.001)
+            let (data, _) = try await LiveServer.rawGet(source.url, range: nil)
+            let segments = String(decoding: data, as: UTF8.self).split(separator: "\n").filter { !$0.hasPrefix("#") && !$0.isEmpty }
+            let middle = try XCTUnwrap(source.url.deletingLastPathComponent()
+                .appendingPathComponent(String(segments[segments.count / 2].split(separator: "?")[0])))
+            var components = try XCTUnwrap(URLComponents(url: middle, resolvingAgainstBaseURL: false))
+            components.query = source.url.query
+            let (_, response) = try await LiveServer.rawGet(try XCTUnwrap(components.url), range: nil)
+            XCTAssertEqual(response.statusCode, 200)
+            await session.stop()
+            return
+        }
+        throw XCTSkip("No MKV movie on the test server")
+    }
+
     func testSubtitles() async throws {
         let client = try await client()
         let movies = try await client.items(kind: .movie).items
