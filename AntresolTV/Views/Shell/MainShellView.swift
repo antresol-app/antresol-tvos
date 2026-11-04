@@ -7,25 +7,29 @@ struct MainShellView: View {
     let user: User
 
     @State private var selection: ShellTab = .home
+    @State private var playback = PlaybackCoordinator()
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         TabView(selection: $selection) {
-            SectionPlaceholderView(title: "Search", systemImage: "magnifyingglass")
-                .tabItem {
-                    Image(systemName: "magnifyingglass")
-                        .accessibilityLabel(Text("Search"))
-                }
-                .tag(ShellTab.search)
+            TabNavigation {
+                SearchView { selection = $0 }
+            }
+            .tabItem {
+                Image(systemName: "magnifyingglass")
+                    .accessibilityLabel(Text("Search"))
+            }
+            .tag(ShellTab.search)
 
             TabNavigation { HomeView() }
                 .tabItem { Text("Home") }
                 .tag(ShellTab.home)
 
-            SectionPlaceholderView(title: "Movies", systemImage: "film")
+            TabNavigation { LibraryView(kind: .movie, title: "Movies") }
                 .tabItem { Text("Movies") }
                 .tag(ShellTab.movies)
 
-            SectionPlaceholderView(title: "TV Shows", systemImage: "tv")
+            TabNavigation { LibraryView(kind: .series, title: "TV Shows") }
                 .tabItem { Text("TV Shows") }
                 .tag(ShellTab.shows)
 
@@ -47,6 +51,19 @@ struct MainShellView: View {
                 }
                 .tag(ShellTab.account)
         }
+        .environment(playback)
+        .fullScreenCover(item: presentedPlayback) { request in
+            VideoPlayerView(request: request)
+                .environment(appState)
+                .environment(playback)
+        }
+    }
+
+    private var presentedPlayback: Binding<PlaybackCoordinator.Request?> {
+        Binding(
+            get: { playback.presented },
+            set: { playback.presented = $0 }
+        )
     }
 }
 

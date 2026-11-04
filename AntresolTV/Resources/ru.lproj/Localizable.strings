@@ -67,3 +67,56 @@
 "Book" = "Книга";
 "Comic" = "Комикс";
 "Comic Volume" = "Том комикса";
+
+/* Library */
+"Recently Added" = "Недавно добавленные";
+"By Title" = "По названию";
+"By Year" = "По году";
+"No movies yet" = "Фильмов пока нет";
+"No TV shows yet" = "Сериалов пока нет";
+"Add them to the server's media folders and scan the library." = "Добавьте их в медиапапки сервера и обновите библиотеку.";
+
+/* Detail */
+"TV Show" = "Сериал";
+"%lld min left" = "Осталось %lld мин";
+"%lld h %lld min" = "%lld ч %lld мин";
+"%lld h" = "%lld ч";
+"Restart" = "Сначала";
+"Watchlist" = "Хочу посмотреть";
+"In Watchlist" = "В списке «Хочу посмотреть»";
+"Not in Watchlist" = "Не в списке «Хочу посмотреть»";
+"Watched" = "Просмотрено";
+"Mark as Watched" = "Отметить просмотренным";
+"Mark as Unwatched" = "Отметить непросмотренным";
+"Go to Show" = "К сериалу";
+"S%lld, E%lld" = "С%lld, Э%lld";
+"Play %@" = "Смотреть %@";
+"Resume %@" = "Продолжить %@";
+"Play from Beginning" = "Смотреть сначала";
+"Season %lld" = "Сезон %lld";
+"E%lld" = "Эп. %lld";
+"Cast" = "В ролях";
+"About" = "Подробности";
+"Original Title" = "Оригинальное название";
+"Genres" = "Жанры";
+"Rating" = "Возрастной рейтинг";
+"Versions" = "Версии";
+"Video" = "Видео";
+"Audio" = "Аудио";
+"Subtitles" = "Субтитры";
+"File" = "Файл";
+"Forced" = "форсированные";
+"There is no playable file for this item." = "Для этого элемента нет файла для воспроизведения.";
+
+/* Search */
+"Movies, music and books" = "Фильмы, музыка и книги";
+"No results for “%@”" = "Ничего не найдено по запросу «%@»";
+"Try another title, artist or author." = "Попробуйте другое название, исполнителя или автора.";
+"Browse" = "Обзор";
+"Search for movies, music and books in your library." = "Ищите фильмы, музыку и книги в своей библиотеке.";
+"Artists" = "Исполнители";
+"Albums" = "Альбомы";
+"Songs" = "Песни";
+"Audiobooks" = "Аудиокниги";
+"Comics" = "Комиксы";
+"Manga & Comics" = "Манга и комиксы";

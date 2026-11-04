@@ -4,6 +4,7 @@ import SwiftUI
 /// The Home tab: hero, Continue Watching and every shelf from `/api/home`.
 struct HomeView: View {
     @Environment(AppState.self) private var appState
+    @Environment(PlaybackCoordinator.self) private var playback
     @State private var model = HomeModel()
 
     var body: some View {
@@ -30,6 +31,9 @@ struct HomeView: View {
         }
         .background(Theme.Colors.background.ignoresSafeArea())
         .task { await model.load(using: appState) }
+        .onChange(of: playback.completedSessions) {
+            Task { await model.load(using: appState) }
+        }
     }
 
     private func shelves(_ content: HomeContent) -> some View {

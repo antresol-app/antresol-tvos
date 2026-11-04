@@ -73,6 +73,7 @@ enum Theme {
         static let overlayTitle = Font.system(size: 28, weight: .bold)
         static let badge = Font.system(size: 17, weight: .semibold)
         static let button = Font.system(size: 28, weight: .semibold)
+        static let segment = Font.system(size: 26, weight: .semibold)
 
         static func avatarInitial(size: CGFloat) -> Font {
             .system(size: size * 0.44, weight: .semibold, design: .rounded)
@@ -96,6 +97,14 @@ enum Theme {
         static let squareWidth: CGFloat = 300
         static let wideWidth: CGFloat = 500
         static let heroHeight: CGFloat = 860
+        /// Height of the artwork header on detail pages.
+        static let detailHeaderHeight: CGFloat = 900
+        /// Episode cards on a series page.
+        static let episodeWidth: CGFloat = 420
+        /// Poster grid cell width; six columns fit the 1760 pt content width.
+        static let gridPosterWidth: CGFloat = 248
+        static let gridSpacing: CGFloat = 46
+        static let gridRowSpacing: CGFloat = 60
     }
 
     enum Motion {

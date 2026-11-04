@@ -8,6 +8,8 @@ struct HeroView: View {
     /// Small caps line above the title, e.g. "NEW IN LIBRARY · MOVIE".
     let eyebrow: String
 
+    @Environment(PlaybackCoordinator.self) private var playback
+
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             HeroBackground(card: card)
@@ -35,7 +37,9 @@ struct HeroView: View {
                         .padding(.top, 4)
                 }
                 HStack(spacing: 28) {
-                    NavigationLink(value: Route.item(card)) {
+                    Button {
+                        playback.play(card)
+                    } label: {
                         Label(card.progress > 0 ? LocalizedStringKey("Resume") : LocalizedStringKey("Play"), systemImage: "play.fill")
                     }
                     .buttonStyle(PillButtonStyle(kind: .primary))

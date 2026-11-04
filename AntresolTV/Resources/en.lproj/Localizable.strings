@@ -67,3 +67,56 @@
 "Book" = "Book";
 "Comic" = "Comic";
 "Comic Volume" = "Comic Volume";
+
+/* Library */
+"Recently Added" = "Recently Added";
+"By Title" = "By Title";
+"By Year" = "By Year";
+"No movies yet" = "No movies yet";
+"No TV shows yet" = "No TV shows yet";
+"Add them to the server's media folders and scan the library." = "Add them to the server's media folders and scan the library.";
+
+/* Detail */
+"TV Show" = "TV Show";
+"%lld min left" = "%lld min left";
+"%lld h %lld min" = "%lld h %lld min";
+"%lld h" = "%lld h";
+"Restart" = "Restart";
+"Watchlist" = "Watchlist";
+"In Watchlist" = "In Watchlist";
+"Not in Watchlist" = "Not in Watchlist";
+"Watched" = "Watched";
+"Mark as Watched" = "Mark as Watched";
+"Mark as Unwatched" = "Mark as Unwatched";
+"Go to Show" = "Go to Show";
+"S%lld, E%lld" = "S%lld, E%lld";
+"Play %@" = "Play %@";
+"Resume %@" = "Resume %@";
+"Play from Beginning" = "Play from Beginning";
+"Season %lld" = "Season %lld";
+"E%lld" = "E%lld";
+"Cast" = "Cast";
+"About" = "About";
+"Original Title" = "Original Title";
+"Genres" = "Genres";
+"Rating" = "Rating";
+"Versions" = "Versions";
+"Video" = "Video";
+"Audio" = "Audio";
+"Subtitles" = "Subtitles";
+"File" = "File";
+"Forced" = "Forced";
+"There is no playable file for this item." = "There is no playable file for this item.";
+
+/* Search */
+"Movies, music and books" = "Movies, music and books";
+"No results for “%@”" = "No results for “%@”";
+"Try another title, artist or author." = "Try another title, artist or author.";
+"Browse" = "Browse";
+"Search for movies, music and books in your library." = "Search for movies, music and books in your library.";
+"Artists" = "Artists";
+"Albums" = "Albums";
+"Songs" = "Songs";
+"Audiobooks" = "Audiobooks";
+"Comics" = "Comics";
+"Manga & Comics" = "Manga & Comics";

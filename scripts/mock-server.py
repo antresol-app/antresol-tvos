@@ -27,8 +27,11 @@ ROUTES = {
     ("GET", r"/api/me"): "me.json",
     ("GET", r"/api/home"): "home.json",
     ("GET", r"/api/items/2"): "item-series.json",
+    ("GET", r"/api/items/(3|11)"): "item-season.json",
+    ("GET", r"/api/items/(4|5|12)"): "item-episode.json",
     ("GET", r"/api/items/\d+"): "item-movie.json",
     ("GET", r"/api/items"): "items-movies.json",
+    ("GET", r"/api/progress/\d+"): "progress-get.json",
     ("GET", r"/api/search"): "search.json",
     ("GET", r"/api/music/home"): "music-home.json",
     ("GET", r"/api/books/home"): "books-home.json",
@@ -81,11 +84,17 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         if length:
             self.rfile.read(length)
-        path = self.path.split("?", 1)[0]
+        path, _, query = self.path.partition("?")
         if method == "GET" and path.startswith("/api/images/"):
             return self.send(200, image_for(path), "image/png")
         if method == "POST" and path == "/api/logout":
             return self.send(204, b"", "application/json")
+        if method in ("POST", "DELETE") and re.fullmatch(r"/api/(watchlist/\d+|items/\d+/watched)", path):
+            return self.send(204, b"", "application/json")
+        if method == "PUT" and re.fullmatch(r"/api/progress/\d+", path):
+            return self.send(204, b"", "application/json")
+        if method == "GET" and path == "/api/items" and "kind=series" in query:
+            return self.send(200, (SAMPLES / "items-series.json").read_bytes(), "application/json")
         for (verb, pattern), sample in ROUTES.items():
             if verb == method and re.fullmatch(pattern, path):
                 return self.send(200, (SAMPLES / sample).read_bytes(), "application/json")
