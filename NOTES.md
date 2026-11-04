@@ -226,9 +226,11 @@ Running log between milestones. Newest entry last.
   - **Up Next** for episodes: the series' seasons give the next episode (`UpNext.episode(after:)`);
     an `AVContentProposal` is attached at `UpNext.proposalTime` (25 s before the end, not before
     80 %) and shown by `UpNextProposalViewController` (still, "UP NEXT", title, synopsis,
-    "Play in 10" countdown, Cancel). Accept, countdown or reaching the end with autoplay plays the
-    next episode in the same player; the finished episode is marked watched when ≥ 92 % was seen.
-    Cancel lets the episode end and the player close.
+    "Play in N" countdown to the end of the episode, Cancel). Play, or reaching the end with
+    autoplay on, plays the next episode in the same player (the proposal's own
+    `automaticAcceptanceInterval` is 0: AVKit counts it from the item's end, which is what the
+    model already handles); the finished episode is marked watched when ≥ 92 % was seen. Cancel
+    lets the episode end and the player close.
   - **Errors**: a full-screen error with Try Again (from the last position) and Close. `429` shows
     the server's message (fallback: "This profile is already watching on another device…").
     A player item failure or a keepalive `404` restarts the session at the current position once;

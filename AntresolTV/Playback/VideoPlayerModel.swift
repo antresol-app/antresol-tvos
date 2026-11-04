@@ -153,6 +153,7 @@ final class VideoPlayerModel {
 
     func acceptUpNext() {
         guard let offer = upNext else { return }
+        upNext = nil
         Task {
             await finishCurrent(atEnd: false)
             await open(offer.episode.card, from: .resume)
@@ -167,6 +168,17 @@ final class VideoPlayerModel {
     var upNextOverview: String {
         upNext?.overview ?? ""
     }
+
+    /// When the next episode starts by itself (the end of this one), for the panel's
+    /// countdown; nil when autoplay is off.
+    var upNextAutoplayDate: Date? {
+        guard preferences.autoplayNext, let position = currentFilePosition, durationSec > position else { return nil }
+        return Date().addingTimeInterval(durationSec - position)
+    }
+
+    /// The Up Next panel while it is on screen; reaching the end accepts through it so
+    /// the player dismisses it the usual way.
+    @ObservationIgnored weak var proposalController: AVContentProposalViewController?
 
     // MARK: - Opening an item
 
@@ -415,7 +427,8 @@ final class VideoPlayerModel {
             title: offer.title,
             previewImage: offer.image
         )
-        proposal.automaticAcceptanceInterval = preferences.autoplayNext ? 10 : 0
+        // Autoplay happens when the episode ends (`playbackEnded`), not on a system timer.
+        proposal.automaticAcceptanceInterval = 0
         playerItem.nextContentProposal = proposal
     }
 
@@ -437,11 +450,9 @@ final class VideoPlayerModel {
     }
 
     private func playbackEnded() {
-        if let offer = upNext, !upNextDeclined, preferences.autoplayNext {
-            Task {
-                await finishCurrent(atEnd: true)
-                await open(offer.episode.card, from: .resume)
-            }
+        if upNext != nil, !upNextDeclined, preferences.autoplayNext {
+            proposalController?.dismissContentProposal(for: .accept, animated: true, completion: nil)
+            acceptUpNext()
             return
         }
         Task {

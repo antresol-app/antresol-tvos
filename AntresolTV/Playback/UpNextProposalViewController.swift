@@ -3,7 +3,8 @@ import SwiftUI
 
 /// The "Up Next" panel the player shows near the end of an episode
 /// (`AVPlayerItem.nextContentProposal`): the video keeps playing full screen while a
-/// panel with the next episode's still, title and countdown offers Play Now / Cancel.
+/// panel with the next episode's still, title and a countdown to the end of the
+/// episode (when autoplay is on) offers Play / Cancel.
 final class UpNextProposalViewController: AVContentProposalViewController {
     private let model: VideoPlayerModel
     private var host: UIHostingController<UpNextPanel>?
@@ -31,7 +32,7 @@ final class UpNextProposalViewController: AVContentProposalViewController {
             title: proposal.title,
             overview: model.upNextOverview,
             image: proposal.previewImage,
-            autoplayDate: dateOfAutomaticAcceptance,
+            autoplayDate: model.upNextAutoplayDate,
             play: { [weak self] in self?.dismissContentProposal(for: .accept, animated: true, completion: nil) },
             cancel: { [weak self] in self?.dismissContentProposal(for: .reject, animated: true, completion: nil) }
         )
@@ -43,6 +44,14 @@ final class UpNextProposalViewController: AVContentProposalViewController {
         view.addSubview(host.view)
         host.didMove(toParent: self)
         self.host = host
+        model.proposalController = self
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        if model.proposalController === self {
+            model.proposalController = nil
+        }
     }
 
     override var preferredFocusEnvironments: [UIFocusEnvironment] {
