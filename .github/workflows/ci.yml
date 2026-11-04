@@ -99,6 +99,8 @@ jobs:
           import base64, json, os, subprocess
           for test in json.load(open("manifest.json")):
               for item in test["attachments"]:
+                  if not item["exportedFileName"].endswith(".png"):
+                      continue
                   name = item["suggestedHumanReadableName"].split("_")[0]
                   out = f"/tmp/{name}.jpg"
                   subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "60", "-Z", "1280",

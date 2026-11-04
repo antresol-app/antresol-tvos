@@ -11,6 +11,7 @@ struct ProfilePickerView: View {
     @State private var signInError: String?
     @State private var busyProfileId: Int?
     @State private var passwordProfile: Profile?
+    @FocusState private var focusedProfileId: Int?
 
     var body: some View {
         ZStack {
@@ -18,6 +19,7 @@ struct ProfilePickerView: View {
             if let profile = passwordProfile {
                 PasswordEntryView(profile: profile) {
                     passwordProfile = nil
+                    focusedProfileId = profile.id
                 }
                 .transition(.opacity)
             } else {
@@ -47,12 +49,15 @@ struct ProfilePickerView: View {
                         .font(Theme.Typography.meta)
                         .foregroundStyle(Theme.Colors.label3)
                 }
-                Button {
-                    appState.changeServer()
-                } label: {
-                    Label("Change Server", systemImage: "server.rack")
+                // Shown once loading ends, so the focus engine starts on a profile tile.
+                if !isLoading || !profiles.isEmpty {
+                    Button {
+                        appState.changeServer()
+                    } label: {
+                        Label("Change Server", systemImage: "server.rack")
+                    }
+                    .buttonStyle(PillButtonStyle(kind: .glass))
                 }
-                .buttonStyle(PillButtonStyle(kind: .glass))
             }
             .focusSection()
         }
@@ -84,6 +89,7 @@ struct ProfilePickerView: View {
                             ProfileTile(profile: profile, isBusy: busyProfileId == profile.id)
                         }
                         .buttonStyle(CardButtonStyle())
+                        .focused($focusedProfileId, equals: profile.id)
                         .disabled(busyProfileId != nil)
                     }
                 }
@@ -107,6 +113,10 @@ struct ProfilePickerView: View {
         do {
             profiles = try await client.profiles()
             loadError = nil
+            isLoading = false
+            // Let the tiles render before moving focus onto the first one.
+            await Task.yield()
+            focusedProfileId = profiles.first?.id
         } catch {
             if !Task.isCancelled { loadError = error.localizedDescription }
         }
