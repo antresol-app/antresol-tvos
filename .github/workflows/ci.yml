@@ -36,7 +36,12 @@ jobs:
         run: xcodegen generate
       - name: Build
         run: |
-          set -o pipefail
-          xcodebuild -project Antresol.xcodeproj -scheme AntresolTV \
+          if ! xcodebuild -project Antresol.xcodeproj -scheme AntresolTV \
             -destination 'generic/platform=tvOS Simulator' \
-            -configuration Debug build CODE_SIGNING_ALLOWED=NO | tail -n 60
+            -configuration Debug build CODE_SIGNING_ALLOWED=NO > xcodebuild.log 2>&1; then
+            grep -E 'error:' xcodebuild.log | sort -u | head -n 150
+            tail -n 40 xcodebuild.log
+            exit 1
+          fi
+          grep -E 'AntresolTV/.*warning:' xcodebuild.log | sort -u | head -n 100 || true
+          tail -n 5 xcodebuild.log

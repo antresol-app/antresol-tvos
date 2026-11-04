@@ -7,27 +7,26 @@ struct RootView: View {
     var body: some View {
         ZStack {
             Theme.Colors.background.ignoresSafeArea()
-            SplashView(status: status, isWorking: appState.phase == .launching, retry: retry)
+            switch appState.phase {
+            case .launching:
+                SplashView(status: nil, isWorking: true)
+            case .serverUnreachable:
+                SplashView(
+                    status: "The server is not responding",
+                    isWorking: false,
+                    retry: { Task { await appState.bootstrap() } },
+                    changeServer: { appState.changeServer() }
+                )
+            case .needsServer:
+                ServerEntryView()
+            case .needsProfile:
+                ProfilePickerView()
+            case .signedIn(let user):
+                MainShellView(user: user)
+                    // A different profile gets a fresh shell (tabs, stacks, loaded data).
+                    .id(user.id)
+            }
         }
-    }
-
-    private var retry: (() -> Void)? {
-        guard case .serverUnreachable = appState.phase else { return nil }
-        return { Task { await appState.bootstrap() } }
-    }
-
-    private var status: LocalizedStringKey? {
-        switch appState.phase {
-        case .launching:
-            return nil
-        case .needsServer:
-            return "No server configured"
-        case .serverUnreachable:
-            return "The server is not responding"
-        case .needsProfile:
-            return "Choose a profile"
-        case .signedIn(let user):
-            return "Signed in as \(user.name)"
-        }
+        .animation(Theme.Motion.easeOut, value: appState.phase)
     }
 }

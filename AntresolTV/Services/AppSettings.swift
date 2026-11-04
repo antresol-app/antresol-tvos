@@ -1,11 +1,14 @@
 import Foundation
 
-/// Non-secret preferences persisted in `UserDefaults`. Tokens live in the Keychain.
+/// The saved session: the server address lives in the Keychain next to the tokens, the
+/// non-secret bits (server id, last profile) in `UserDefaults`.
 struct AppSettings {
     private let defaults: UserDefaults
+    private let keychain: Keychain
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, keychain: Keychain = Keychain(service: "app.antresol.tv.server")) {
         self.defaults = defaults
+        self.keychain = keychain
     }
 
     private enum Key {
@@ -15,8 +18,14 @@ struct AppSettings {
     }
 
     var serverURL: URL? {
-        get { defaults.string(forKey: Key.serverURL).flatMap(URL.init(string:)) }
-        nonmutating set { defaults.set(newValue?.absoluteString, forKey: Key.serverURL) }
+        get { keychain.string(for: Key.serverURL).flatMap(URL.init(string:)) }
+        nonmutating set {
+            if let newValue {
+                try? keychain.set(newValue.absoluteString, for: Key.serverURL)
+            } else {
+                try? keychain.remove(Key.serverURL)
+            }
+        }
     }
 
     var serverId: String? {

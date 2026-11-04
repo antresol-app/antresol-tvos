@@ -1,6 +1,5 @@
 import AntresolKit
 import Foundation
-import UIKit
 
 /// The identity this installation registers with the server (`device` in `/api/auth/token`).
 struct DeviceIdentity {
@@ -17,8 +16,12 @@ struct DeviceIdentity {
             defaults.set(id, forKey: Self.idKey)
         }
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
-        info = DeviceInfo(id: id, name: UIDevice.current.name, model: Self.modelIdentifier, version: version)
+        info = DeviceInfo(id: id, name: Self.deviceName, model: Self.modelIdentifier, version: version)
     }
+
+    /// Shown in the server's device list. tvOS no longer exposes the user-assigned
+    /// device name to apps, so every Apple TV registers as "Apple TV".
+    private static let deviceName = "Apple TV"
 
     /// Hardware model such as "AppleTV14,1".
     private static var modelIdentifier: String {

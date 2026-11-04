@@ -1,6 +1,69 @@
 /* Splash and session status */
-"No server configured" = "Сервер не настроен";
 "The server is not responding" = "Сервер не отвечает";
-"Choose a profile" = "Выберите профиль";
-"Signed in as %@" = "Вы вошли как %@";
 "Try Again" = "Повторить";
+"Something went wrong" = "Что-то пошло не так";
+
+/* Server address */
+"Connect to your server" = "Подключитесь к серверу";
+"Enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Введите адрес компьютера, на котором работает Antresol, например 192.168.1.10 или nas.local. По умолчанию используется порт 8420.";
+"Server address" = "Адрес сервера";
+"Connect" = "Подключиться";
+"Cancel" = "Отмена";
+"Checking server…" = "Проверяем сервер…";
+"That doesn't look like a server address." = "Это не похоже на адрес сервера.";
+"Couldn't reach the server. Check the address and that the server is running." = "Не удалось связаться с сервером. Проверьте адрес и что сервер запущен.";
+"This address doesn't answer like an Antresol server." = "По этому адресу отвечает не сервер Antresol.";
+"Change Server" = "Сменить сервер";
+
+/* Profiles and sign-in */
+"Who's watching?" = "Кто смотрит?";
+"Antresol %@ · %@" = "Antresol %1$@ · %2$@";
+"This server has no profiles yet. Create one in the Antresol web app." = "На сервере ещё нет профилей. Создайте профиль в веб-версии Antresol.";
+"Password protected" = "Защищён паролем";
+"Enter the password for this profile" = "Введите пароль этого профиля";
+"Password" = "Пароль";
+"Sign In" = "Войти";
+
+/* Tabs */
+"Search" = "Поиск";
+"Home" = "Главная";
+"Movies" = "Фильмы";
+"TV Shows" = "Сериалы";
+"Music" = "Музыка";
+"Books" = "Книги";
+"This section is coming soon." = "Этот раздел скоро появится.";
+
+/* Profile tab */
+"Administrator" = "Администратор";
+"Kid profile" = "Детский профиль";
+"Kid profile · up to %@" = "Детский профиль · до %@";
+"Profile" = "Профиль";
+"Server" = "Сервер";
+"Server version" = "Версия сервера";
+"Switch Profile" = "Сменить профиль";
+"Sign Out" = "Выйти";
+"Sign out of this profile?" = "Выйти из этого профиля?";
+"You can sign in again from the profile picker." = "Войти снова можно из списка профилей.";
+
+/* Home */
+"New in Library" = "Новое в медиатеке";
+"Continue Watching" = "Продолжить просмотр";
+"Play" = "Смотреть";
+"Resume" = "Продолжить";
+"Details" = "Подробнее";
+"Your library is empty" = "Медиатека пуста";
+"Add movies, shows, music or books to the server's media folders and they will appear here." = "Добавьте фильмы, сериалы, музыку или книги в папки медиатеки на сервере, и они появятся здесь.";
+"%lld min" = "%lld мин";
+
+/* Item kinds */
+"Movie" = "Фильм";
+"Series" = "Сериал";
+"Season" = "Сезон";
+"Episode" = "Эпизод";
+"Artist" = "Исполнитель";
+"Album" = "Альбом";
+"Playlist" = "Плейлист";
+"Audiobook" = "Аудиокнига";
+"Book" = "Книга";
+"Comic" = "Комикс";
+"Comic Volume" = "Том комикса";

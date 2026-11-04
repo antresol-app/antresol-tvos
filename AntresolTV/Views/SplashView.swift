@@ -6,6 +6,8 @@ struct SplashView: View {
     let isWorking: Bool
     /// Shown as a "Try Again" button when set.
     var retry: (() -> Void)?
+    /// Shown as a "Change Server" button when set.
+    var changeServer: (() -> Void)?
 
     var body: some View {
         ZStack {
@@ -16,7 +18,7 @@ struct SplashView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 140, height: 140)
-                    Text("Antresol")
+                    Text(verbatim: "Antresol")
                         .font(.system(size: 76, weight: .bold))
                         .foregroundStyle(.white)
                 }
@@ -25,22 +27,33 @@ struct SplashView: View {
                         ProgressView()
                             .tint(.white)
                     } else if let status {
-                        VStack(spacing: 28) {
+                        VStack(spacing: 40) {
                             Text(status)
                                 .font(.headline)
                                 .foregroundStyle(.white.opacity(0.8))
-                            if let retry {
-                                Button("Try Again", action: retry)
+                            HStack(spacing: 28) {
+                                if let retry {
+                                    Button(action: retry) {
+                                        Label("Try Again", systemImage: "arrow.clockwise")
+                                    }
+                                    .buttonStyle(PillButtonStyle(kind: .primary))
+                                }
+                                if let changeServer {
+                                    Button(action: changeServer) {
+                                        Label("Change Server", systemImage: "server.rack")
+                                    }
+                                    .buttonStyle(PillButtonStyle(kind: .glass))
+                                }
                             }
                         }
                     }
                 }
-                .frame(minHeight: 120, alignment: .top)
+                .frame(minHeight: 160, alignment: .top)
             }
         }
     }
 }
 
 #Preview {
-    SplashView(status: "The server is not responding", isWorking: false) {}
+    SplashView(status: "The server is not responding", isWorking: false, retry: {}, changeServer: {})
 }

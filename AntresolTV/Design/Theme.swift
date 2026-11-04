@@ -1,19 +1,24 @@
 import AntresolKit
 import SwiftUI
 
-/// Design tokens from docs/design-ref/DESIGN.md.
+/// Design tokens from docs/design-ref/DESIGN.md, scaled for a 1920x1080 point TV canvas
+/// viewed from the couch (type and cards are larger than in the web TV layout).
 enum Theme {
     enum Colors {
         static let background = Color.black
         static let raised = Color(hex: 0x121214)
         static let elevated = Color(hex: 0x1C1C1E)
+        static let identityBackground = Color(hex: 0x0B0B10)
         static let label = Color(hex: 0xF5F5F7)
         static let label2 = Color(hex: 0xEBEBF5).opacity(0.7)
         static let label3 = Color(hex: 0xEBEBF5).opacity(0.45)
+        static let labelInverse = Color.black
         static let accent = Color(hex: 0x0A84FF)
         static let green = Color(hex: 0x30D158)
         static let orange = Color(hex: 0xFF9F0A)
         static let red = Color(hex: 0xFF453A)
+        static let fill = Color(hex: 0x787880).opacity(0.36)
+        static let fillSecondary = Color(hex: 0x767680).opacity(0.16)
         static let hairline = Color.white.opacity(0.12)
         static let glassFill = Color(hex: 0x1C1C20).opacity(0.92)
         static let glassBorder = Color.white.opacity(0.08)
@@ -35,6 +40,43 @@ enum Theme {
                 endPoint: UnitPoint(x: 0.79, y: 0.91)
             )
         }
+
+        /// Placeholder artwork for items without an image: a dark two-tone gradient whose
+        /// hue is derived from `seed` (usually the title), stable across launches.
+        static func placeholder(seed: String) -> LinearGradient {
+            let tint = Theme.tint(for: seed)
+            return LinearGradient(
+                colors: [tint.opacity(0.95), tint.opacity(0.35)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+
+        /// Bottom fade used under titles laid over artwork.
+        static let scrim = LinearGradient(
+            colors: [.clear, .black.opacity(0.75)],
+            startPoint: .center,
+            endPoint: .bottom
+        )
+    }
+
+    enum Typography {
+        static let heroTitle = Font.system(size: 84, weight: .bold)
+        static let pageTitle = Font.system(size: 64, weight: .bold)
+        static let sectionTitle = Font.system(size: 36, weight: .bold)
+        static let headline = Font.system(size: 32, weight: .semibold)
+        static let body = Font.system(size: 28, weight: .regular)
+        static let meta = Font.system(size: 26, weight: .medium)
+        static let eyebrow = Font.system(size: 22, weight: .semibold)
+        static let cardTitle = Font.system(size: 24, weight: .semibold)
+        static let cardMeta = Font.system(size: 20, weight: .regular)
+        static let overlayTitle = Font.system(size: 28, weight: .bold)
+        static let badge = Font.system(size: 17, weight: .semibold)
+        static let button = Font.system(size: 28, weight: .semibold)
+
+        static func avatarInitial(size: CGFloat) -> Font {
+            .system(size: size * 0.44, weight: .semibold, design: .rounded)
+        }
     }
 
     enum Radius {
@@ -45,11 +87,34 @@ enum Theme {
         static let badge: CGFloat = 6
     }
 
+    enum Layout {
+        /// Horizontal inset of page content (tvOS safe area is 80 pt).
+        static let margin: CGFloat = 80
+        static let shelfSpacing: CGFloat = 64
+        static let cardSpacing: CGFloat = 40
+        static let posterWidth: CGFloat = 240
+        static let squareWidth: CGFloat = 300
+        static let wideWidth: CGFloat = 500
+        static let heroHeight: CGFloat = 860
+    }
+
     enum Motion {
         /// cubic-bezier(.22, 1, .36, 1)
         static let easeOut = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.26)
+        static let slowEaseOut = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.6)
         static let focusScale: CGFloat = 1.07
         static let cardLift: CGFloat = 1.04
+    }
+
+    /// A saturated mid-dark colour derived from `seed`, used for placeholders and hero tints.
+    static func tint(for seed: String) -> Color {
+        // FNV-1a: `hashValue` is randomised per launch, this is not.
+        var hash: UInt32 = 2_166_136_261
+        for byte in seed.utf8 {
+            hash = (hash ^ UInt32(byte)) &* 16_777_619
+        }
+        let hue = Double(hash % 360) / 360
+        return Color(hue: hue, saturation: 0.55, brightness: 0.42)
     }
 }
 

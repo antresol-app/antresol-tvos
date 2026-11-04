@@ -9,7 +9,7 @@ final class AppState {
     enum Phase: Equatable {
         /// Restoring the saved server and token.
         case launching
-        /// No server configured yet.
+        /// No server configured yet, or the user asked to change it.
         case needsServer
         /// The saved server did not answer.
         case serverUnreachable(message: String)
@@ -19,9 +19,18 @@ final class AppState {
         case signedIn(User)
     }
 
+    /// What picking a profile led to.
+    enum ProfileSelection {
+        case signedIn
+        /// The profile is protected; ask for its password and call `signIn`.
+        case needsPassword
+    }
+
     private(set) var phase: Phase = .launching
     /// The connected server, once known.
     private(set) var server: ServerConnection?
+    /// Where "Cancel" on the server screen returns to.
+    private var phaseBeforeServerChange: Phase?
 
     private let settings: AppSettings
     private let tokens: TokenStore
@@ -58,23 +67,73 @@ final class AppState {
         }
     }
 
-    /// Validates a user-entered address and makes it the current server.
+    /// Validates a user-entered address with `/api/health` and makes it the current server.
+    /// Accepts a host, `host:port` or a full http(s) URL; the port defaults to 8420.
     func connect(to address: String) async throws {
         guard let url = ServerAddress.normalize(address) else {
             throw APIError.invalidURL(address)
         }
         let connection = try await ServerConnection.connect(to: url, language: Self.preferredLanguage)
+        if connection.serverId != server?.serverId {
+            settings.lastUserId = nil
+        }
         settings.serverURL = url
         settings.serverId = connection.serverId
         server = connection
+        phaseBeforeServerChange = nil
         await restoreProfile(on: connection)
     }
 
-    /// Signs in to a profile; the token is kept in the Keychain per server and profile.
+    /// Shows the server address screen. The current session stays as it is until another
+    /// server connects, so the user can go back.
+    func changeServer() {
+        phaseBeforeServerChange = phase
+        phase = .needsServer
+    }
+
+    /// Whether the server screen was opened from a running session and can be dismissed.
+    var canCancelServerChange: Bool {
+        phaseBeforeServerChange != nil
+    }
+
+    /// Leaves the server screen without changing anything.
+    func cancelServerChange() {
+        guard let previous = phaseBeforeServerChange else { return }
+        phaseBeforeServerChange = nil
+        phase = previous
+    }
+
+    /// Picks a profile on the picker. Passwordless profiles reuse their stored token when it
+    /// is still valid, or sign in directly. Protected profiles always ask for the password,
+    /// so a stored token never lets someone else walk into a protected profile.
+    func selectProfile(_ profile: Profile) async throws -> ProfileSelection {
+        guard let server else { throw APIError.invalidURL("") }
+        if profile.hasPassword {
+            return .needsPassword
+        }
+        let key = CredentialKey(serverId: server.serverId, userId: profile.id)
+        if let token = tokens.token(for: key) {
+            server.client.token = token
+            do {
+                let user = try await server.client.me()
+                settings.lastUserId = profile.id
+                phase = .signedIn(user)
+                return .signedIn
+            } catch let error as APIError where error.statusCode == 401 {
+                try? tokens.removeToken(for: key)
+                server.client.token = nil
+            }
+        }
+        try await signIn(profile: profile, password: nil)
+        return .signedIn
+    }
+
+    /// Requests a device token for a profile; it is kept in the Keychain per server and profile.
     func signIn(profile: Profile, password: String?) async throws {
-        guard let server else { return }
+        guard let server else { throw APIError.invalidURL("") }
         let response = try await server.client.signIn(userId: profile.id, password: password, device: device.info)
         try tokens.setToken(response.token, for: CredentialKey(serverId: server.serverId, userId: profile.id))
+        server.client.token = response.token
         settings.lastUserId = profile.id
         phase = .signedIn(response.user)
     }
@@ -92,6 +151,7 @@ final class AppState {
         guard let server, let user = currentUser else { return }
         try? await server.client.signOut()
         try? tokens.removeToken(for: CredentialKey(serverId: server.serverId, userId: user.id))
+        server.client.token = nil
         settings.lastUserId = nil
         phase = .needsProfile
     }
@@ -101,7 +161,18 @@ final class AppState {
         guard let server, let user = currentUser else { return }
         try? tokens.removeToken(for: CredentialKey(serverId: server.serverId, userId: user.id))
         server.client.token = nil
+        settings.lastUserId = nil
         phase = .needsProfile
+    }
+
+    /// Routes a failed request: `401` signs the profile out to the picker and returns
+    /// nil; anything else returns a message to show.
+    func message(for error: Error) -> String? {
+        if let error = error as? APIError, error.statusCode == 401 {
+            handleUnauthorized()
+            return nil
+        }
+        return error.localizedDescription
     }
 
     private var isUnreachable: Bool {
@@ -113,6 +184,7 @@ final class AppState {
         guard let userId = settings.lastUserId,
               let token = tokens.token(for: CredentialKey(serverId: connection.serverId, userId: userId))
         else {
+            connection.client.token = nil
             phase = .needsProfile
             return
         }
@@ -139,6 +211,11 @@ struct ServerConnection {
     let client: APIClient
     let serverId: String
     let version: String
+
+    var url: URL { client.baseURL }
+
+    /// "host:port" for display.
+    var displayName: String { ServerAddress.displayName(client.baseURL) }
 
     static func connect(to url: URL, language: String) async throws -> ServerConnection {
         let client = APIClient(baseURL: url, language: language)

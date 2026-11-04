@@ -1,6 +1,69 @@
 /* Splash and session status */
-"No server configured" = "No server configured";
 "The server is not responding" = "The server is not responding";
-"Choose a profile" = "Choose a profile";
-"Signed in as %@" = "Signed in as %@";
 "Try Again" = "Try Again";
+"Something went wrong" = "Something went wrong";
+
+/* Server address */
+"Connect to your server" = "Connect to your server";
+"Enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420.";
+"Server address" = "Server address";
+"Connect" = "Connect";
+"Cancel" = "Cancel";
+"Checking server…" = "Checking server…";
+"That doesn't look like a server address." = "That doesn't look like a server address.";
+"Couldn't reach the server. Check the address and that the server is running." = "Couldn't reach the server. Check the address and that the server is running.";
+"This address doesn't answer like an Antresol server." = "This address doesn't answer like an Antresol server.";
+"Change Server" = "Change Server";
+
+/* Profiles and sign-in */
+"Who's watching?" = "Who's watching?";
+"Antresol %@ · %@" = "Antresol %1$@ · %2$@";
+"This server has no profiles yet. Create one in the Antresol web app." = "This server has no profiles yet. Create one in the Antresol web app.";
+"Password protected" = "Password protected";
+"Enter the password for this profile" = "Enter the password for this profile";
+"Password" = "Password";
+"Sign In" = "Sign In";
+
+/* Tabs */
+"Search" = "Search";
+"Home" = "Home";
+"Movies" = "Movies";
+"TV Shows" = "TV Shows";
+"Music" = "Music";
+"Books" = "Books";
+"This section is coming soon." = "This section is coming soon.";
+
+/* Profile tab */
+"Administrator" = "Administrator";
+"Kid profile" = "Kid profile";
+"Kid profile · up to %@" = "Kid profile · up to %@";
+"Profile" = "Profile";
+"Server" = "Server";
+"Server version" = "Server version";
+"Switch Profile" = "Switch Profile";
+"Sign Out" = "Sign Out";
+"Sign out of this profile?" = "Sign out of this profile?";
+"You can sign in again from the profile picker." = "You can sign in again from the profile picker.";
+
+/* Home */
+"New in Library" = "New in Library";
+"Continue Watching" = "Continue Watching";
+"Play" = "Play";
+"Resume" = "Resume";
+"Details" = "Details";
+"Your library is empty" = "Your library is empty";
+"Add movies, shows, music or books to the server's media folders and they will appear here." = "Add movies, shows, music or books to the server's media folders and they will appear here.";
+"%lld min" = "%lld min";
+
+/* Item kinds */
+"Movie" = "Movie";
+"Series" = "Series";
+"Season" = "Season";
+"Episode" = "Episode";
+"Artist" = "Artist";
+"Album" = "Album";
+"Playlist" = "Playlist";
+"Audiobook" = "Audiobook";
+"Book" = "Book";
+"Comic" = "Comic";
+"Comic Volume" = "Comic Volume";
