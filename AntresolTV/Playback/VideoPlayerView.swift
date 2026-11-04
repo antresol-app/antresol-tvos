@@ -106,6 +106,7 @@ private struct PlayerViewController: UIViewControllerRepresentable {
         }
     }
 
+    /// Delegate callbacks arrive on the main thread.
     final class Coordinator: NSObject, AVPlayerViewControllerDelegate {
         let model: VideoPlayerModel
         var subtitleView: SubtitleOverlayView?
@@ -120,11 +121,11 @@ private struct PlayerViewController: UIViewControllerRepresentable {
         }
 
         func playerViewController(_ playerViewController: AVPlayerViewController, didAccept proposal: AVContentProposal) {
-            model.acceptUpNext()
+            MainActor.assumeIsolated { model.acceptUpNext() }
         }
 
         func playerViewController(_ playerViewController: AVPlayerViewController, didReject proposal: AVContentProposal) {
-            model.declineUpNext()
+            MainActor.assumeIsolated { model.declineUpNext() }
         }
     }
 }

@@ -17,6 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 SAMPLES = Path(__file__).resolve().parent.parent / "AntresolKit/Tests/AntresolKitTests/Samples"
+VIDEO = Path(__file__).resolve().parent / "fixtures/sample.mp4"
 
 ROUTES = {
     ("GET", r"/api/health"): "health.json",
@@ -65,6 +66,31 @@ def image_for(path):
     return _images[path]
 
 
+def play_response(file_id):
+    """Direct play of the fixture clip, with the tracks of the sample movie or episode."""
+    sample = "item-episode.json" if file_id == 2 else "item-movie.json"
+    file = json.loads((SAMPLES / sample).read_text())["files"][0]
+    return {
+        "mode": "direct",
+        "url": f"/api/stream/{file_id}",
+        "reason": "",
+        "startSec": 0,
+        "durationMs": file.get("durationMs") or 60000,
+        "audioIndex": 1,
+        "audio": file.get("audio", []),
+        "subtitles": file.get("subs", []),
+        "quality": {"selected": "auto", "applied": "original", "remote": False},
+    }
+
+
+def subtitles():
+    lines = ["WEBVTT", ""]
+    for n in range(15):
+        start, end = n * 4, n * 4 + 3.5
+        lines += [f"00:{start:02d}.000 --> 00:{int(end):02d}.500", f"Subtitle line {n + 1}", ""]
+    return "\n".join(lines).encode()
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -93,12 +119,43 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(204, b"", "application/json")
         if method == "PUT" and re.fullmatch(r"/api/progress/\d+", path):
             return self.send(204, b"", "application/json")
+        if method == "POST" and re.fullmatch(r"/api/play/\d+", path):
+            return self.send(200, json.dumps(play_response(int(path.rsplit("/", 1)[1]))).encode(), "application/json")
+        if method == "GET" and re.fullmatch(r"/api/stream/\d+", path):
+            return self.send_video()
+        if method == "GET" and re.fullmatch(r"/api/subs/\d+/\d+\.vtt", path):
+            return self.send(200, subtitles(), "text/vtt; charset=utf-8")
+        if method in ("PUT", "DELETE") and path.startswith("/api/hls/"):
+            return self.send(204, b"", "application/json")
         if method == "GET" and path == "/api/items" and "kind=series" in query:
             return self.send(200, (SAMPLES / "items-series.json").read_bytes(), "application/json")
         for (verb, pattern), sample in ROUTES.items():
             if verb == method and re.fullmatch(pattern, path):
                 return self.send(200, (SAMPLES / sample).read_bytes(), "application/json")
         self.send(404, json.dumps({"error": "Not found"}).encode(), "application/json")
+
+    def send_video(self):
+        """The fixture clip with Range support, as /api/stream serves files."""
+        data = VIDEO.read_bytes()
+        match = re.fullmatch(r"bytes=(\d*)-(\d*)", self.headers.get("Range") or "")
+        if not match:
+            self.send_response(200)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Type", "video/mp4")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        start = int(match.group(1) or 0)
+        end = min(int(match.group(2) or len(data) - 1), len(data) - 1)
+        chunk = data[start:end + 1]
+        self.send_response(206)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
+        self.send_header("Content-Length", str(len(chunk)))
+        self.end_headers()
+        self.wfile.write(chunk)
 
     def send(self, status, body, content_type):
         self.send_response(status)

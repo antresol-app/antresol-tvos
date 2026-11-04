@@ -143,9 +143,63 @@ final class ScreenshotTests: XCTestCase {
         snapshot(app, "17-search-results")
     }
 
+    func test04Player() {
+        // English subtitles preferred, so the side-loaded overlay shows from the start.
+        let app = signInAsKid(extraArguments: ["-player.subtitleLanguage", "en"])
+
+        // Tab bar → hero buttons → first Continue Watching card (a movie with progress).
+        remote.press(.down)
+        pause(1)
+        remote.press(.down)
+        pause(2)
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Start Over"].waitForExistence(timeout: 20))
+        pause(3)
+        snapshot(app, "18-resume-prompt")
+
+        remote.press(.select)
+        pause(8)
+        snapshot(app, "19-player-subtitles")
+
+        // Pause: the transport bar with the Audio / Subtitles / Quality menus.
+        remote.press(.select)
+        pause(3)
+        snapshot(app, "20-player-transport")
+        remote.press(.down)
+        pause(2)
+        snapshot(app, "21-player-menu-row")
+        remote.press(.select)
+        pause(2)
+        snapshot(app, "22-player-menu")
+
+        for _ in 0..<4 {
+            remote.press(.menu)
+            pause(2)
+            if app.buttons["Details"].exists { break }
+        }
+        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 20))
+        pause(2)
+
+        // The episode in Continue Watching: resume close to the end to get Up Next.
+        remote.press(.right)
+        pause(1)
+        remote.press(.right)
+        pause(1)
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Start Over"].waitForExistence(timeout: 20))
+        remote.press(.select)
+        pause(7)
+        snapshot(app, "23-up-next")
+        for _ in 0..<4 {
+            remote.press(.menu)
+            pause(2)
+            if app.buttons["Details"].exists { break }
+        }
+    }
+
     /// Fresh session, then the passwordless second profile.
-    private func signInAsKid() -> XCUIApplication {
-        let app = launch(arguments: ["-AntresolResetSession", "YES", "-AntresolServerURL", server])
+    private func signInAsKid(extraArguments: [String] = []) -> XCUIApplication {
+        let app = launch(arguments: ["-AntresolResetSession", "YES", "-AntresolServerURL", server] + extraArguments)
         XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
         pause(2)
         remote.press(.right)
