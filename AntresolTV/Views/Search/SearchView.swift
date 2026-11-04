@@ -4,8 +4,8 @@ import SwiftUI
 /// The Search tab: the native tvOS search field and keyboard, Browse tiles while nothing
 /// is typed, and results grouped by kind (movies, shows, music, books) as they arrive.
 struct SearchView: View {
-    /// Switches the shell to a library tab (Browse tiles).
-    let onBrowse: (ShellTab) -> Void
+    /// Switches the shell to a library tab (Browse tiles), and the Books tab to a section.
+    let onBrowse: (ShellTab, BooksView.Pane?) -> Void
 
     @Environment(AppState.self) private var appState
     @State private var query = ""
@@ -81,7 +81,7 @@ struct SearchView: View {
             HStack(spacing: 32) {
                 ForEach(BrowseTile.all) { tile in
                     Button {
-                        onBrowse(tile.tab)
+                        onBrowse(tile.tab, tile.booksPane)
                     } label: {
                         BrowseTileView(tile: tile)
                     }
@@ -106,14 +106,15 @@ private struct BrowseTile: Identifiable {
     let systemImage: String
     let colors: (UInt32, UInt32)
     let tab: ShellTab
+    var booksPane: BooksView.Pane?
 
     static let all: [BrowseTile] = [
         BrowseTile(id: "movies", title: "Movies", systemImage: "film", colors: (0xFF375F, 0xFF9F0A), tab: .movies),
         BrowseTile(id: "shows", title: "TV Shows", systemImage: "tv", colors: (0x5E5CE6, 0xBF5AF2), tab: .shows),
         BrowseTile(id: "music", title: "Music", systemImage: "music.note", colors: (0xBF5AF2, 0xFF375F), tab: .music),
-        BrowseTile(id: "books", title: "Books", systemImage: "book", colors: (0xFF9F0A, 0xFFD60A), tab: .books),
-        BrowseTile(id: "audiobooks", title: "Audiobooks", systemImage: "headphones", colors: (0x30D158, 0x00C7BE), tab: .books),
-        BrowseTile(id: "comics", title: "Manga & Comics", systemImage: "books.vertical", colors: (0x00C7BE, 0x0A84FF), tab: .books),
+        BrowseTile(id: "books", title: "Books", systemImage: "book", colors: (0xFF9F0A, 0xFFD60A), tab: .books, booksPane: .books),
+        BrowseTile(id: "audiobooks", title: "Audiobooks", systemImage: "headphones", colors: (0x30D158, 0x00C7BE), tab: .books, booksPane: .audiobooks),
+        BrowseTile(id: "comics", title: "Manga & Comics", systemImage: "books.vertical", colors: (0x00C7BE, 0x0A84FF), tab: .books, booksPane: .comics),
     ]
 }
 

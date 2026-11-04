@@ -1,22 +1,27 @@
 import AntresolKit
 import SwiftUI
 
-/// The detail route for a card: movies, shows, seasons and episodes get the full video
-/// page; music and book cards get a summary page until their sections are built (see
-/// NOTES.md).
+/// The detail route for a card, by kind.
 struct ItemDetailView: View {
     let card: Card
 
     var body: some View {
-        if card.kind.isVideo {
-            VideoDetailView(card: card)
-        } else {
-            ItemSummaryView(card: card)
+        switch card.kind {
+        case _ where card.kind.isVideo: VideoDetailView(card: card)
+        case .album: AlbumDetailView(card: card)
+        case .artist: ArtistDetailView(card: card)
+        case .playlist: PlaylistDetailView(card: card)
+        case .audiobook: AudiobookDetailView(card: card)
+        case .comic: ComicSeriesView(card: card)
+        case .comicVolume: ComicVolumeView(card: card)
+        case .book: EbookDetailView(card: card)
+        default: ItemSummaryView(card: card)
         }
     }
 }
 
-/// Artwork-tinted header with the kind, title, context line and badges of a card.
+/// Artwork-tinted header with the kind, title, context line and badges of a card, for
+/// kinds this app has no page for.
 struct ItemSummaryView: View {
     let card: Card
 

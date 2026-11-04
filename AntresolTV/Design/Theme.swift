@@ -105,6 +105,11 @@ enum Theme {
         static let gridPosterWidth: CGFloat = 248
         static let gridSpacing: CGFloat = 46
         static let gridRowSpacing: CGFloat = 60
+        /// Width between the page margins (1920 - 2 x 80).
+        static let contentWidth: CGFloat = 1760
+        /// Square cover grid cell; five columns fill the content width.
+        static let gridSquareWidth: CGFloat = 316
+        static let gridSquareSpacing: CGFloat = 45
     }
 
     enum Motion {

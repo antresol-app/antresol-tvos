@@ -5,6 +5,8 @@ import SwiftUI
 enum Route: Hashable {
     /// The detail page of a library card (movie, series, episode, album, book...).
     case item(Card)
+    /// The albums of a music genre.
+    case genre(String)
 }
 
 /// Pushes a route onto the current tab's navigation stack, for places that cannot use a

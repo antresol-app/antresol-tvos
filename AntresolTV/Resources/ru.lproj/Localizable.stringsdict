@@ -82,5 +82,105 @@
             <string>%lld эпизода</string>
         </dict>
     </dict>
+    <key>%lld songs</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@songs@</string>
+        <key>songs</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>lld</string>
+            <key>one</key>
+            <string>%lld песня</string>
+            <key>few</key>
+            <string>%lld песни</string>
+            <key>many</key>
+            <string>%lld песен</string>
+            <key>other</key>
+            <string>%lld песни</string>
+        </dict>
+    </dict>
+    <key>%lld albums</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@albums@</string>
+        <key>albums</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>lld</string>
+            <key>one</key>
+            <string>%lld альбом</string>
+            <key>few</key>
+            <string>%lld альбома</string>
+            <key>many</key>
+            <string>%lld альбомов</string>
+            <key>other</key>
+            <string>%lld альбома</string>
+        </dict>
+    </dict>
+    <key>%lld audiobooks</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@audiobooks@</string>
+        <key>audiobooks</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>lld</string>
+            <key>one</key>
+            <string>%lld аудиокнига</string>
+            <key>few</key>
+            <string>%lld аудиокниги</string>
+            <key>many</key>
+            <string>%lld аудиокниг</string>
+            <key>other</key>
+            <string>%lld аудиокниги</string>
+        </dict>
+    </dict>
+    <key>%lld books</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@books@</string>
+        <key>books</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>lld</string>
+            <key>one</key>
+            <string>%lld книга</string>
+            <key>few</key>
+            <string>%lld книги</string>
+            <key>many</key>
+            <string>%lld книг</string>
+            <key>other</key>
+            <string>%lld книги</string>
+        </dict>
+    </dict>
+    <key>%lld series</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@series@</string>
+        <key>series</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>lld</string>
+            <key>one</key>
+            <string>%lld серия</string>
+            <key>few</key>
+            <string>%lld серии</string>
+            <key>many</key>
+            <string>%lld серий</string>
+            <key>other</key>
+            <string>%lld серии</string>
+        </dict>
+    </dict>
 </dict>
 </plist>

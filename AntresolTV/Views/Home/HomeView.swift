@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
+    @Environment(AudioPlayer.self) private var audio
     @Environment(\.openRoute) private var openRoute
     @State private var model = HomeModel()
 
@@ -33,6 +34,9 @@ struct HomeView: View {
         .background(Theme.Colors.background.ignoresSafeArea())
         .task { await model.load(using: appState) }
         .onChange(of: playback.completedSessions) {
+            Task { await model.load(using: appState) }
+        }
+        .onChange(of: audio.progressRevision) {
             Task { await model.load(using: appState) }
         }
     }

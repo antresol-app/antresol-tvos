@@ -171,6 +171,14 @@ public struct Chapter: Decodable, Hashable, Identifiable, Sendable {
 
     public var id: Int { idx }
 
+    public init(idx: Int, title: String, fileId: Int = 0, startMs: Int, endMs: Int) {
+        self.idx = idx
+        self.title = title
+        self.fileId = fileId
+        self.startMs = startMs
+        self.endMs = endMs
+    }
+
     enum CodingKeys: String, CodingKey { case idx, title, fileId, startMs, endMs }
 
     public init(from decoder: Decoder) throws {
@@ -218,6 +226,16 @@ public struct ComicPages: Decodable, Hashable, Sendable {
     public struct PageSize: Hashable, Sendable {
         public var width: Int
         public var height: Int
+
+        public init(width: Int, height: Int) {
+            self.width = width
+            self.height = height
+        }
+
+        /// Wider than tall: a double-page scan that is shown on its own.
+        public var isLandscape: Bool {
+            width > height && height > 0
+        }
     }
 
     public var count: Int
@@ -251,5 +269,36 @@ public enum ComicProgress {
     public static func pageIndex(locator: String) -> Int? {
         guard locator.hasPrefix("page:"), let page = Int(locator.dropFirst(5)), page >= 1 else { return nil }
         return page - 1
+    }
+}
+
+/// Groups comic pages into what the reader shows at once. In two-page mode the cover
+/// stays alone (like a printed book), then pages pair up; landscape pages (already a
+/// spread) and the last odd page stand alone.
+public enum ComicSpreads {
+    /// Page indexes per screen, in reading order.
+    public static func layout(sizes: [ComicPages.PageSize], count: Int, twoPages: Bool) -> [[Int]] {
+        guard count > 0 else { return [] }
+        guard twoPages else { return (0..<count).map { [$0] } }
+        func isLandscape(_ index: Int) -> Bool {
+            sizes.indices.contains(index) && sizes[index].isLandscape
+        }
+        var spreads: [[Int]] = [[0]]
+        var index = 1
+        while index < count {
+            if isLandscape(index) || index + 1 >= count || isLandscape(index + 1) {
+                spreads.append([index])
+                index += 1
+            } else {
+                spreads.append([index, index + 1])
+                index += 2
+            }
+        }
+        return spreads
+    }
+
+    /// The spread that contains `page`.
+    public static func spreadIndex(containing page: Int, in spreads: [[Int]]) -> Int {
+        spreads.firstIndex { $0.contains(page) } ?? 0
     }
 }

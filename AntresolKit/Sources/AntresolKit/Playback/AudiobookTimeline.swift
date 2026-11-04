@@ -48,6 +48,28 @@ public struct AudiobookTimeline: Hashable, Sendable {
     public static func chapter(at bookMs: Int, in chapters: [Chapter]) -> Chapter? {
         chapters.last { $0.startMs <= bookMs } ?? chapters.first
     }
+
+    /// Where "previous chapter" goes: the start of the current chapter, or of the one
+    /// before when less than `restartWindowMs` of the current chapter has played.
+    public static func previousChapterStart(from bookMs: Int, in chapters: [Chapter], restartWindowMs: Int = 3000) -> Int {
+        let ordered = chapters.sorted { $0.startMs < $1.startMs }
+        guard let index = ordered.lastIndex(where: { $0.startMs <= bookMs }) else { return 0 }
+        if bookMs - ordered[index].startMs > restartWindowMs || index == 0 {
+            return ordered[index].startMs
+        }
+        return ordered[index - 1].startMs
+    }
+
+    /// Where "next chapter" goes, or nil in the last chapter.
+    public static func nextChapterStart(from bookMs: Int, in chapters: [Chapter]) -> Int? {
+        chapters.map(\.startMs).sorted().first { $0 > bookMs }
+    }
+
+    /// The end of the chapter playing at `bookMs` (the book's end when unknown).
+    public static func chapterEnd(at bookMs: Int, in chapters: [Chapter], totalMs: Int) -> Int {
+        guard let chapter = chapter(at: bookMs, in: chapters), chapter.endMs > bookMs else { return totalMs }
+        return chapter.endMs
+    }
 }
 
 /// Where to resume playback, following the web app's rules.
