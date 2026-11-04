@@ -133,12 +133,10 @@ final class ScreenshotTests: XCTestCase {
         }
         pause(3)
         snapshot(app, "16-search")
-        let field = app.searchFields.firstMatch
-        if field.waitForExistence(timeout: 5) {
-            field.typeText("test")
-        } else {
-            app.typeText("test")
-        }
+        // Down from the tab bar into the keyboard, which gives the field keyboard focus.
+        remote.press(.down)
+        pause(2)
+        app.searchFields.firstMatch.typeText("test")
         pause(4)
         remote.press(.down)
         pause(2)

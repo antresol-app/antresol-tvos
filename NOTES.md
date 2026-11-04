@@ -127,3 +127,63 @@ Running log between milestones. Newest entry last.
   (`SectionPlaceholderView`) — milestones 3 and 5 replace them.
 - `ItemDetailView` is a stub: no seasons/episodes, cast, versions, watchlist or play actions (M3/M4).
 - Hero is a single item, not a carousel.
+
+## Milestone 3 — Browse, details, search, watchlist
+
+### What exists
+- **Movies / TV Shows tabs** (`Views/Library`): page title with item count, `SegmentedPill` sort
+  (Recently Added / By Title / By Year, remembered per section in `UserDefaults`
+  `library.sort.<kind>`), six-column 2:3 poster grid. `LibraryModel` pages `/api/items` 60 at a time,
+  loading the next page when a card within the last 18 appears; duplicates across pages are dropped.
+  Refreshes in place on reappear and after playback (progress bars stay current).
+- **`SegmentedPill`** (`Design/Components`): glass capsule, selected option = white pill. Selection
+  changes on click, not on focus, so moving focus up from a grid never re-sorts by accident.
+- **Video detail** (`Views/Detail/VideoDetailView` + `VideoDetailModel`), used for movie, series,
+  season (opens its series with that season selected) and episode cards:
+  - Artwork-tinted header (`HeroBackground`), eyebrow (kind, "TV SHOW", or the episode's
+    "Show · Season 1, Episode 2" line), huge title, meta line (year · N seasons · runtime or file
+    duration · age rating · genres), badges, 3-line overview, resume bar with "N min left".
+  - Movie/episode actions: Play / Resume (from `GET /api/progress`), Restart, Watchlist toggle
+    (movies), Watched toggle (`POST /api/items/{id}/watched`), Go to Show (episodes).
+  - Series actions: "Play S1, E1" / "Resume S1, E2" (server `next`, else first episode),
+    Watchlist, series-wide Watched toggle.
+  - Seasons: season pill + horizontal row of 16:9 `EpisodeCardView`s (progress bar, watched
+    check mark, "E2 · 20 min", title, 2-line overview). Click opens the episode page; long press
+    (context menu) offers Play/Resume, Play from Beginning and Mark as Watched/Unwatched.
+  - Cast row (initials avatars, focusable so the row scrolls), About panel (full overview,
+    original title, genres, rating, versions, video, audio and subtitle tracks, file name/size);
+    the panel is focusable so the page can scroll down to it.
+  - Action errors show in red under the buttons; 401 routes to the profile picker as before.
+- **Watchlist**: toggled from movie and series pages; Home's "Want to Watch" shelf (server shelf
+  `watchlist`) reflects it because Home reloads when it reappears.
+- **Search tab** (`Views/Search`): native `.searchable` field and tvOS keyboard; Browse tiles
+  (Movies, TV Shows, Music, Books, Audiobooks, Manga & Comics) switch tabs while the field is empty;
+  typing searches `/api/search` after a 300 ms pause (each keystroke cancels the previous search).
+  Results are shelves: Movies, TV Shows, Artists, Albums, Songs (open their album), Audiobooks,
+  Books, Comics; "No results" state.
+- **Playback entry point** (`Playback/PlaybackCoordinator`): every Play/Resume/Restart (hero, detail,
+  episode menu) calls `PlaybackCoordinator.play(card, from: .resume | .beginning)`; the shell
+  presents `VideoPlayerView` full screen. `VideoPlayerModel` resolves series to their next episode,
+  reads the resume point, starts `VideoPlaybackSession` (caps, media key, keepalive, expiry
+  restart), plays in `AVPlayerViewController` with title/subtitle/overview metadata, reports
+  progress every 10 s via `ProgressReporter`, flushes and deletes the HLS session on close, and
+  closes itself at the end. `completedSessions` lets Home, grids and detail pages refresh.
+- Plurals (`%lld movies/shows/seasons/episodes`) are in `Localizable.stringsdict` (en, ru).
+- Mock server: series list, season/episode details, progress, watchlist/watched writes. UI test
+  `test03BrowseDetailsAndSearch` captures Movies, movie detail + About, TV Shows, series detail,
+  episodes, episode detail, Search and search results.
+
+### Decisions
+- Episode cards open the episode page (overview, Resume/Restart, watched) rather than playing at
+  once; quick play is in the long-press menu.
+- No "related" row: the server API has no related/similar endpoint.
+- Cast has no portraits in the API, so cells are gradient initials avatars.
+- The media key is cached per signed-in token in `PlaybackCoordinator`.
+
+### Known gaps
+- Player is the basic one: no audio/subtitle/quality menus, no side-loaded VTT, no up-next or
+  skip-intro; HLS seeks beyond the transcoded range rely on AVPlayer (milestone 4 adds
+  `replaceSession` seeking and track menus).
+- Music and Books tabs still show the "coming soon" placeholder; album/artist/book cards (including
+  search results) open `ItemSummaryView` (header only) until milestone 5.
+- No "see all" pages for Home shelves; no filter by genre in the grids (the API has none).
