@@ -383,7 +383,8 @@ final class ScreenshotTests: XCTestCase {
             remote.press(.right)
             pause(1)
         }
-        XCTAssertTrue(app.buttons["Shuffle All"].waitForExistence(timeout: 20))
+        // The section pill remembers the last section (another test may have left Albums).
+        XCTAssertTrue(app.buttons["Listen Now"].waitForExistence(timeout: 20))
         remote.press(.down)
         pause(1)
         XCTAssertTrue(moveFocus(.right, to: app.buttons["Playlists"], limit: 6))
@@ -422,9 +423,9 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.down)
         pause(1)
         remote.press(.select, forDuration: 1.5)
-        let moveDown = app.buttons["Move Down"]
-        XCTAssertTrue(moveDown.waitForExistence(timeout: 10), "a playlist song offers Move Down")
-        XCTAssertTrue(app.buttons["Remove from Playlist"].exists)
+        let moveDown = menuItem(app, "Move Down")
+        XCTAssertTrue(moveDown.waitForExistence(timeout: 10), "a playlist song offers Move Down: \(hierarchy(app, mentioning: "Move Down"))")
+        XCTAssertTrue(menuItem(app, "Remove from Playlist").exists)
         pause(1)
         snapshot(app, "50-playlist-song-menu")
         if moveFocus(.down, to: moveDown, limit: 8) {
@@ -435,7 +436,7 @@ final class ScreenshotTests: XCTestCase {
 
         // Add the focused song to the new playlist.
         remote.press(.select, forDuration: 1.5)
-        let addToPlaylist = app.buttons["Add to Playlist…"]
+        let addToPlaylist = menuItem(app, "Add to Playlist…")
         XCTAssertTrue(addToPlaylist.waitForExistence(timeout: 10))
         if moveFocus(.down, to: addToPlaylist, limit: 6) {
             remote.press(.select)
@@ -453,16 +454,17 @@ final class ScreenshotTests: XCTestCase {
         pause(3)
         XCTAssertTrue(moveFocus(.right, to: card(app, "Road Trip"), limit: 3))
         remote.press(.select, forDuration: 1.5)
-        let delete = app.buttons["Delete Playlist"]
+        let delete = menuItem(app, "Delete Playlist")
         XCTAssertTrue(delete.waitForExistence(timeout: 10))
         if moveFocus(.down, to: delete, limit: 3) {
             remote.press(.select)
         }
-        let confirm = app.buttons["Delete Playlist"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
-        pause(1)
+        pause(2)
+        // The confirmation: Cancel and the destructive button side by side.
+        let confirm = menuItem(app, "Delete Playlist")
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10), hierarchy(app, mentioning: "Delete Playlist"))
         snapshot(app, "54-delete-playlist")
-        if moveFocus(.up, to: confirm, limit: 2) || confirm.hasFocus {
+        if moveFocus(.right, to: confirm, limit: 2) {
             remote.press(.select)
         }
         pause(3)
@@ -491,11 +493,11 @@ final class ScreenshotTests: XCTestCase {
 
         XCTAssertTrue(moveFocus(.down, to: other, limit: 4))
         remote.press(.select)
-        let signOut = app.buttons["Sign Out Device"]
-        XCTAssertTrue(signOut.waitForExistence(timeout: 10))
+        let signOut = menuItem(app, "Sign Out Device")
+        XCTAssertTrue(signOut.waitForExistence(timeout: 10), hierarchy(app, mentioning: "Sign Out Device"))
         pause(1)
         snapshot(app, "57-device-sign-out")
-        if moveFocus(.up, to: signOut, limit: 2) || signOut.hasFocus {
+        if moveFocus(.right, to: signOut, limit: 2) {
             remote.press(.select)
         }
         pause(3)
@@ -506,6 +508,20 @@ final class ScreenshotTests: XCTestCase {
     /// The poster card whose title starts with `title`.
     private func card(_ app: XCUIApplication, _ title: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+    }
+
+    /// An item of a long-press menu or a confirmation dialog, whatever element type tvOS
+    /// gives it.
+    private func menuItem(_ app: XCUIApplication, _ label: String) -> XCUIElement {
+        let types = [XCUIElement.ElementType.button, .menuItem, .cell].map(\.rawValue)
+        return app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@ AND elementType IN %@", label, types))
+            .firstMatch
+    }
+
+    /// The accessibility hierarchy lines that mention `text`, for failure messages.
+    private func hierarchy(_ app: XCUIApplication, mentioning text: String) -> String {
+        app.debugDescription.split(separator: "\n").filter { $0.contains(text) }.joined(separator: " | ")
     }
 
     /// Presses `direction` until `element` has focus, at most `limit` times.

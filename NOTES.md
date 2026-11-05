@@ -126,7 +126,7 @@ Running log between milestones. Newest entry last.
 - Search, Movies, TV Shows, Music and Books tabs show a "coming soon" placeholder
   (`SectionPlaceholderView`) — milestones 3 and 5 replace them.
 - `ItemDetailView` is a stub: no seasons/episodes, cast, versions, watchlist or play actions (M3/M4).
-- Hero is a single item, not a carousel.
+- Hero is a single item, not a carousel. *(Done in the review fixes: carousel.)*
 
 ## Milestone 3 — Browse, details, search, watchlist
 
@@ -186,7 +186,8 @@ Running log between milestones. Newest entry last.
   `replaceSession` seeking and track menus).
 - Music and Books tabs still show the "coming soon" placeholder; album/artist/book cards (including
   search results) open `ItemSummaryView` (header only) until milestone 5.
-- No "see all" pages for Home shelves; no filter by genre in the grids (the API has none).
+- No "see all" pages for Home shelves *(done in the review fixes: `Route.shelf`)*; no filter by
+  genre in the grids (the API has none).
 
 ## Milestone 4 — Video player
 
@@ -263,7 +264,8 @@ Running log between milestones. Newest entry last.
 - Subtitle styling is fixed (no size/colour settings); ASS styling is flattened to text by the
   server's VTT conversion.
 - OpenSubtitles search/download is not in the player (the server returns 503 when unconfigured).
-- Multiple versions of a movie (several files) always play the first file.
+- Multiple versions of a movie (several files) always play the first file. *(Done in the review
+  fixes: Versions pill.)*
 
 ## Milestone 5 — Music, audiobooks, comics
 
@@ -320,7 +322,7 @@ Running log between milestones. Newest entry last.
 
 ### Known gaps
 - No playlist editing (create/rename/reorder) on TV; the kit supports it, the UI only plays
-  playlists.
+  playlists. *(Done: see "TV gaps closed".)*
 - Audio was checked on the simulator with the mock server's AAC fixtures; FLAC/transcoded music and
   multi-part MP3 audiobooks from the real server were verified only by the kit integration tests.
 - E-book reading is intentionally not available on TV.
@@ -423,8 +425,8 @@ Running log between milestones. Newest entry last.
 - The language override changes `String(localized:)` text (some labels and menus) and the
   system UI (keyboard, player chrome) only after a relaunch. tvOS has no API to restart an app.
 - No device management screen: the server's `/api/me/devices` list and revoke are not in the UI.
-  Sign Out revokes this device.
-- No playlist editing on TV (see milestone 5).
+  Sign Out revokes this device. *(Done: Settings > Devices.)*
+- No playlist editing on TV (see milestone 5). *(Done.)*
 - The UI screenshot job is still `continue-on-error` and uses mock data.
 
 ## Review fixes (after milestone 6)
@@ -547,9 +549,92 @@ are listed below.
 
 ### Known gaps
 - Selecting a song in Songs queues only the songs loaded so far (shuffle covers the whole
-  library).
+  library). *(Done: the rest is queued in the background.)*
 - The profile tab avatar has not been checked on a device. If tvOS template-renders tab
   images, it shows as a white disc, and the Settings page still shows the coloured avatar.
+  *(The CI simulator screenshots show the coloured avatar; see "TV gaps closed".)*
 - The EVENT-playlist paths (seek outside the window, Bearer on the asset) have not been
   exercised: the sample server always returns complete playlists.
 - Strings already on screen keep the old language until their view redraws.
+
+## TV gaps closed (playlists, devices, Songs queue, avatar)
+
+### What exists
+- **Kit** (`Sources/AntresolKit/Music/`):
+  - `PlaylistEditing`: trimmed names (`normalizedName`), the `order` permutation for moving one
+    entry (`moveOrder`, matching the server: `order[i]` is the old position placed at `i`), and
+    local `apply(order:)` / `removing(positions:)` so pages show an edit before the server
+    answers. `PlaylistUpdate.rename/append/remove/move` build the PATCH bodies.
+  - `RemainingPages<Element>`: walks the pages after the ones already loaded, one at a time.
+    Transport errors, `429` (honouring `Retry-After`) and `5xx` are retried after 1, 3 and 9 s;
+    a `401`, other `4xx` or the last failure ends the walk with that error. Items already
+    loaded or delivered are skipped (pages shift when the library changes while paging), and
+    the walk follows the server's latest `total`.
+  - `PlayQueue.extend(with:)`: adds more of the source list. Not shuffled, it appends; shuffled,
+    the new entries are mixed into the upcoming part (the original order still gets them at the
+    end, so turning shuffle off restores list order).
+  - `DeviceSession.displayOrder` (current device first, then by `lastSeen`) and `lastSeenDate`.
+  - Tests: `PlaylistAndPagingTests` (edit bodies and previews, paging with retries, give-up,
+    401, duplicate skipping, stop), new `PlayQueueTests` cases, `DeviceListTests`; the live
+    `testMusic` now moves and removes entries in its temporary playlist and checks that the
+    local preview matches the server. 79 kit tests, all passing locally with
+    `ANTRESOL_TEST_SERVER=1`.
+- **Playlists on TV** (`Views/Music/PlaylistEditing.swift`, `MusicView`, `MusicDetailViews`,
+  `TrackRow`):
+  - `PlaylistActions` (shell-owned, in the environment): the Add to Playlist request, a
+    `revision` bumped by every playlist change (the Playlists grid reloads on it) and a
+    confirmation message.
+  - Music > Playlists has a **New Playlist** pill; grid cards have a long-press menu with
+    **Rename** and **Delete Playlist** (confirmation dialog).
+  - `PlaylistNameView` is the name page (text field, Create/Save, Cancel; Menu cancels; the
+    keyboard's Done submits; server errors such as "Enter a playlist name" show in red).
+  - Playlist page: Play, Shuffle, **Rename**, **Delete** (pops the page after deleting). Song
+    long-press adds **Move Up**, **Move Down** and **Remove from Playlist**. Edits show at once
+    and are sent one after another (each waits for the previous); a failed edit shows the error
+    and reloads the playlist as saved. Rows are keyed by a per-entry id so focus follows a
+    moved song.
+  - **Add to Playlist…** is in every song row's long-press menu (album, artist, playlist,
+    Songs), and album pages have an icon-only Add to Playlist pill (the favourite pill there is
+    icon-only too, so the row still fits beside the cover). The picker (a sheet) lists
+    New Playlist… and the profile's playlists; choosing one appends and closes it, New
+    Playlist… creates the playlist with the songs.
+  - The shell shows a bottom `NoticeBanner` for playlist confirmations ("Added to “Road
+    Trip”", "Deleted …") and for the music player's own notices ("Playing next", "Added to
+    queue", playback problems), which before were only visible inside Now Playing. The Now
+    Playing tab keeps its own banner. `NoticeBanner` moved to `Design/Components` and is shared
+    with the video player and Now Playing.
+- **Devices** (`Views/Settings/DevicesView.swift`, Settings > Server > Devices): every native
+  session of the profile with a model symbol, name, "model · version · Last seen 5 minutes ago"
+  (relative, in the app language), "This Apple TV" on the current one. Selecting another
+  device asks ("Sign out “Kitchen iPad”?") and revokes it with `DELETE /api/me/devices/{id}`.
+  The current device is signed out with Sign Out on the Settings page instead.
+- **Songs**: selecting a song plays the loaded songs from there at once and queues the rest of
+  the library (or of the favorites) in the background through `RemainingPages` (500 per
+  page) and `AudioPlayer.play(tracks:startAt:continuing:)`. The fill task is cancelled by any
+  new playback, an audiobook, stop or sign-out; if a page keeps failing, the queue ends there
+  and a notice says some songs could not be added.
+- **Profile tab avatar**: the CI screenshots (`04-home-hero`, `37-settings`) show the coloured
+  gradient avatar in the tab bar. The image is now also marked `.renderingMode(.original)`, and
+  the tab has the accessibility label "<name>, Profile and Settings".
+- **Mock server**: playlists and device sessions are kept in memory, so create, rename, append,
+  reorder, remove, delete and device revoke behave like the server (`PATCH` support added).
+- **UI tests**: `test10Playlists` (create with the keyboard, playlist page, song menu, move
+  down, add to the new playlist, delete from the grid) and `test11Devices` (devices list,
+  sign out the iPad). Screenshots `46`–`58`.
+
+### Decisions
+- Reordering on TV is Move Up / Move Down in the song's long-press menu rather than a drag
+  mode: it works with the Siri Remote's select-and-hold and keeps focus on the song.
+- Adding a song that is already in a playlist adds it again, like the server and web app
+  (playlists may hold duplicates; positions, not ids, identify entries).
+- Kid profiles can manage their own playlists and devices: both are per profile on the server.
+- The background Songs fill queues in list order even when shuffle is turned on later; new
+  entries are then mixed into the upcoming part.
+
+### Known gaps
+- Playlist and device UI was exercised against the mock server on the simulator; the kit's
+  playlist calls and edit semantics were checked against the real 0.3.0 server.
+- Albums and artists have no long-press "Add to Playlist" on their grid cards (album pages
+  and song rows have it).
+- Unchanged from before: dynamic Top Shelf unverified without a signed build; EVENT-playlist
+  paths unexercised; text already on screen keeps the old language until it redraws.
