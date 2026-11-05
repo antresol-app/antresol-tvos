@@ -513,7 +513,8 @@ final class ScreenshotTests: XCTestCase {
     /// An item of a long-press menu or a confirmation dialog, whatever element type tvOS
     /// gives it.
     private func menuItem(_ app: XCUIApplication, _ label: String) -> XCUIElement {
-        let types = [XCUIElement.ElementType.button, .menuItem, .cell].map(\.rawValue)
+        // tvOS context menu items are "Other" elements.
+        let types = [XCUIElement.ElementType.button, .menuItem, .cell, .other].map(\.rawValue)
         return app.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH %@ AND elementType IN %@", label, types))
             .firstMatch
