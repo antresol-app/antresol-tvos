@@ -309,8 +309,10 @@ Running log between milestones. Newest entry last.
 
 ### Decisions
 - Detail pages built on `DetailScroll` + `CollectionHeader` give the header actions the initial
-  focus (focus scope + `prefersDefaultFocus`), and Now Playing starts on Play/Pause — the
-  screenshots showed the first list row and the scrubber taking focus otherwise.
+  focus (focus scope + `prefersDefaultFocus`), and their primary buttons stay enabled while the
+  page loads (they do nothing until the data is there), so focus lands on them before the list
+  appears. Now Playing starts on Play/Pause. The screenshots showed the first list row and the
+  scrubber taking focus otherwise.
 - The Now Playing tab is icon-only: with a text label the eighth tab pushed the profile tab out of
   the tvOS tab bar.
 - Lossless FLAC is requested directly (AVPlayer plays it on tvOS 17); a failure falls back to the

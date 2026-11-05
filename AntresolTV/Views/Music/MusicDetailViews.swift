@@ -29,7 +29,7 @@ struct AlbumDetailView: View {
                     Label("Play", systemImage: "play.fill")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
-                .disabled(album?.tracks.isEmpty ?? true)
+                .disabled(album?.tracks.isEmpty == true)
 
                 Button {
                     if let album { audio.play(tracks: album.tracks, startAt: nil, shuffled: true) }
@@ -37,7 +37,7 @@ struct AlbumDetailView: View {
                     Label("Shuffle", systemImage: "shuffle")
                 }
                 .buttonStyle(PillButtonStyle(kind: .glass))
-                .disabled(album?.tracks.isEmpty ?? true)
+                .disabled(album?.tracks.isEmpty == true)
 
                 if let album {
                     FavoriteButton(isStarred: album.starred) {
@@ -205,7 +205,7 @@ struct ArtistDetailView: View {
                     Label("Play", systemImage: "play.fill")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
-                .disabled(artist?.topTracks.isEmpty ?? true)
+                .disabled(artist?.topTracks.isEmpty == true)
 
                 Button {
                     Task { await shuffle() }
@@ -337,7 +337,7 @@ struct PlaylistDetailView: View {
                     Label("Play", systemImage: "play.fill")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
-                .disabled(detail?.tracks.isEmpty ?? true)
+                .disabled(detail?.tracks.isEmpty == true)
 
                 Button {
                     if let detail { audio.play(tracks: detail.tracks, startAt: nil, shuffled: true) }
@@ -345,7 +345,7 @@ struct PlaylistDetailView: View {
                     Label("Shuffle", systemImage: "shuffle")
                 }
                 .buttonStyle(PillButtonStyle(kind: .glass))
-                .disabled(detail?.tracks.isEmpty ?? true)
+                .disabled(detail?.tracks.isEmpty == true)
             }
 
             switch loader.state {

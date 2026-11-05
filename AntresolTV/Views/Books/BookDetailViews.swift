@@ -33,7 +33,7 @@ struct AudiobookDetailView: View {
                     Label(isPlayingThis ? LocalizedStringKey("Now Playing") : (resumeMs > 0 ? "Resume" : "Play"), systemImage: isPlayingThis ? "waveform" : "play.fill")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
-                .disabled(book?.files.isEmpty ?? true)
+                .disabled(book?.files.isEmpty == true)
 
                 if resumeMs > 0, !isPlayingThis {
                     Button {
@@ -253,7 +253,7 @@ struct ComicSeriesView: View {
                     Label(next.map { $0.progress > 0 && $0.progress < 1 } == true ? LocalizedStringKey("Continue Reading") : "Read", systemImage: "book")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
-                .disabled(next == nil)
+                .disabled(series != nil && next == nil)
 
                 if let series {
                     WantToReadButton(isOn: series.want) { await setWant(!series.want) }
@@ -345,7 +345,7 @@ struct ComicVolumeView: View {
                     Label(canResume ? LocalizedStringKey("Continue Reading") : "Read", systemImage: "book")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
-                .disabled(volume == nil || volume?.readFileId == 0)
+                .disabled(volume?.readFileId == 0)
 
                 if canResume, let volume {
                     Button {

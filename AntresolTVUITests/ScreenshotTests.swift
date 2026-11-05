@@ -274,7 +274,8 @@ final class ScreenshotTests: XCTestCase {
         pause(1)
         XCTAssertTrue(moveFocus(.left, to: card(app, "Hero Tales"), limit: 4))
         remote.press(.select)
-        XCTAssertTrue(app.buttons["Continue Reading"].waitForExistence(timeout: 20))
+        let read = app.buttons.matching(NSPredicate(format: "label IN %@", ["Read", "Continue Reading"])).firstMatch
+        XCTAssertTrue(read.waitForExistence(timeout: 20))
         pause(3)
         snapshot(app, "32-comic-volume")
         remote.press(.select)
@@ -294,6 +295,7 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select)
         XCTAssertTrue(app.buttons["Want to Read"].waitForExistence(timeout: 20))
         pause(3)
+        XCTAssertTrue(app.buttons["Play"].hasFocus, "The audiobook page should start on Play")
         snapshot(app, "35-audiobook-detail")
         remote.press(.select)
         pause(5)
