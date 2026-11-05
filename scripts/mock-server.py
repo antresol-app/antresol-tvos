@@ -124,6 +124,11 @@ def subtitles():
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    def log_message(self, format, *args):
+        # The client's User-Agent tells the app's requests from the Top Shelf extension's.
+        agent = self.headers.get("User-Agent", "-") if hasattr(self, "headers") else "-"
+        super().log_message(format + " [%s]", *args, agent)
+
     def do_GET(self):
         self.route("GET")
 

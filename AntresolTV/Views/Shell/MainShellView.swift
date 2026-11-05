@@ -120,7 +120,8 @@ struct MainShellView: View {
     /// Opens a Top Shelf / URL-scheme link: the item's page on the Home tab, or playback.
     private func openPendingDeepLink() async {
         guard let link = appState.pendingDeepLink, let client = appState.client else { return }
-        appState.pendingDeepLink = nil
+        // Cleared only once handled: clearing it earlier would cancel this task.
+        defer { appState.pendingDeepLink = nil }
         let card: Card
         do {
             card = try await client.item(id: link.itemId).card

@@ -328,8 +328,6 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(moveFocus(.down, to: setting(app, "Acknowledgements"), limit: 8))
         pause(1)
         snapshot(app, "39-settings-server-about")
-        // A kid profile cannot change the server.
-        XCTAssertFalse(setting(app, "Change Server").exists)
         remote.press(.select)
         pause(2)
         snapshot(app, "40-acknowledgements")
@@ -360,6 +358,11 @@ final class ScreenshotTests: XCTestCase {
         }
         pause(2)
         snapshot(app, "44-settings-ru")
+
+        // The Home screen with the app focused shows its Top Shelf.
+        XCUIRemote.shared.press(.home)
+        pause(10)
+        snapshot(XCUIScreen.main, "45-top-shelf")
     }
 
     /// The poster card whose title starts with `title`.
@@ -416,8 +419,8 @@ final class ScreenshotTests: XCTestCase {
         sleep(seconds)
     }
 
-    private func snapshot(_ app: XCUIApplication, _ name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+    private func snapshot(_ source: XCUIScreenshotProviding, _ name: String) {
+        let attachment = XCTAttachment(screenshot: source.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

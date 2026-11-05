@@ -37,14 +37,17 @@ jobs:
       - name: Build
         run: |
           if ! xcodebuild -project Antresol.xcodeproj -scheme AntresolTV \
-            -destination 'generic/platform=tvOS Simulator' \
+            -destination 'generic/platform=tvOS Simulator' -derivedDataPath build \
             -configuration Debug build CODE_SIGNING_ALLOWED=NO > xcodebuild.log 2>&1; then
             grep -E 'error:' xcodebuild.log | sort -u | head -n 150
             tail -n 40 xcodebuild.log
             exit 1
           fi
-          grep -E 'AntresolTV/.*warning:' xcodebuild.log | sort -u | head -n 100 || true
+          grep -E '(AntresolTV|TopShelf|Shared)/.*warning:' xcodebuild.log | sort -u | head -n 100 || true
           tail -n 5 xcodebuild.log
+          # The Top Shelf extension must be embedded in the app.
+          test -d build/Build/Products/Debug-appletvsimulator/AntresolTV.app/PlugIns/TopShelf.appex
+          plutil -p build/Build/Products/Debug-appletvsimulator/AntresolTV.app/PlugIns/TopShelf.appex/Info.plist | grep -E 'NSExtensionPointIdentifier|AntresolKeychainGroup'
 
   ui-screenshots:
     name: UI screenshots (tvOS Simulator)
@@ -89,6 +92,8 @@ jobs:
           xcrun xcresulttool export attachments --path ui.xcresult --output-path screenshots || true
           cp mock-server.log screenshots/ || true
           ls screenshots
+          echo "Top Shelf extension requests:"
+          grep 'TopShelf' mock-server.log | tail -n 20 || true
       - name: Print screenshot previews
         if: always()
         # Small JPEGs as base64 lines ("SHOT <name> <data>"), readable from the job log
