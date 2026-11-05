@@ -25,7 +25,9 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Up Next with a countdown.
   - Progress is synced every 10 s, and items are marked watched at 92 %.
 - **Music**: Listen Now, albums, artists, songs, genres and playlists.
-  - Gapless queue with shuffle and repeat, favourites, and play reporting.
+  - Gapless queue with shuffle and repeat, favourites, and play reporting. Choosing a song in
+    Songs queues the whole library from there.
+  - Playlists: create, rename and delete; add songs or albums; move and remove songs.
   - Now Playing with synced lyrics.
   - Background audio, with Control Center and remote controls.
 - **Books**: Reading Now, audiobooks, and manga and comics.
@@ -38,6 +40,7 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Default video quality, audio and subtitle languages, and autoplay of the next episode.
   - App language: System, English or Русский.
   - Server address and version, and Change Server (hidden for kid profiles).
+  - Devices signed in to the profile, with sign-out of other devices.
   - Version and acknowledgements.
 - **Top Shelf**: when the app is in the top row, the Home screen shows the profile's Continue
   Watching and Recently Added. Selecting a tile opens its page; Play starts it.
