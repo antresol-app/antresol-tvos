@@ -167,11 +167,13 @@ private struct AlbumsSection: View {
                 ], selection: $sort)
             }
             .padding(.horizontal, Theme.Layout.margin)
+            // Full width, so Up from any grid column reaches the sort pill.
+            .focusSection()
             CardGrid(list: list, shape: .square, emptyIcon: "square.stack", emptyTitle: "No albums yet")
         }
         .task(id: sort) {
             let sort = sort
-            await list.reload(using: appState, reset: true) { client, offset, limit in
+            await list.reload(using: appState, key: sort) { client, offset, limit in
                 try await client.albums(sort: sort, limit: limit, offset: offset)
             }
         }
@@ -252,17 +254,22 @@ private struct SongsSection: View {
     @Environment(AudioPlayer.self) private var audio
     @AppStorage("music.songsFavorites") private var favoritesOnly = false
     @State private var list = PagedList<Track>(pageSize: 120) { "\($0.id)" }
+    @State private var shuffleError: String?
+    @State private var isShuffling = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
             HStack(spacing: 24) {
                 Button {
-                    audio.play(tracks: list.items, startAt: nil, shuffled: true)
+                    Task { await shuffle() }
                 } label: {
                     Label("Shuffle", systemImage: "shuffle")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
-                .disabled(list.items.isEmpty)
+                .disabled(list.items.isEmpty || isShuffling)
+                if let shuffleError {
+                    ErrorLine(message: shuffleError)
+                }
                 Spacer()
                 SegmentedPill(options: [
                     SegmentedPill<Bool>.Option(value: false, title: String(localized: "All Songs", bundle: .localized)),
@@ -301,9 +308,39 @@ private struct SongsSection: View {
         .padding(.horizontal, Theme.Layout.margin)
         .task(id: favoritesOnly) {
             let starred = favoritesOnly
-            await list.reload(using: appState, reset: true) { client, offset, limit in
+            await list.reload(using: appState, key: starred) { client, offset, limit in
                 try await client.songs(starred: starred, limit: limit, offset: offset)
             }
+        }
+    }
+}
+
+extension SongsSection {
+    /// Shuffles the whole library (server-side), or every favorite, not just the songs
+    /// loaded so far.
+    private func shuffle() async {
+        guard let client = appState.client else { return }
+        shuffleError = nil
+        isShuffling = true
+        defer { isShuffling = false }
+        do {
+            let tracks = try await (favoritesOnly ? allFavorites(client) : client.shuffle(.all))
+            guard !tracks.isEmpty else {
+                shuffleError = String(localized: "There are no songs to play.", bundle: .localized)
+                return
+            }
+            audio.play(tracks: tracks, startAt: nil, shuffled: favoritesOnly)
+        } catch {
+            shuffleError = appState.message(for: error)
+        }
+    }
+
+    private func allFavorites(_ client: APIClient) async throws -> [Track] {
+        var tracks: [Track] = []
+        while true {
+            let page = try await client.songs(starred: true, limit: 500, offset: tracks.count)
+            tracks += page.items
+            if page.items.isEmpty || tracks.count >= page.total { return tracks }
         }
     }
 }

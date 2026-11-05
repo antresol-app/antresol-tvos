@@ -254,3 +254,17 @@
 "Apple" = "Apple";
 "The system font and SF Symbols are provided by Apple and used under Apple's licence terms." = "The system font and SF Symbols are provided by Apple and used under Apple's licence terms.";
 "About This App" = "About This App";
+
+/* Errors, version picker, carousel, shelves, comics (review fixes) */
+"Couldn't reach the server. Check that it is running and on the same network." = "Couldn't reach the server. Check that it is running and on the same network.";
+"Sign in again to continue." = "Sign in again to continue.";
+"Something went wrong. Try again." = "Something went wrong. Try again.";
+"The server couldn't complete the request." = "The server couldn't complete the request.";
+"The server had a problem. Try again in a moment." = "The server had a problem. Try again in a moment.";
+"This item is no longer in the library." = "This item is no longer in the library.";
+"Unexpected response from the server." = "Unexpected response from the server.";
+"Playback stopped because the server isn’t sending audio. Try again later." = "Playback stopped because the server isn’t sending audio. Try again later.";
+"Play Version" = "Play Version";
+"Featured %lld of %lld" = "Featured %1$lld of %2$lld";
+"Press Select to read the next volume, or Menu to close." = "Press Select to read the next volume, or Menu to close.";
+"Nothing here yet" = "Nothing here yet";

@@ -121,6 +121,8 @@ private struct BookListSection: View {
                 ], selection: $sort)
             }
             .padding(.horizontal, Theme.Layout.margin)
+            // Full width, so Up from any grid column reaches the sort pill.
+            .focusSection()
             CardGrid(
                 list: list,
                 shape: kind == .audiobook ? .square : .poster,
@@ -131,7 +133,7 @@ private struct BookListSection: View {
         .task(id: sort) {
             let sort = sort
             let kind = kind
-            await list.reload(using: appState, reset: true) { client, offset, limit in
+            await list.reload(using: appState, key: sort) { client, offset, limit in
                 try await client.books(kind: kind, sort: sort, limit: limit, offset: offset)
             }
         }

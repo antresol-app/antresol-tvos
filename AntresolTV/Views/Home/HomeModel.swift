@@ -4,13 +4,13 @@ import Observation
 
 /// What the Home tab shows, derived from `GET /api/home`.
 struct HomeContent {
-    struct Feature {
+    struct Feature: Hashable {
         let card: Card
         let eyebrow: String
     }
 
-    /// The hero: the first featured item, else the first item to continue.
-    let feature: Feature?
+    /// The hero carousel: the featured items, else the first item to continue.
+    let features: [Feature]
     /// The Continue Watching row (wide cards).
     let continueWatching: Shelf?
     /// Every other non-empty shelf, in server order (poster cards).
@@ -18,19 +18,23 @@ struct HomeContent {
 
     init(_ home: HomeResponse) {
         let continueShelf = home.shelf(ShelfID.continueWatching)
-        if let featured = home.hero.first {
-            feature = Feature(card: featured, eyebrow: Self.eyebrow(String(localized: "New in Library", bundle: .localized), featured))
+        if !home.hero.isEmpty {
+            let lead = String(localized: "New in Library", bundle: .localized)
+            var seen = Set<String>()
+            features = home.hero
+                .filter { seen.insert($0.uniqueKey).inserted }
+                .map { Feature(card: $0, eyebrow: Self.eyebrow(lead, $0)) }
         } else if let next = continueShelf?.cards.first {
-            feature = Feature(card: next, eyebrow: Self.eyebrow(String(localized: "Continue Watching", bundle: .localized), next))
+            features = [Feature(card: next, eyebrow: Self.eyebrow(String(localized: "Continue Watching", bundle: .localized), next))]
         } else {
-            feature = nil
+            features = []
         }
         continueWatching = continueShelf.flatMap { $0.cards.isEmpty ? nil : $0 }
         shelves = home.shelves.filter { $0.id != ShelfID.continueWatching && !$0.cards.isEmpty }
     }
 
     var isEmpty: Bool {
-        feature == nil && continueWatching == nil && shelves.isEmpty
+        features.isEmpty && continueWatching == nil && shelves.isEmpty
     }
 
     private static func eyebrow(_ lead: String, _ card: Card) -> String {

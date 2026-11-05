@@ -64,6 +64,7 @@ final class PagedList<Element: Decodable & Sendable> {
     let pageSize: Int
     private let key: (Element) -> String
     private var fetch: Fetch?
+    private var fetchKey: AnyHashable?
     private var generation = 0
 
     init(pageSize: Int = 60, key: @escaping (Element) -> String) {
@@ -73,10 +74,14 @@ final class PagedList<Element: Decodable & Sendable> {
 
     var hasMore: Bool { items.count < total }
 
-    /// Loads the first page with `fetch`. With `reset` the list empties first (a new
-    /// sort order); otherwise the current items stay until the new page arrives.
-    func reload(using appState: AppState, reset: Bool = false, _ fetch: @escaping Fetch) async {
+    /// Loads the first page with `fetch`. When `key` (the sort or filter) differs from the
+    /// last load, the list empties first. Otherwise this is a refresh, e.g. the page
+    /// appearing again after Back: the first page is merged into what is loaded, so later
+    /// pages, the focused card and the scroll position stay.
+    func reload(using appState: AppState, key: AnyHashable = 0, _ fetch: @escaping Fetch) async {
+        let reset = key != fetchKey
         self.fetch = fetch
+        fetchKey = key
         generation += 1
         let current = generation
         if reset || items.isEmpty {
@@ -88,7 +93,7 @@ final class PagedList<Element: Decodable & Sendable> {
         do {
             let page = try await fetch(client, 0, pageSize)
             guard current == generation else { return }
-            items = unique(page.items)
+            items = reset ? unique(page.items) : mergeFirstPage(page.items)
             total = max(page.total, items.count)
             state = .loaded
         } catch {
@@ -101,7 +106,7 @@ final class PagedList<Element: Decodable & Sendable> {
     /// Loads the first page again with the last fetch (Try Again).
     func reloadSameFetch(using appState: AppState) async {
         guard let fetch else { return }
-        await reload(using: appState, fetch)
+        await reload(using: appState, key: fetchKey ?? 0, fetch)
     }
 
     /// Loads the next page when `element` is within the last `threshold` items.
@@ -127,5 +132,20 @@ final class PagedList<Element: Decodable & Sendable> {
     private func unique(_ elements: [Element]) -> [Element] {
         var seen = Set<String>()
         return elements.filter { seen.insert(key($0)).inserted }
+    }
+
+    /// The fresh first page followed by the pages loaded after it.
+    private func mergeFirstPage(_ page: [Element]) -> [Element] {
+        PageMerge.merge(firstPage: page, into: items, pageSize: pageSize, key: key)
+    }
+}
+
+/// Refreshing a paged list in place.
+enum PageMerge {
+    /// The fresh first page, then the previously loaded items after the old first page
+    /// (without those now in the first page).
+    static func merge<Element>(firstPage page: [Element], into loaded: [Element], pageSize: Int, key: (Element) -> String) -> [Element] {
+        var seen = Set<String>()
+        return (page + loaded.dropFirst(min(loaded.count, pageSize))).filter { seen.insert(key($0)).inserted }
     }
 }

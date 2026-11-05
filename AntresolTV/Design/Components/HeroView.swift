@@ -1,20 +1,41 @@
 import AntresolKit
 import SwiftUI
 
-/// The full-bleed feature banner at the top of Home: artwork-tinted background, an eyebrow
-/// line, a huge title, a meta line and the Play / Details pills.
+/// The full-bleed feature carousel at the top of Home: artwork-tinted background, an
+/// eyebrow line, a huge title, a meta line and the Play / Details pills.
+///
+/// With several featured items it advances every 8 seconds while its buttons are not
+/// focused; Left on Play and Right on Details page through them by hand. Page dots show
+/// where you are, and the backgrounds cross-fade.
 struct HeroView: View {
-    let card: Card
-    /// Small caps line above the title, e.g. "NEW IN LIBRARY · MOVIE".
-    let eyebrow: String
+    let features: [HomeContent.Feature]
 
+    @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
+    @State private var index = 0
+    /// For a series: the episode Play starts, so the button can name it.
+    @State private var seriesEpisode: EpisodeCard?
+    @FocusState private var focusedButton: Control?
+
+    private enum Control: Hashable {
+        case play, details
+    }
+
+    private static let interval: Duration = .seconds(8)
+
+    private var feature: HomeContent.Feature {
+        features[min(index, features.count - 1)]
+    }
+
+    private var card: Card { feature.card }
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             HeroBackground(card: card)
+                .id(card.uniqueKey)
+                .transition(.opacity)
             VStack(alignment: .leading, spacing: 18) {
-                Text(verbatim: eyebrow)
+                Text(verbatim: feature.eyebrow)
                     .font(Theme.Typography.eyebrow)
                     .tracking(2)
                     .textCase(.uppercase)
@@ -31,22 +52,30 @@ struct HeroView: View {
                         .foregroundStyle(Theme.Colors.label2)
                         .lineLimit(1)
                 }
-                if card.progress > 0 {
-                    ProgressBar(value: card.progress, height: 8)
+                if progress > 0 {
+                    ProgressBar(value: progress, height: 8)
                         .frame(width: 420)
                         .padding(.top, 4)
                 }
                 HStack(spacing: 28) {
                     Button {
-                        playback.play(card)
+                        playback.play(seriesEpisode?.card ?? card, from: .resume)
                     } label: {
-                        Label(card.progress > 0 ? LocalizedStringKey("Resume") : LocalizedStringKey("Play"), systemImage: "play.fill")
+                        Label {
+                            Text(verbatim: playTitle)
+                        } icon: {
+                            Image(systemName: "play.fill")
+                        }
                     }
                     .buttonStyle(PillButtonStyle(kind: .primary))
+                    .focused($focusedButton, equals: .play)
+                    .onMoveCommand { if $0 == .left { page(by: -1) } }
                     NavigationLink(value: Route.item(card)) {
                         Label("Details", systemImage: "info.circle")
                     }
                     .buttonStyle(PillButtonStyle(kind: .glass))
+                    .focused($focusedButton, equals: .details)
+                    .onMoveCommand { if $0 == .right { page(by: 1) } }
                 }
                 .padding(.top, 22)
                 .focusSection()
@@ -54,8 +83,68 @@ struct HeroView: View {
             .frame(maxWidth: 1200, alignment: .leading)
             .padding(.horizontal, Theme.Layout.margin)
             .padding(.bottom, 56)
+            .animation(Theme.Motion.easeOut, value: index)
+
+            if features.count > 1 {
+                pageDots
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.horizontal, Theme.Layout.margin)
+                    .padding(.bottom, 80)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: Theme.Layout.heroHeight, maxHeight: Theme.Layout.heroHeight, alignment: .bottomLeading)
+        .task(id: focusedButton == nil) {
+            // Auto-advance only while the user is not on the hero's buttons.
+            guard focusedButton == nil, features.count > 1 else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.interval)
+                guard !Task.isCancelled else { return }
+                withAnimation(Theme.Motion.slowEaseOut) { index = (index + 1) % features.count }
+            }
+        }
+        .task(id: card.uniqueKey) { await loadSeriesEpisode() }
+        .onChange(of: features) {
+            if index >= features.count { index = 0 }
+        }
+    }
+
+    private var pageDots: some View {
+        HStack(spacing: 14) {
+            ForEach(features.indices, id: \.self) { dot in
+                Circle()
+                    .fill(.white.opacity(dot == index ? 0.95 : 0.35))
+                    .frame(width: 12, height: 12)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel(Text(verbatim: String(localized: "Featured \(index + 1) of \(features.count)", bundle: .localized)))
+    }
+
+    private func page(by step: Int) {
+        guard features.count > 1 else { return }
+        withAnimation(Theme.Motion.slowEaseOut) {
+            index = (index + step + features.count) % features.count
+        }
+    }
+
+    /// The series' next episode, as on its detail page.
+    private func loadSeriesEpisode() async {
+        seriesEpisode = nil
+        guard card.kind == .series, let client = appState.client,
+              let detail = try? await client.item(id: card.id), !Task.isCancelled
+        else { return }
+        seriesEpisode = detail.next ?? detail.seasons.first?.episodes.first
+    }
+
+    private var playTitle: String {
+        if card.kind == .series {
+            return VideoDetailView.playTitle(for: seriesEpisode)
+        }
+        return card.progress > 0 ? String(localized: "Resume", bundle: .localized) : String(localized: "Play", bundle: .localized)
+    }
+
+    private var progress: Double {
+        seriesEpisode?.progress ?? card.progress
     }
 
     /// Year, context line and the first badges, joined with middots.

@@ -81,18 +81,26 @@ struct ProfilePickerView: View {
                 .multilineTextAlignment(.center)
         } else {
             VStack(spacing: 40) {
-                LazyVGrid(columns: columns, spacing: 56) {
-                    ForEach(profiles) { profile in
-                        Button {
-                            select(profile)
-                        } label: {
-                            ProfileTile(profile: profile, isBusy: busyProfileId == profile.id)
+                // One row, like the system's profile pickers: many profiles scroll
+                // sideways instead of wrapping below the screen.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 64) {
+                        ForEach(profiles) { profile in
+                            Button {
+                                select(profile)
+                            } label: {
+                                ProfileTile(profile: profile, isBusy: busyProfileId == profile.id)
+                            }
+                            .buttonStyle(CardButtonStyle())
+                            .focused($focusedProfileId, equals: profile.id)
+                            .disabled(busyProfileId != nil)
                         }
-                        .buttonStyle(CardButtonStyle())
-                        .focused($focusedProfileId, equals: profile.id)
-                        .disabled(busyProfileId != nil)
                     }
+                    .padding(.vertical, 24)
+                    .padding(.horizontal, 40)
+                    .frame(minWidth: Theme.Layout.contentWidth)
                 }
+                .scrollClipDisabled()
                 .frame(maxWidth: .infinity)
                 .focusSection()
                 if let signInError {
@@ -100,11 +108,6 @@ struct ProfilePickerView: View {
                 }
             }
         }
-    }
-
-    private var columns: [GridItem] {
-        let count = min(max(profiles.count, 1), 6)
-        return Array(repeating: GridItem(.fixed(ProfileTile.width), spacing: 64), count: count)
     }
 
     private func load() async {

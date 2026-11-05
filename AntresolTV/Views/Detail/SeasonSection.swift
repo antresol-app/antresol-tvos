@@ -14,12 +14,18 @@ struct SeasonSection: View {
             VStack(alignment: .leading, spacing: 28) {
                 HStack(spacing: 28) {
                     if detail.seasons.count > 1 {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            SegmentedPill(options: detail.seasons.map { SegmentedPill<Int>.Option(value: $0.id, title: Self.title(of: $0)) }, selection: seasonBinding)
-                                .padding(.vertical, 12)
+                        let pill = SegmentedPill(
+                            options: detail.seasons.map { SegmentedPill<Int>.Option(value: $0.id, title: Self.title(of: $0)) },
+                            selection: seasonBinding
+                        )
+                        .padding(.vertical, 12)
+                        // Many seasons scroll within the row (to the focused pill) instead
+                        // of running off the screen.
+                        ViewThatFits(in: .horizontal) {
+                            pill
+                            ScrollView(.horizontal, showsIndicators: false) { pill }
+                                .scrollClipDisabled()
                         }
-                        .scrollClipDisabled()
-                        .fixedSize(horizontal: true, vertical: false)
                     } else {
                         Text(verbatim: Self.title(of: season))
                             .font(Theme.Typography.sectionTitle)
@@ -28,6 +34,7 @@ struct SeasonSection: View {
                     Text(verbatim: String(localized: "\(season.episodes.count) episodes", bundle: .localized))
                         .font(Theme.Typography.meta)
                         .foregroundStyle(Theme.Colors.label3)
+                        .fixedSize()
                 }
                 .padding(.horizontal, Theme.Layout.margin)
 
@@ -38,6 +45,7 @@ struct SeasonSection: View {
                                 EpisodeCardView(episode: episode)
                             }
                             .buttonStyle(CardButtonStyle())
+                            .playsOnPlayPause(episode.card)
                             .contextMenu { menu(for: episode) }
                         }
                     }

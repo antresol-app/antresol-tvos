@@ -10,6 +10,8 @@ enum Route: Hashable {
     case linkedItem(Card)
     /// The albums of a music genre.
     case genre(String)
+    /// Everything in a Home shelf (its title's "See All").
+    case shelf(id: String, title: String)
 }
 
 /// Pushes a route onto the current tab's navigation stack, for places that cannot use a

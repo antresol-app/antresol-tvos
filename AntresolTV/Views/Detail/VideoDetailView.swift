@@ -279,7 +279,7 @@ struct VideoDetailView: View {
             playback.play(next?.card ?? shownCard, from: .resume)
         } label: {
             Label {
-                Text(verbatim: playSeriesTitle(next))
+                Text(verbatim: Self.playTitle(for: next))
             } icon: {
                 Image(systemName: "play.fill")
             }
@@ -320,7 +320,8 @@ struct VideoDetailView: View {
         return detail.next ?? detail.seasons.first?.episodes.first
     }
 
-    private func playSeriesTitle(_ episode: EpisodeCard?) -> String {
+    /// "Play S1, E1" or "Resume S1, E2" for a series' next episode (Home's hero too).
+    static func playTitle(for episode: EpisodeCard?) -> String {
         guard let episode else { return String(localized: "Play", bundle: .localized) }
         let code = String(localized: "S\(episode.seasonNo), E\(episode.episodeNo)", bundle: .localized)
         return episode.progress > 0

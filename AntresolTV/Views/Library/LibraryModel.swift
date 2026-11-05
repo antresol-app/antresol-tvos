@@ -32,8 +32,9 @@ final class LibraryModel {
         cards.count < total
     }
 
-    /// Reloads the first page, keeping the current items on screen until it arrives
-    /// unless the sort order changed.
+    /// Reloads the first page. A new sort order starts over; otherwise (the tab appearing
+    /// again, a finished video) the first page is merged into the loaded cards, so later
+    /// pages and the focused card stay.
     func reload(sort newSort: ItemSort, using appState: AppState) async {
         let sortChanged = newSort != sort
         sort = newSort
@@ -48,8 +49,10 @@ final class LibraryModel {
         do {
             let page = try await client.items(kind: kind, sort: newSort, limit: Self.pageSize, offset: 0)
             guard current == generation else { return }
-            cards = Self.unique(page.items)
-            total = page.total
+            cards = sortChanged || cards.isEmpty
+                ? Self.unique(page.items)
+                : PageMerge.merge(firstPage: page.items, into: cards, pageSize: Self.pageSize, key: \.uniqueKey)
+            total = max(page.total, cards.count)
             state = .loaded
         } catch {
             guard current == generation, !Task.isCancelled else { return }

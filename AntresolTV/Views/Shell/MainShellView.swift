@@ -12,6 +12,8 @@ struct MainShellView: View {
     @State private var audio = AudioPlayer()
     @State private var showsNowPlaying = false
     @State private var homePath = NavigationPath()
+    /// The profile's avatar, drawn once for the profile tab.
+    @State private var avatarImage: UIImage?
     @AppStorage("books.section") private var booksPane: BooksView.Pane = .home
     @Environment(AppState.self) private var appState
 
@@ -65,7 +67,11 @@ struct MainShellView: View {
                     Label {
                         Text(verbatim: user.name)
                     } icon: {
-                        Image(systemName: "person.crop.circle")
+                        if let avatarImage {
+                            Image(uiImage: avatarImage)
+                        } else {
+                            Image(systemName: "person.crop.circle")
+                        }
                     }
                 }
                 .tag(ShellTab.account)
@@ -116,6 +122,7 @@ struct MainShellView: View {
             appState.prepareToLeaveProfile = { [audio] in
                 await audio.stopAndFlush()
             }
+            avatarImage = renderAvatar()
         }
         .onDisappear { audio.shutdown() }
     }
@@ -142,6 +149,14 @@ struct MainShellView: View {
         var path = NavigationPath()
         path.append(Route.linkedItem(card))
         homePath = path
+    }
+
+    /// The avatar circle (grad-N gradient and initial) as an image that keeps its colours
+    /// in the tab bar.
+    private func renderAvatar() -> UIImage? {
+        let renderer = ImageRenderer(content: AvatarView(user: user, size: 40))
+        renderer.scale = 2
+        return renderer.uiImage?.withRenderingMode(.alwaysOriginal)
     }
 
     private var presentedPlayback: Binding<PlaybackCoordinator.Request?> {
@@ -184,6 +199,8 @@ struct TabNavigation<Root: View>: View {
                             .environment(\.claimsFocusOnAppear, true)
                     case .genre(let name):
                         GenreView(name: name)
+                    case .shelf(let id, let title):
+                        ShelfGridView(shelfId: id, title: title)
                     }
                 }
         }

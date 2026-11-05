@@ -73,6 +73,8 @@ struct LibraryView: View {
                 SegmentedPill<ItemSort>.Option(value: .year, title: String(localized: "By Year", bundle: .localized)),
             ], selection: sort)
         }
+        // Full width, so Up from any grid column reaches the sort pill.
+        .focusSection()
     }
 
     private var countText: String {
@@ -113,6 +115,7 @@ struct LibraryView: View {
                     PosterCard(card: card, width: Theme.Layout.gridPosterWidth)
                 }
                 .buttonStyle(CardButtonStyle())
+                .playsOnPlayPause(card)
                 .task { await model.loadMoreIfNeeded(after: card, using: appState) }
             }
         }

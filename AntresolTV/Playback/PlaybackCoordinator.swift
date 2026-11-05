@@ -1,6 +1,7 @@
 import AntresolKit
 import Foundation
 import Observation
+import SwiftUI
 
 /// The single entry point for starting video playback. Views call `play(_:from:)`; the
 /// shell presents the player for the pending request and reports when it closes, so
@@ -53,5 +54,26 @@ final class PlaybackCoordinator {
         mediaKeys = store
         mediaKeyToken = client.token
         return store
+    }
+}
+
+extension View {
+    /// The remote's Play/Pause on a focused movie, show or episode card starts it (with
+    /// resume), as in the TV app. Other cards keep the shell's handler (music).
+    func playsOnPlayPause(_ card: Card) -> some View {
+        modifier(PlayOnPlayPause(card: card))
+    }
+}
+
+private struct PlayOnPlayPause: ViewModifier {
+    let card: Card
+    @Environment(PlaybackCoordinator.self) private var playback
+
+    func body(content: Content) -> some View {
+        if card.kind.isVideo {
+            content.onPlayPauseCommand { playback.play(card, from: .resume) }
+        } else {
+            content
+        }
     }
 }

@@ -60,7 +60,7 @@ struct AlbumDetailView: View {
                 ErrorStateView(message: message) { Task { await load() } }
                     .frame(minHeight: 500)
             case .loaded(let album):
-                TrackList(tracks: album.tracks, groupsByDisc: true)
+                TrackList(tracks: album.tracks, groupsByDisc: true, showsAlbumLink: false)
             }
         }
         .task(id: card.id) { await load() }
@@ -100,6 +100,8 @@ struct TrackList: View {
     var groupsByDisc = false
     var leading: TrackRow.Leading = .number
     var showsArtist = false
+    /// Off on the album's own page, where "Go to Album" would push it again.
+    var showsAlbumLink = true
 
     @Environment(AudioPlayer.self) private var audio
 
@@ -124,7 +126,12 @@ struct TrackList: View {
                         .padding(.top, index == 0 ? 0 : 28)
                         .padding(.leading, 28)
                 }
-                TrackRow(track: track, leading: leading, showsArtist: showsArtist || track.artist != tracks.first?.artist) {
+                TrackRow(
+                    track: track,
+                    leading: leading,
+                    showsArtist: showsArtist || track.artist != tracks.first?.artist,
+                    showsAlbumLink: showsAlbumLink
+                ) {
                     audio.play(tracks: tracks, startAt: index)
                 }
             }

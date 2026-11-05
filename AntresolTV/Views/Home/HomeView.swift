@@ -44,8 +44,8 @@ struct HomeView: View {
     private func shelves(_ content: HomeContent) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
-                if let feature = content.feature {
-                    HeroView(card: feature.card, eyebrow: feature.eyebrow)
+                if !content.features.isEmpty {
+                    HeroView(features: content.features)
                 } else {
                     Color.clear.frame(height: 140)
                 }
@@ -60,6 +60,7 @@ struct HomeView: View {
                             WideCard(card: card)
                         }
                         .buttonStyle(CardButtonStyle())
+                        .playsOnPlayPause(card)
                         .contextMenu {
                             Button {
                                 openRoute(.item(card))
@@ -76,11 +77,17 @@ struct HomeView: View {
                 }
 
                 ForEach(content.shelves) { shelf in
-                    ShelfRow(title: shelf.title, items: shelf.cards, id: \.uniqueKey) { card in
+                    ShelfRow(
+                        title: shelf.title,
+                        items: shelf.cards,
+                        id: \.uniqueKey,
+                        destination: .shelf(id: shelf.id, title: shelf.title)
+                    ) { card in
                         NavigationLink(value: Route.item(card)) {
                             PosterCard(card: card)
                         }
                         .buttonStyle(CardButtonStyle())
+                        .playsOnPlayPause(card)
                     }
                 }
             }

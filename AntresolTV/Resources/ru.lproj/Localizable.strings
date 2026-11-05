@@ -254,3 +254,17 @@
 "Apple" = "Apple";
 "The system font and SF Symbols are provided by Apple and used under Apple's licence terms." = "Системный шрифт и SF Symbols предоставлены Apple и используются на условиях лицензии Apple.";
 "About This App" = "О приложении";
+
+/* Errors, version picker, carousel, shelves, comics (review fixes) */
+"Couldn't reach the server. Check that it is running and on the same network." = "Не удалось связаться с сервером. Проверьте, что он запущен и находится в той же сети.";
+"Sign in again to continue." = "Чтобы продолжить, войдите снова.";
+"Something went wrong. Try again." = "Что-то пошло не так. Попробуйте ещё раз.";
+"The server couldn't complete the request." = "Сервер не смог выполнить запрос.";
+"The server had a problem. Try again in a moment." = "На сервере произошла ошибка. Попробуйте чуть позже.";
+"This item is no longer in the library." = "Этого больше нет в медиатеке.";
+"Unexpected response from the server." = "Неожиданный ответ сервера.";
+"Playback stopped because the server isn’t sending audio. Try again later." = "Воспроизведение остановлено: сервер не передаёт звук. Попробуйте позже.";
+"Play Version" = "Выберите версию";
+"Featured %lld of %lld" = "Подборка: %1$lld из %2$lld";
+"Press Select to read the next volume, or Menu to close." = "Нажмите на сенсорную панель, чтобы читать следующий том, или Menu, чтобы закрыть.";
+"Nothing here yet" = "Здесь пока пусто";

@@ -119,3 +119,27 @@ extension View {
             .shadow(color: .black.opacity(isFocused ? 0.6 : 0.25), radius: isFocused ? 28 : 8, y: isFocused ? 18 : 4)
     }
 }
+
+/// A shelf title that opens the full list: plain text with a chevron, lifted onto a
+/// white capsule when focused.
+struct ShelfTitleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        ShelfTitleButtonBody(configuration: configuration)
+    }
+}
+
+private struct ShelfTitleButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    @Environment(\.isFocused) private var isFocused
+
+    var body: some View {
+        configuration.label
+            .font(Theme.Typography.sectionTitle)
+            .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
+            .background(isFocused ? Color.white : Color.clear, in: Capsule())
+            .scaleEffect(configuration.isPressed ? 0.97 : (isFocused ? Theme.Motion.focusScale : 1))
+            .animation(Theme.Motion.easeOut, value: isFocused)
+    }
+}
