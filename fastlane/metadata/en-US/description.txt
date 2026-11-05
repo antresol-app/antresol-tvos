@@ -1,0 +1,31 @@
+Antresol brings your home media library to Apple TV. The films, TV shows, music, audiobooks and comics you keep on your own computer or NAS, in one clean, native library on the big screen.
+
+Antresol is a player for the Antresol home media server, which you run yourself. No content is provided: the app shows only the files you put on your server.
+
+FILMS AND TV SHOWS
+• Pick up where you left off, on any of your devices.
+• Audio tracks, subtitles and a choice of quality.
+• Seasons and episodes, with Up Next for the following episode.
+• Want to Watch and Watched marks.
+
+MUSIC
+• Albums, artists, songs, genres and playlists.
+• Favourites and synced lyrics.
+• Background playback with the Siri Remote and Control Center.
+
+AUDIOBOOKS AND COMICS
+• Audiobooks with chapters, speed and a sleep timer; your position syncs across devices.
+• Manga and comics, with page spreads and right-to-left reading.
+
+FAMILY
+• Profiles with passwords and kid profiles with age limits.
+
+TOP SHELF
+• Continue Watching and Recently Added right on the Apple TV Home screen.
+
+PRIVACY
+The app connects only to your server. The developer provides and sells no content and receives none of your data. There are no ads, analytics or tracking.
+
+You need an Antresol server on your computer or NAS, version 0.3.0 or newer. Install guide: https://sidun-av.github.io/antresol/install.html
+
+Only add media you have the rights to.

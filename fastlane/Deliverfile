@@ -1,0 +1,8 @@
+# App Store metadata for `fastlane deliver` (text only; the build goes up through Xcode or
+# altool, see README.md).
+app_identifier "app.antresol.tv"
+platform "appletvos"
+skip_binary_upload true
+skip_screenshots true
+submit_for_review false
+precheck_include_in_app_purchases false
