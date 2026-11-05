@@ -199,6 +199,110 @@ final class ScreenshotTests: XCTestCase {
         exitPlayer(app)
     }
 
+    func test06Music() {
+        let app = signInAsKid()
+
+        // Tab bar: Search, Home, Movies, TV Shows, Music. Focus starts on Home.
+        for _ in 0..<3 {
+            remote.press(.right)
+            pause(1)
+        }
+        XCTAssertTrue(app.buttons["Shuffle All"].waitForExistence(timeout: 20))
+        pause(3)
+        snapshot(app, "25-music-listen-now")
+
+        // Section pill, Shuffle All, then the first album of the first shelf.
+        for _ in 0..<3 {
+            remote.press(.down)
+            pause(1)
+        }
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Shuffle"].waitForExistence(timeout: 20))
+        pause(3)
+        snapshot(app, "26-album-detail")
+
+        // Into the track list and play the first song: Now Playing comes up.
+        remote.press(.down)
+        pause(2)
+        snapshot(app, "27-album-tracks")
+        remote.press(.select)
+        pause(5)
+        snapshot(app, "28-now-playing")
+
+        // Right to the panel pill, then Lyrics.
+        remote.press(.right)
+        pause(1)
+        remote.press(.up)
+        pause(1)
+        remote.press(.right)
+        pause(1)
+        remote.press(.select)
+        pause(3)
+        snapshot(app, "29-now-playing-lyrics")
+
+        // Back to the album; the Now Playing tab is in the tab bar.
+        remote.press(.menu)
+        pause(2)
+        remote.press(.menu)
+        pause(2)
+        for _ in 0..<6 {
+            remote.press(.up)
+        }
+        pause(1)
+        // Albums section of the pill.
+        remote.press(.down)
+        pause(1)
+        remote.press(.right)
+        pause(1)
+        remote.press(.select)
+        pause(3)
+        snapshot(app, "30-music-albums")
+    }
+
+    func test07Books() {
+        let app = signInAsKid()
+
+        // Tab bar: Search, Home, Movies, TV Shows, Music, Books.
+        for _ in 0..<4 {
+            remote.press(.right)
+            pause(1)
+        }
+        pause(3)
+        snapshot(app, "31-books-home")
+
+        // Currently Reading: the comic volume first.
+        remote.press(.down)
+        pause(1)
+        remote.press(.down)
+        pause(1)
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Read"].waitForExistence(timeout: 20))
+        pause(3)
+        snapshot(app, "32-comic-volume")
+        remote.press(.select)
+        pause(5)
+        snapshot(app, "33-comic-reader")
+        // Right-to-left: left turns the page forward (to the 2–3 spread).
+        remote.press(.left)
+        pause(3)
+        snapshot(app, "34-comic-spread")
+        remote.press(.menu)
+        pause(3)
+        remote.press(.menu)
+        pause(2)
+
+        // The multi-part audiobook next to it.
+        remote.press(.right)
+        pause(1)
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Want to Read"].waitForExistence(timeout: 20))
+        pause(3)
+        snapshot(app, "35-audiobook-detail")
+        remote.press(.select)
+        pause(5)
+        snapshot(app, "36-audiobook-now-playing")
+    }
+
     /// Menu until the player is gone (it may first close a panel or the transport bar).
     private func exitPlayer(_ app: XCUIApplication) {
         for _ in 0..<4 {
