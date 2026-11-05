@@ -115,6 +115,7 @@ private struct TrackRowLabel: View {
                         .font(.system(size: 26, weight: .semibold))
                         .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.accent)
                         .symbolEffect(.variableColor.iterative, isActive: !isFocused)
+                        .accessibilityLabel(Text("Now Playing"))
                 } else {
                     Text(verbatim: track.trackNo > 0 ? String(track.trackNo) : "")
                         .font(Theme.Typography.meta.monospacedDigit())
@@ -131,6 +132,7 @@ private struct TrackRowLabel: View {
                         Image(systemName: "waveform")
                             .font(.system(size: 24, weight: .semibold))
                             .foregroundStyle(.white)
+                            .accessibilityLabel(Text("Now Playing"))
                     }
                 }
         }

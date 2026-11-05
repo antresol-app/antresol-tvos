@@ -10,7 +10,8 @@ struct PlayerPreferences {
         self.defaults = defaults
     }
 
-    private enum Key {
+    /// UserDefaults keys, also bound by the Settings screen.
+    enum Key {
         static let audioLanguage = "player.audioLanguage"
         static let subtitleLanguage = "player.subtitleLanguage"
         static let quality = "player.quality"

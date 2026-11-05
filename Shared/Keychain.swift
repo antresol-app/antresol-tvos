@@ -2,8 +2,15 @@ import Foundation
 import Security
 
 /// Generic-password items of one Keychain service, addressed by account name.
+/// With an `accessGroup` the items live in that shared group (app and Top Shelf extension).
 struct Keychain: Sendable {
     let service: String
+    var accessGroup: String?
+
+    init(service: String, accessGroup: String? = nil) {
+        self.service = service
+        self.accessGroup = accessGroup
+    }
 
     func string(for account: String) -> String? {
         var query = baseQuery(for: account)
@@ -36,11 +43,15 @@ struct Keychain: Sendable {
     }
 
     private func baseQuery(for account: String) -> [String: Any] {
-        [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
+        if let accessGroup {
+            query[kSecAttrAccessGroup as String] = accessGroup
+        }
+        return query
     }
 }
 

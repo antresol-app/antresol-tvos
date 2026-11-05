@@ -20,18 +20,41 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: AntresolTV
+      - path: Shared
     dependencies:
       - package: AntresolKit
+      - target: TopShelf
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.antresol.tv
         INFOPLIST_FILE: AntresolTV/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AntresolTV/AntresolTV.entitlements
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "3"
         ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_PREVIEWS: YES
         LOCALIZATION_PREFERS_STRING_CATALOGS: NO
+  TopShelf:
+    type: tv-app-extension
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: TopShelf
+      - path: Shared
+    dependencies:
+      - package: AntresolKit
+      - sdk: TVServices.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.antresol.tv.topshelf
+        PRODUCT_NAME: TopShelf
+        INFOPLIST_FILE: TopShelf/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: TopShelf/TopShelf.entitlements
+        TARGETED_DEVICE_FAMILY: "3"
+        LOCALIZATION_PREFERS_STRING_CATALOGS: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
   AntresolTVUITests:
     type: bundle.ui-testing
     platform: tvOS

@@ -302,6 +302,66 @@ final class ScreenshotTests: XCTestCase {
         snapshot(app, "36-audiobook-now-playing")
     }
 
+    func test08Settings() {
+        let app = signInAsKid()
+
+        // The profile tab is the last one.
+        for _ in 0..<7 {
+            remote.press(.right)
+            pause(1)
+        }
+        XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
+        pause(2)
+        snapshot(app, "37-settings")
+
+        // Into the settings list, then the App Language page.
+        remote.press(.down)
+        pause(1)
+        moveFocus(.right, to: setting(app, "Video Quality"), limit: 3)
+        XCTAssertTrue(moveFocus(.down, to: setting(app, "App Language"), limit: 6))
+        remote.press(.select)
+        pause(3)
+        snapshot(app, "38-settings-language")
+        remote.press(.menu)
+        pause(2)
+
+        XCTAssertTrue(moveFocus(.down, to: setting(app, "Acknowledgements"), limit: 8))
+        pause(1)
+        snapshot(app, "39-settings-server-about")
+        // A kid profile cannot change the server.
+        XCTAssertFalse(setting(app, "Change Server").exists)
+        remote.press(.select)
+        pause(2)
+        snapshot(app, "40-acknowledgements")
+    }
+
+    func test09DeepLinkAndRussian() {
+        // antresol://item/19 opens the movie's page on Home once signed in.
+        let app = launch(
+            arguments: ["-AntresolResetSession", "YES", "-AntresolServerURL", server, "-AntresolOpenURL", "antresol://item/19"],
+            language: "ru"
+        )
+        XCTAssertTrue(app.staticTexts["Кто смотрит?"].waitForExistence(timeout: 30))
+        pause(2)
+        snapshot(app, "41-profiles-ru")
+        remote.press(.right)
+        remote.press(.select)
+        pause(6)
+        snapshot(app, "42-deep-link-detail-ru")
+        remote.press(.menu)
+        pause(3)
+        snapshot(app, "43-home-ru")
+        for _ in 0..<8 {
+            remote.press(.up)
+        }
+        for _ in 0..<7 {
+            remote.press(.right)
+            pause(1)
+        }
+        pause(2)
+        snapshot(app, "44-settings-ru")
+    }
+
     /// The poster card whose title starts with `title`.
     private func card(_ app: XCUIApplication, _ title: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
@@ -340,9 +400,14 @@ final class ScreenshotTests: XCTestCase {
         return app
     }
 
-    private func launch(arguments: [String]) -> XCUIApplication {
+    /// A settings row by its title (its label also carries the value).
+    private func setting(_ app: XCUIApplication, _ title: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+    }
+
+    private func launch(arguments: [String], language: String = "en") -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += arguments + ["-AppleLanguages", "(en)"]
+        app.launchArguments += arguments + ["-AppleLanguages", "(\(language))"]
         app.launch()
         return app
     }

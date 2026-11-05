@@ -8,8 +8,10 @@ struct AntresolTVApp: App {
         WindowGroup {
             RootView()
                 .environment(appState)
+                .environment(\.locale, appState.language.locale)
                 .preferredColorScheme(.dark)
                 .task { await appState.bootstrap() }
+                .onOpenURL { appState.open($0) }
         }
     }
 }

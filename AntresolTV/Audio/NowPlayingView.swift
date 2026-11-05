@@ -175,6 +175,7 @@ private struct NowPlayingContent: View {
                         }
                     }
                     .buttonStyle(PillButtonStyle(kind: .glass))
+                    .accessibilityLabel(Text("Sleep Timer"))
                 }
             }
             .focusSection()

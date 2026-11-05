@@ -1,6 +1,7 @@
 import AntresolKit
 import Foundation
 import Observation
+import TVServices
 
 /// App-wide session state: which server we talk to and who is signed in.
 @MainActor
@@ -26,7 +27,20 @@ final class AppState {
         case needsPassword
     }
 
-    private(set) var phase: Phase = .launching
+    private(set) var phase: Phase = .launching {
+        didSet { publishSharedSession() }
+    }
+    /// The app language; changing it also changes the language the server answers in.
+    var language: AppLanguage = .stored {
+        didSet {
+            guard language != oldValue else { return }
+            language.persist()
+            client?.language = language.serverCode
+            publishSharedSession()
+        }
+    }
+    /// A link (Top Shelf, URL scheme) waiting for the signed-in shell to open it.
+    var pendingDeepLink: DeepLink?
     /// The connected server, once known.
     private(set) var server: ServerConnection?
     /// Where "Cancel" on the server screen returns to.
@@ -40,6 +54,7 @@ final class AppState {
         self.settings = settings
         self.tokens = tokens
         self.device = device
+        AppLanguage.captureSystemLanguage()
     }
 
     var client: APIClient? { server?.client }
@@ -61,7 +76,7 @@ final class AppState {
             return
         }
         do {
-            let connection = try await ServerConnection.connect(to: url, language: Self.preferredLanguage)
+            let connection = try await ServerConnection.connect(to: url, language: language.serverCode)
             server = connection
             settings.serverId = connection.serverId
             await restoreProfile(on: connection)
@@ -76,7 +91,7 @@ final class AppState {
         guard let url = ServerAddress.normalize(address) else {
             throw APIError.invalidURL(address)
         }
-        let connection = try await ServerConnection.connect(to: url, language: Self.preferredLanguage)
+        let connection = try await ServerConnection.connect(to: url, language: language.serverCode)
         if connection.serverId != server?.serverId {
             settings.lastUserId = nil
         }
@@ -180,7 +195,8 @@ final class AppState {
 
     #if DEBUG
     /// UI-test hooks, passed as launch arguments (`-AntresolResetSession YES`,
-    /// `-AntresolServerURL <address>`): start from a clean session and/or a given server.
+    /// `-AntresolServerURL <address>`, `-AntresolOpenURL <antresol://…>`): start from a clean
+    /// session and/or a given server, and open a link once signed in.
     private func applyLaunchOverrides() {
         let defaults = UserDefaults.standard
         if defaults.bool(forKey: "AntresolResetSession") {
@@ -189,6 +205,9 @@ final class AppState {
         }
         if let address = defaults.string(forKey: "AntresolServerURL"), let url = ServerAddress.normalize(address) {
             settings.serverURL = url
+        }
+        if let link = defaults.string(forKey: "AntresolOpenURL").flatMap(URL.init(string:)) {
+            open(link)
         }
     }
     #endif
@@ -218,9 +237,26 @@ final class AppState {
         }
     }
 
-    /// `en` or `ru`, from the user's preferred languages.
-    static var preferredLanguage: String {
-        APIClient.normalizeLanguage(Locale.preferredLanguages.first ?? "en")
+    /// Opens an `antresol://` URL once a profile is signed in.
+    func open(_ url: URL) {
+        if let link = DeepLink(url: url) {
+            pendingDeepLink = link
+        }
+    }
+
+    /// Shares the signed-in session with the Top Shelf extension (or clears it) and asks
+    /// the system to reload the Top Shelf when that changed.
+    private func publishSharedSession() {
+        let changed: Bool
+        if case .signedIn(let user) = phase, let server, let token = server.client.token {
+            let session = SharedSession(serverURL: server.url, userId: user.id, language: language.serverCode)
+            changed = SharedSessionStore.save(session, token: token)
+        } else {
+            changed = SharedSessionStore.clear()
+        }
+        if changed {
+            TVTopShelfContentProvider.topShelfContentDidChange()
+        }
     }
 }
 
