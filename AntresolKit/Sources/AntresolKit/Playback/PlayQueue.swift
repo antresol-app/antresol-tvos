@@ -143,6 +143,25 @@ public struct PlayQueue<Element: Hashable & Sendable>: Sendable {
         }
     }
 
+    /// Adds more of the list the queue was built from (e.g. later pages of the song
+    /// library). They go to the end of the original order; while shuffled they are
+    /// mixed into the entries still to come, as if they had been there from the start.
+    public mutating func extend(with elements: [Element]) {
+        var generator = SystemRandomNumberGenerator()
+        extend(with: elements, using: &generator)
+    }
+
+    public mutating func extend<G: RandomNumberGenerator>(with elements: [Element], using generator: inout G) {
+        guard isShuffled, let currentIndex else {
+            return append(contentsOf: elements)
+        }
+        let entries = elements.map { Entry($0) }
+        original.append(contentsOf: entries)
+        for entry in entries {
+            items.insert(entry, at: Int.random(in: (currentIndex + 1)...items.count, using: &generator))
+        }
+    }
+
     /// Removes an upcoming entry. The current entry cannot be removed.
     public mutating func remove(entry id: UUID) {
         guard let index = items.firstIndex(where: { $0.id == id }), index != currentIndex else { return }

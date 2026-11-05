@@ -37,6 +37,34 @@ final class PlayQueueTests: XCTestCase {
         XCTAssertEqual(RepeatMode.one.next, .off)
     }
 
+    func testExtendAppendsInOrderWhenNotShuffled() {
+        var queue = PlayQueue([1, 2, 3], startAt: 1)
+        queue.extend(with: [4, 5])
+        XCTAssertEqual(queue.items.map(\.element), [1, 2, 3, 4, 5])
+        XCTAssertEqual(queue.current?.element, 2)
+
+        var empty = PlayQueue<Int>()
+        empty.extend(with: [7])
+        XCTAssertEqual(empty.current?.element, 7)
+    }
+
+    func testExtendMixesIntoUpcomingWhenShuffled() {
+        var generator = SeededGenerator(state: 7)
+        var queue = PlayQueue(Array(1...5), startAt: 2)
+        queue.setShuffle(true, using: &generator)
+        queue.move(to: 2)
+        let played = queue.items.prefix(3).map(\.element)
+        queue.extend(with: Array(6...25), using: &generator)
+        XCTAssertEqual(queue.items.prefix(3).map(\.element), played, "what has played and the current item stay put")
+        XCTAssertEqual(queue.currentIndex, 2)
+        XCTAssertEqual(Set(queue.items.map(\.element)), Set(1...25))
+        XCTAssertNotEqual(Array(queue.items.suffix(20).map(\.element)), Array(6...25), "new items are mixed in")
+
+        queue.setShuffle(false)
+        XCTAssertEqual(queue.items.map(\.element), Array(1...25), "the original order has them at the end")
+        XCTAssertEqual(queue.current?.element, played[2])
+    }
+
     func testShuffleKeepsCurrentAndRestores() {
         var generator = SeededGenerator(state: 42)
         var queue = PlayQueue(Array(1...20), startAt: 5)
