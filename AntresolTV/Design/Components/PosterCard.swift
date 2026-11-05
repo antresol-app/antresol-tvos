@@ -50,6 +50,14 @@ struct PosterCard: View {
         self.width = width ?? resolved.defaultWidth
     }
 
+    /// A card whose artwork is `artworkHeight` tall (default size when nil), for rows that
+    /// mix posters and square covers: every card then shares one height and the captions
+    /// line up.
+    init(card: Card, artworkHeight: CGFloat?) {
+        let shape = ArtworkShape(kind: card.kind)
+        self.init(card: card, shape: shape, width: artworkHeight.map { $0 / shape.aspectRatio })
+    }
+
     var body: some View {
         VStack(alignment: shape == .circle ? .center : .leading, spacing: 0) {
             CardArtwork(
@@ -57,10 +65,12 @@ struct PosterCard: View {
                 paths: [card.poster],
                 cornerRadius: cornerRadius,
                 maxPixelSize: width * shape.aspectRatio * 2,
-                showsPlaceholderTitle: shape != .circle
+                showsPlaceholderTitle: shape != .circle,
+                // Keep the bottom free for the progress bar.
+                placeholderAlignment: showsProgress ? .topLeading : .bottomLeading
             )
             .overlay(alignment: .bottom) {
-                if card.progress > 0, shape != .circle {
+                if showsProgress {
                     ProgressBar(value: card.progress)
                         .padding(.horizontal, 16)
                         .padding(.bottom, 16)
@@ -79,6 +89,19 @@ struct PosterCard: View {
 
     private var cornerRadius: CGFloat {
         shape.cornerRadius(width: width)
+    }
+
+    private var showsProgress: Bool {
+        card.progress > 0 && shape != .circle
+    }
+}
+
+extension Collection where Element == Card {
+    /// The shared artwork height for a row whose cards have different proportions (a
+    /// Currently Reading row of comics and audiobooks), or nil when they all match.
+    var mixedShapeArtworkHeight: CGFloat? {
+        let ratios = Set(map { ArtworkShape(kind: $0.kind).aspectRatio })
+        return ratios.count > 1 ? Theme.Layout.posterWidth * ArtworkShape.poster.aspectRatio : nil
     }
 }
 

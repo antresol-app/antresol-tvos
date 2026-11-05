@@ -123,18 +123,22 @@ private struct BrowseTileView: View {
     @Environment(\.isCardFocused) private var isFocused
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        // Symbol top left in a fixed box and title pinned bottom left, so every tile's
+        // title sits on the same line whatever the symbol's height.
+        VStack(alignment: .leading, spacing: 0) {
+            Image(systemName: tile.systemImage)
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(height: 36, alignment: .leading)
+            Spacer(minLength: 8)
             Text(tile.title)
                 .font(Theme.Typography.headline)
                 .foregroundStyle(.white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
-            Image(systemName: tile.systemImage)
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.9))
         }
         .padding(24)
-        .frame(width: 262, height: 160, alignment: .bottomLeading)
+        .frame(width: 262, height: 160, alignment: .topLeading)
         .background(
             LinearGradient(
                 colors: [Color(hex: tile.colors.0), Color(hex: tile.colors.1)],

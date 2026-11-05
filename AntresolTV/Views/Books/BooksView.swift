@@ -71,9 +71,10 @@ private struct BooksHomeSection: View {
                 } else {
                     LazyVStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
                         ForEach(shelves) { shelf in
+                            let artworkHeight = shelf.cards.mixedShapeArtworkHeight
                             ShelfRow(title: shelf.title, items: shelf.cards, id: \.uniqueKey) { card in
                                 NavigationLink(value: Route.item(card)) {
-                                    PosterCard(card: card)
+                                    PosterCard(card: card, artworkHeight: artworkHeight)
                                 }
                                 .buttonStyle(CardButtonStyle())
                             }

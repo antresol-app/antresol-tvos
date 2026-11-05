@@ -54,16 +54,18 @@ struct PageHeader<Accessory: View>: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            Text(title)
-                .font(Theme.Typography.pageTitle)
-                .foregroundStyle(Theme.Colors.label)
-                .accessibilityAddTraits(.isHeader)
-            if !count.isEmpty {
-                Text(verbatim: count)
-                    .font(Theme.Typography.meta)
-                    .foregroundStyle(Theme.Colors.label3)
-                    .padding(.leading, 20)
-                    .padding(.top, 14)
+            HStack(alignment: .firstTextBaseline, spacing: 28) {
+                Text(title)
+                    .font(Theme.Typography.pageTitle)
+                    .foregroundStyle(Theme.Colors.label)
+                    .lineLimit(1)
+                    .accessibilityAddTraits(.isHeader)
+                if !count.isEmpty {
+                    Text(verbatim: count)
+                        .font(Theme.Typography.meta)
+                        .foregroundStyle(Theme.Colors.label3)
+                        .lineLimit(1)
+                }
             }
             Spacer(minLength: 40)
             accessory()
@@ -112,9 +114,10 @@ private struct MusicHomeSection: View {
                         .frame(minHeight: 500)
                 } else {
                     ForEach(shelves) { shelf in
+                        let artworkHeight = shelf.cards.mixedShapeArtworkHeight
                         ShelfRow(title: shelf.title, items: shelf.cards, id: \.uniqueKey) { card in
                             NavigationLink(value: Route.item(card)) {
-                                PosterCard(card: card)
+                                PosterCard(card: card, artworkHeight: artworkHeight)
                             }
                             .buttonStyle(CardButtonStyle())
                         }
@@ -301,6 +304,7 @@ private struct SongsSection: View {
                             .task { await list.loadMoreIfNeeded(after: track, threshold: 30, using: appState) }
                         }
                     }
+                    .listRowOutdent()
                     .focusSection()
                 }
             }

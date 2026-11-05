@@ -154,7 +154,7 @@ private struct TrackRowLabel: View {
                         .foregroundStyle(secondaryColor)
                 }
             }
-            .frame(width: 52, alignment: .trailing)
+            .frame(width: 52, alignment: .leading)
         case .cover:
             CardArtwork(title: track.album.isEmpty ? track.title : track.album, paths: [track.cover], cornerRadius: 8, maxPixelSize: 140, showsPlaceholderTitle: false)
                 .frame(width: 64, height: 64)

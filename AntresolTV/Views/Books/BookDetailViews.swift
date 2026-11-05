@@ -147,6 +147,7 @@ struct ChapterList: View {
                 .buttonStyle(ListRowButtonStyle())
             }
         }
+        .listRowOutdent()
         .padding(.horizontal, Theme.Layout.margin)
         .focusSection()
     }
@@ -172,7 +173,7 @@ struct ChapterRowLabel: View {
                         .foregroundStyle(secondaryColor)
                 }
             }
-            .frame(width: 52, alignment: .trailing)
+            .frame(width: 52, alignment: .leading)
             Text(verbatim: chapter.title.isEmpty ? String(localized: "Chapter \(number)", bundle: .localized) : chapter.title)
                 .font(Theme.Typography.headline)
                 .lineLimit(1)
@@ -333,7 +334,7 @@ struct ComicVolumeView: View {
             let savedPage = volume?.progress.flatMap { ComicProgress.pageIndex(locator: $0.locator) }
             CollectionHeader(
                 card: volume?.card ?? card,
-                eyebrow: volume?.series?.name ?? String(localized: "Manga & Comics", bundle: .localized),
+                eyebrow: Self.eyebrow(volume),
                 subtitle: volume?.card.subtitle ?? card.subtitle,
                 meta: volume.map { metaLine([$0.authors.joined(separator: ", "), ComicSeriesView.directionLabel($0.readingDirection)]) } ?? "",
                 description: volume?.description ?? "",
@@ -384,6 +385,15 @@ struct ComicVolumeView: View {
             ComicReaderView(request: request)
                 .environment(appState)
         }
+    }
+
+    /// The series name above the title, unless the title already is the series name (the
+    /// server titles volumes after their series and puts "Volume 1" in the subtitle).
+    private static func eyebrow(_ volume: BookDetail?) -> String {
+        if let name = volume?.series?.name, !name.isEmpty, name != volume?.card.title {
+            return name
+        }
+        return String(localized: "Manga & Comics", bundle: .localized)
     }
 
     private func load() async {

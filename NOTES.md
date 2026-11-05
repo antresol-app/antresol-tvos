@@ -693,3 +693,35 @@ are listed below.
   mention Apple TV (Top Shelf artwork cached in the App Group container) before submission.
 - App Review needs a reachable demo server and profile credentials.
 - Store screenshots must be picked by hand from the `screenshots` branch (mock data).
+
+## Design fidelity pass (screenshot review)
+
+Every screenshot on the `screenshots` branch was compared with `docs/design-ref` (tv_*.png,
+DESIGN.md) and tvOS conventions. Fixed:
+
+- **Truncated actions**: the detail header capped its whole column at 1400 pt, so in Russian
+  "Отметить просмотренным" was cut ("Отметить просмот…"). Only the title keeps the cap now, and
+  the pill rows of every detail header (video, album, artist, playlist, books, comics) are an
+  `ActionRow`: a horizontal scroll view that slides as focus moves when the pills need more
+  than the width, instead of truncating labels.
+- **Mixed card shapes in one row**: Currently Reading (Home and Books) mixes 2:3 comic posters
+  and square audiobook covers, which left the captions at different heights. Rows whose cards
+  have different proportions now share one artwork height (360 pt, the poster height:
+  `Collection<Card>.mixedShapeArtworkHeight`, `PosterCard(card:artworkHeight:)`).
+- **Placeholder title over the progress bar**: posters without artwork that have progress now
+  put the title at the top, as wide cards already did.
+- **List alignment**: track, playlist, Songs, chapter, queue and chapter-panel rows started 28 pt
+  (cover rows) or ~65 pt (numbered rows) right of the section headings. Row stacks are now
+  outdented by the row padding (`listRowOutdent()`, `Theme.Layout.listRowInset`) and numbers are
+  leading-aligned, so text lines up with the headings and only the focus plate reaches beyond.
+- **Now Playing**: the artwork was centred in the 680 pt column while the title, scrubber and
+  controls were leading-aligned; it is leading-aligned now.
+- **Settings**: read-only rows (Address, Version, app version) had a dimmed title and a bright
+  value, the reverse of the button rows; the title is primary and the value secondary now. The
+  settings list no longer scrolls under the tab bar (its scroll view clips).
+- **Comic volume page**: the eyebrow repeated the title (the server titles volumes after their
+  series); it shows the series only when it differs, else "Manga & Comics".
+- **Page headers**: the "2 movies" count is baseline-aligned with the page title (Movies and TV
+  Shows now use the shared `PageHeader`).
+- **Search browse tiles**: symbol top left in a fixed box and title pinned bottom left, so the
+  titles of all six tiles sit on one line (before, they shifted with the symbol height).

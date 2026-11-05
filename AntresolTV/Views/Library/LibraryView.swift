@@ -54,27 +54,13 @@ struct LibraryView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center) {
-            Text(title)
-                .font(Theme.Typography.pageTitle)
-                .foregroundStyle(Theme.Colors.label)
-                .accessibilityAddTraits(.isHeader)
-            if model.total > 0 {
-                Text(verbatim: countText)
-                    .font(Theme.Typography.meta)
-                    .foregroundStyle(Theme.Colors.label3)
-                    .padding(.leading, 20)
-                    .padding(.top, 14)
-            }
-            Spacer(minLength: 40)
+        PageHeader(title: title, count: model.total > 0 ? countText : "") {
             SegmentedPill(options: [
                 SegmentedPill<ItemSort>.Option(value: .recent, title: String(localized: "Recently Added", bundle: .localized)),
                 SegmentedPill<ItemSort>.Option(value: .title, title: String(localized: "By Title", bundle: .localized)),
                 SegmentedPill<ItemSort>.Option(value: .year, title: String(localized: "By Year", bundle: .localized)),
             ], selection: sort)
         }
-        // Full width, so Up from any grid column reaches the sort pill.
-        .focusSection()
     }
 
     private var countText: String {

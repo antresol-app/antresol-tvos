@@ -125,6 +125,7 @@ struct TrackList: View {
                 Text("No songs")
                     .font(Theme.Typography.body)
                     .foregroundStyle(Theme.Colors.label2)
+                    .padding(.horizontal, Theme.Layout.listRowInset)
             }
             ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
                 if groupsByDisc, discs.count > 1, index == 0 || tracks[index - 1].discNo != track.discNo {
@@ -134,7 +135,7 @@ struct TrackList: View {
                         .textCase(.uppercase)
                         .foregroundStyle(Theme.Colors.label2)
                         .padding(.top, index == 0 ? 0 : 28)
-                        .padding(.leading, 28)
+                        .padding(.leading, Theme.Layout.listRowInset)
                 }
                 TrackRow(
                     track: track,
@@ -146,6 +147,7 @@ struct TrackList: View {
                 }
             }
         }
+        .listRowOutdent()
         .padding(.horizontal, Theme.Layout.margin)
         .focusSection()
     }
@@ -448,6 +450,7 @@ struct PlaylistDetailView: View {
                 Text("This playlist is empty. Long-press a song anywhere in Music and choose Add to Playlist.")
                     .font(Theme.Typography.body)
                     .foregroundStyle(Theme.Colors.label2)
+                    .padding(.horizontal, Theme.Layout.listRowInset)
             }
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                 TrackRow(
@@ -464,6 +467,7 @@ struct PlaylistDetailView: View {
                 }
             }
         }
+        .listRowOutdent()
         .padding(.horizontal, Theme.Layout.margin)
         .focusSection()
     }

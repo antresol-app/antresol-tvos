@@ -110,6 +110,9 @@ enum Theme {
         /// Square cover grid cell; five columns fill the content width.
         static let gridSquareWidth: CGFloat = 316
         static let gridSquareSpacing: CGFloat = 45
+        /// Inner padding of list rows (tracks, chapters, queue); lists are outdented by it
+        /// so the row text lines up with the page's headings.
+        static let listRowInset: CGFloat = 28
     }
 
     enum Motion {

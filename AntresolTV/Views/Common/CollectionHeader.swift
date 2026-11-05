@@ -84,11 +84,8 @@ struct CollectionHeader<Actions: View>: View {
                             }
                         }
                     }
-                    HStack(spacing: 24) {
-                        actions()
-                    }
-                    .padding(.top, 18)
-                    .focusSection()
+                    ActionRow(content: actions)
+                        .padding(.top, 18)
                     if let error {
                         Text(verbatim: error)
                             .font(Theme.Typography.meta)

@@ -16,7 +16,7 @@ private struct ListRowBody: View {
         configuration.label
             .environment(\.isCardFocused, isFocused)
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
-            .padding(.horizontal, 28)
+            .padding(.horizontal, Theme.Layout.listRowInset)
             .frame(minHeight: 84)
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
@@ -25,6 +25,14 @@ private struct ListRowBody: View {
             .scaleEffect(configuration.isPressed ? 0.99 : (isFocused ? 1.02 : 1))
             .shadow(color: .black.opacity(isFocused ? 0.45 : 0), radius: 18, y: 10)
             .animation(Theme.Motion.easeOut, value: isFocused)
+    }
+}
+
+extension View {
+    /// Widens a stack of `ListRowButtonStyle` rows by the rows' inner padding, so their text
+    /// starts at the stack's edge and only the focus plate reaches beyond it.
+    func listRowOutdent() -> some View {
+        padding(.horizontal, -Theme.Layout.listRowInset)
     }
 }
 

@@ -77,6 +77,7 @@ struct HomeView: View {
                 }
 
                 ForEach(content.shelves) { shelf in
+                    let artworkHeight = shelf.cards.mixedShapeArtworkHeight
                     ShelfRow(
                         title: shelf.title,
                         items: shelf.cards,
@@ -84,7 +85,7 @@ struct HomeView: View {
                         destination: .shelf(id: shelf.id, title: shelf.title)
                     ) { card in
                         NavigationLink(value: Route.item(card)) {
-                            PosterCard(card: card)
+                            PosterCard(card: card, artworkHeight: artworkHeight)
                         }
                         .buttonStyle(CardButtonStyle())
                         .playsOnPlayPause(card)

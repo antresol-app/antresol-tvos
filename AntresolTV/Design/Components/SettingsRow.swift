@@ -78,10 +78,11 @@ struct SettingsInfoRow: View {
     var body: some View {
         HStack(spacing: 24) {
             Text(title)
-                .foregroundStyle(Theme.Colors.label2)
+                .foregroundStyle(Theme.Colors.label)
+                .lineLimit(1)
             Spacer(minLength: 40)
             Text(verbatim: value)
-                .foregroundStyle(Theme.Colors.label)
+                .foregroundStyle(Theme.Colors.label2)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }

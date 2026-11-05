@@ -81,7 +81,6 @@ private struct NowPlayingContent: View {
                 .shadow(color: .black.opacity(0.55), radius: 40, y: 24)
                 .scaleEffect(audio.isPlaying ? 1 : 0.94)
                 .animation(Theme.Motion.slowEaseOut, value: audio.isPlaying)
-                .frame(width: 680, alignment: .center)
 
             VStack(alignment: .leading, spacing: 6) {
                 if let chapter = audio.currentChapter, !chapter.title.isEmpty {
@@ -445,7 +444,7 @@ private struct UpNextPanel: View {
                     }
                 }
                 .padding(.vertical, 12)
-                .padding(.horizontal, 8)
+                .listRowOutdent()
             }
             .scrollClipDisabled()
         }
@@ -500,7 +499,7 @@ private struct ChaptersPanel: View {
                     }
                 }
                 .padding(.vertical, 12)
-                .padding(.horizontal, 8)
+                .listRowOutdent()
             }
             .scrollClipDisabled()
             .onAppear {

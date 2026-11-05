@@ -86,6 +86,7 @@ struct VideoDetailView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.6)
                     .shadow(color: .black.opacity(0.35), radius: 12)
+                    .frame(maxWidth: 1400, alignment: .leading)
                 if !metaLine.isEmpty {
                     Text(verbatim: metaLine)
                         .font(Theme.Typography.meta)
@@ -121,7 +122,7 @@ struct VideoDetailView: View {
                         .foregroundStyle(Theme.Colors.red)
                 }
             }
-            .frame(maxWidth: 1400, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Theme.Layout.margin)
             .padding(.bottom, 40)
         }
@@ -193,7 +194,7 @@ struct VideoDetailView: View {
 
     @ViewBuilder
     private var actions: some View {
-        HStack(spacing: 24) {
+        ActionRow {
             if isSeries {
                 seriesActions
             } else {
@@ -208,7 +209,6 @@ struct VideoDetailView: View {
                 .buttonStyle(PillButtonStyle(kind: .glass))
             }
         }
-        .focusSection()
     }
 
     @ViewBuilder
