@@ -98,7 +98,7 @@ struct DevicesView: View {
     }
 
     private func load() async {
-        await loader.load(using: appState) { DeviceSession.displayOrder(try await $0.devices()) }
+        await loader.load(using: appState) { client in try await DeviceSession.displayOrder(client.devices()) }
     }
 
     private func revoke(_ device: DeviceSession) async {
@@ -108,7 +108,7 @@ struct DevicesView: View {
         defer { revokingId = nil }
         do {
             try await client.revokeDevice(id: device.id)
-            loader.update { $0.removeAll { $0.id == device.id } }
+            loader.update { devices in devices.removeAll { $0.id == device.id } }
         } catch {
             actionError = appState.message(for: error)
         }
