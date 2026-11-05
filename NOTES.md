@@ -738,3 +738,10 @@ Not changed (checked and kept): the full-screen resume prompt, Up Next and Now P
 80 pt margin inside the safe area (160 pt from the screen edge) like the system player overlays;
 shelf titles and badges such as "Audio EN RU" come localized from the server (the mock serves
 English); the logo stays the glass mark from `logo-mark.svg`.
+
+## Token scoping for media loads
+
+`APIClient.authorizationHeaders(for:)` sends the Bearer token only to URLs with the server's own
+scheme, host and port; any other URL (for example external artwork) gets `Accept-Language` only.
+Every image, comic page, Now Playing artwork, Top Shelf artwork and header-authenticated HLS
+load uses it. The plain `authorizationHeaders` property is for requests the kit builds itself.

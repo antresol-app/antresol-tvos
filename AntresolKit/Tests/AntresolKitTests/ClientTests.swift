@@ -31,6 +31,20 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(transport.requests.last?.value(forHTTPHeaderField: "Authorization"), "Bearer t0k")
     }
 
+    func testTokenIsOnlySentToTheServerOrigin() {
+        let client = APIClient(baseURL: base, token: "secret", language: "en")
+        let own = URL(string: "http://tv.test:8420/api/images/abc")!
+        XCTAssertEqual(client.authorizationHeaders(for: own)["Authorization"], "Bearer secret")
+        XCTAssertEqual(client.authorizationHeaders(for: URL(string: "HTTP://TV.test:8420/x")!)["Authorization"], "Bearer secret")
+        for foreign in ["https://image.tmdb.org/t/p/w500/a.jpg", "http://tv.test:8096/x", "https://tv.test:8420/x", "http://evil.test:8420/x"] {
+            let headers = client.authorizationHeaders(for: URL(string: foreign)!)
+            XCTAssertNil(headers["Authorization"], foreign)
+            XCTAssertEqual(headers["Accept-Language"], "en")
+        }
+        let defaultPort = APIClient(baseURL: URL(string: "https://media.example.com")!, token: "t")
+        XCTAssertNotNil(defaultPort.authorizationHeaders(for: URL(string: "https://media.example.com:443/api/images/1")!)["Authorization"])
+    }
+
     func testBodylessMutationHasNoContentType() async throws {
         let transport = MockTransport { _ in .noContent }
         let client = APIClient(baseURL: base, token: "t", transport: transport)

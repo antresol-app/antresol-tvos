@@ -490,7 +490,7 @@ final class VideoPlayerModel {
             var image: UIImage?
             let path = next.card.backdrop.isEmpty ? next.card.poster : next.card.backdrop
             if !path.isEmpty, let url = client.urls.image(path) {
-                image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders, maxPixelSize: 800)
+                image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800)
             }
             guard !Task.isCancelled, let self, self.item?.id == item.id else { return }
             let label = String(localized: "S\(next.seasonNo), E\(next.episodeNo)", bundle: .localized)
@@ -612,7 +612,7 @@ final class VideoPlayerModel {
         guard source.mode.isHLS, !source.response.hlsComplete, let client else {
             return AVURLAsset(url: source.url)
         }
-        return AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFieldsKey": client.authorizationHeaders])
+        return AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFieldsKey": client.authorizationHeaders(for: source.url)])
     }
 
     private func isCurrentItem(_ id: ObjectIdentifier) -> Bool {
@@ -742,7 +742,7 @@ final class VideoPlayerModel {
         let path = item.poster.isEmpty ? item.backdrop : item.poster
         guard !path.isEmpty, let url = client.urls.image(path) else { return }
         let task = Task { [weak self] in
-            guard let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders, maxPixelSize: 800),
+            guard let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800),
                   let data = image.jpegData(compressionQuality: 0.85),
                   !Task.isCancelled, let self, self.item?.id == item.id
             else { return }
