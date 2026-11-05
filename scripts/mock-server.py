@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """A tiny stand-in for an Antresol server, for UI screenshot runs in CI.
 
-Serves the recorded API samples from AntresolKit/Tests/AntresolKitTests/Samples and
-generates gradient PNGs for every /api/images/ path, so the app can be driven through
-onboarding, the profile picker and Home without a real library.
+Serves the recorded API samples from AntresolKit/Tests/AntresolKitTests/Samples,
+generates gradient PNGs for every /api/images/ path and comic page, and streams small
+fixture clips for video, music and audiobooks, so the app can be driven through every
+screen without a real library.
 
     python3 scripts/mock-server.py --port 8421
 """
@@ -17,7 +18,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 SAMPLES = Path(__file__).resolve().parent.parent / "AntresolKit/Tests/AntresolKitTests/Samples"
-VIDEO = Path(__file__).resolve().parent / "fixtures/sample.mp4"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+VIDEO = FIXTURES / "sample.mp4"
+TRACK = FIXTURES / "track.m4a"
+AUDIOBOOK = FIXTURES / "audiobook.m4a"
 
 ROUTES = {
     ("GET", r"/api/health"): "health.json",
@@ -35,7 +39,23 @@ ROUTES = {
     ("GET", r"/api/progress/\d+"): "progress-get.json",
     ("GET", r"/api/search"): "search.json",
     ("GET", r"/api/music/home"): "music-home.json",
+    ("GET", r"/api/music/albums/\d+"): "music-album.json",
+    ("GET", r"/api/music/albums"): "music-albums.json",
+    ("GET", r"/api/music/artists/\d+"): "music-artist.json",
+    ("GET", r"/api/music/artists"): "music-artists.json",
+    ("GET", r"/api/music/songs"): "music-songs.json",
+    ("GET", r"/api/music/genres"): "music-genres.json",
+    ("GET", r"/api/music/shuffle"): "music-shuffle.json",
+    ("GET", r"/api/music/tracks/\d+/lyrics"): "music-lyrics.json",
+    ("GET", r"/api/music/tracks/\d+"): "music-track.json",
+    ("GET", r"/api/music/playlists/\d+"): "playlist.json",
+    ("GET", r"/api/music/playlists"): "playlists.json",
     ("GET", r"/api/books/home"): "books-home.json",
+    ("GET", r"/api/books/20"): "book-comic.json",
+    ("GET", r"/api/books/21"): "book-comic-volume.json",
+    ("GET", r"/api/books/23"): "book-audiobook-multifile.json",
+    ("GET", r"/api/books/\d+"): "book-audiobook.json",
+    ("GET", r"/api/comics/\d+/pages"): "comic-pages.json",
 }
 
 
@@ -64,6 +84,16 @@ def image_for(path):
         size = (960, 540) if path.endswith("backdrop") else (400, 600)
         _images[path] = png(*size, top, bottom)
     return _images[path]
+
+
+def comic_page(index):
+    """A portrait page with its own colours."""
+    palette = [((220, 70, 60), (40, 10, 10)), ((60, 140, 220), (10, 20, 50)), ((90, 200, 120), (10, 40, 20))]
+    top, bottom = palette[index % len(palette)]
+    key = f"comic-{index}"
+    if key not in _images:
+        _images[key] = png(800, 1200, top, bottom)
+    return _images[key]
 
 
 def play_response(file_id):
@@ -122,7 +152,20 @@ class Handler(BaseHTTPRequestHandler):
         if method == "POST" and re.fullmatch(r"/api/play/\d+", path):
             return self.send(200, json.dumps(play_response(int(path.rsplit("/", 1)[1]))).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/stream/\d+", path):
-            return self.send_video()
+            return self.send_file(VIDEO, "video/mp4")
+        if method == "GET" and re.fullmatch(r"/api/tracks/\d+/stream", path):
+            return self.send_file(TRACK, "audio/mp4")
+        if method == "GET" and re.fullmatch(r"/api/audio/\d+", path):
+            return self.send_file(AUDIOBOOK, "audio/mp4")
+        if method == "GET" and re.fullmatch(r"/api/comics/\d+/page/\d+", path):
+            return self.send(200, comic_page(int(path.rsplit("/", 1)[1])), "image/png")
+        if method in ("POST", "DELETE") and re.fullmatch(r"/api/music/(plays|star/\d+)", path):
+            return self.send(204, b"", "application/json")
+        if method == "GET" and path == "/api/books":
+            kind = re.search(r"kind=(\w+)", query)
+            sample = {"audiobook": "books-audiobooks.json", "comic": "books-comics.json"}.get(kind.group(1) if kind else "")
+            body = (SAMPLES / sample).read_bytes() if sample else json.dumps({"items": [], "total": 0}).encode()
+            return self.send(200, body, "application/json")
         if method == "GET" and re.fullmatch(r"/api/subs/\d+/\d+\.vtt", path):
             return self.send(200, subtitles(), "text/vtt; charset=utf-8")
         if method in ("PUT", "DELETE") and path.startswith("/api/hls/"):
@@ -134,14 +177,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, (SAMPLES / sample).read_bytes(), "application/json")
         self.send(404, json.dumps({"error": "Not found"}).encode(), "application/json")
 
-    def send_video(self):
-        """The fixture clip with Range support, as /api/stream serves files."""
-        data = VIDEO.read_bytes()
+    def send_file(self, file, content_type):
+        """A fixture file with Range support, as the server serves original files."""
+        data = file.read_bytes()
         match = re.fullmatch(r"bytes=(\d*)-(\d*)", self.headers.get("Range") or "")
         if not match:
             self.send_response(200)
             self.send_header("Accept-Ranges", "bytes")
-            self.send_header("Content-Type", "video/mp4")
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
@@ -151,7 +194,7 @@ class Handler(BaseHTTPRequestHandler):
         chunk = data[start:end + 1]
         self.send_response(206)
         self.send_header("Accept-Ranges", "bytes")
-        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
         self.send_header("Content-Length", str(len(chunk)))
         self.end_headers()

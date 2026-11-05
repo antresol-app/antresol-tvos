@@ -220,8 +220,8 @@ final class AudioPlayer {
     /// Plays an audiobook from its saved position (or `bookMs` when given).
     func play(book: BookDetail, fromBookMs bookMs: Int? = nil) {
         guard !book.files.isEmpty else { return }
-        let start = bookMs ?? ResumePolicy.audiobookStartMs(book)
-        let location = book.audiobookTimeline.locate(bookMs: start)
+        let startMs = bookMs ?? ResumePolicy.audiobookStartMs(book)
+        let location = book.audiobookTimeline.locate(bookMs: startMs)
         let items = book.files.indices.map { Item(book: book, partIndex: $0) }
         let newQueue = PlayQueue(items, startAt: location?.partIndex ?? 0)
         Task { await start(.audiobook(book), queue: newQueue, at: Double(location?.offsetMs ?? 0) / 1000) }
