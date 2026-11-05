@@ -45,10 +45,17 @@ private struct SettingsPage: View {
                 .padding(.vertical, 80)
                 .padding(.horizontal, 24)
             }
-            // A scroll view draws into the safe area the tab bar occupies; clipping it to its
-            // frame ends rows scrolled up below the tab bar instead of under it. The padding
-            // above leaves room for the focused row's lift.
-            .clipped()
+            // A scroll view draws into the safe area the tab bar occupies; masking it to its
+            // frame, with a short fade at the top, lets rows scrolled up fade out below the
+            // tab bar instead of sliding under it. The padding above leaves room for the
+            // focused row's lift.
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 64)
+                    Color.black
+                }
+            }
             .focusSection()
         }
         .padding(.horizontal, Theme.Layout.margin)

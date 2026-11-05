@@ -730,7 +730,8 @@ DESIGN.md) and tvOS conventions. Fixed:
   Books > Reading Now and the search results use a plain `VStack` of shelves now (a handful of
   rows each; the rows themselves stay lazy).
 - **Settings scrolled under the tab bar**: removing `scrollClipDisabled()` was not enough, since a
-  scroll view draws into the safe area the tab bar occupies; the list is `.clipped()` to its frame.
+  scroll view draws into the safe area the tab bar occupies; the list is masked to its frame with
+  a 64 pt fade at the top, so rows scrolled up fade out below the tab bar.
 - Track and chapter numbers sit in a 40 pt column (was 52) so titles follow them more closely.
 
 Not changed (checked and kept): the full-screen resume prompt, Up Next and Now Playing use the
