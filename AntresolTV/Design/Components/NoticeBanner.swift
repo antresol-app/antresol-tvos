@@ -7,12 +7,12 @@ struct NoticeBanner: View {
     var systemImage: String?
 
     var body: some View {
-        Label {
-            Text(verbatim: message)
-        } icon: {
+        HStack(spacing: 14) {
             if let systemImage {
                 Image(systemName: systemImage)
+                    .accessibilityHidden(true)
             }
+            Text(verbatim: message)
         }
         .font(Theme.Typography.meta)
         .foregroundStyle(Theme.Colors.label)
