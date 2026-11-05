@@ -106,7 +106,7 @@ final class PagedList<Element: Decodable & Sendable> {
     /// Loads the first page again with the last fetch (Try Again).
     func reloadSameFetch(using appState: AppState) async {
         guard let fetch else { return }
-        await reload(using: appState, key: fetchKey ?? 0, fetch)
+        await reload(using: appState, key: fetchKey ?? AnyHashable(0), fetch)
     }
 
     /// Loads the next page when `element` is within the last `threshold` items.
