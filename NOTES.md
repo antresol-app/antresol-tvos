@@ -412,10 +412,14 @@ Running log between milestones. Newest entry last.
   Bearer header, and the server does not accept the media key on images.
 
 ### Known gaps
-- The Top Shelf and the shared Keychain and App Group need a signed build with a team that has
-  `group.app.antresol.tv` and the Keychain group registered. CI builds unsigned, so a real
-  device Top Shelf was not seen. The UI test captures the simulator's Home screen
-  (`45-top-shelf`).
+- The dynamic Top Shelf has not been seen working.
+  - It needs a signed build with a team that has `group.app.antresol.tv` and the Keychain group
+    registered. CI builds unsigned.
+  - On the CI simulator, `45-top-shelf` shows the static brand image, and the mock server got no
+    request from the extension. Either the extension is not run for UI-test installs, or the
+    shared Keychain item cannot be read without a team prefix.
+  - The kit's `TopShelfPlan` and the deep-link handling are tested. The first thing to check on
+    a device is that `SharedSessionStore.load()` returns the session in the extension.
 - The language override changes `String(localized:)` text (some labels and menus) and the
   system UI (keyboard, player chrome) only after a relaunch. tvOS has no API to restart an app.
 - No device management screen: the server's `/api/me/devices` list and revoke are not in the UI.
