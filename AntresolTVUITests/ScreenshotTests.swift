@@ -428,9 +428,8 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(menuItem(app, "Remove from Playlist").exists)
         pause(1)
         snapshot(app, "50-playlist-song-menu")
-        if moveFocus(.down, to: moveDown, limit: 8) {
-            remote.press(.select)
-        }
+        // Play Next, Add to Queue, Add to Playlist…, Add to Favorites, Move Down…
+        chooseMenuItem(at: 4)
         pause(3)
         snapshot(app, "51-playlist-reordered")
 
@@ -438,9 +437,7 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select, forDuration: 1.5)
         let addToPlaylist = menuItem(app, "Add to Playlist…")
         XCTAssertTrue(addToPlaylist.waitForExistence(timeout: 10))
-        if moveFocus(.down, to: addToPlaylist, limit: 6) {
-            remote.press(.select)
-        }
+        chooseMenuItem(at: 2)
         XCTAssertTrue(app.staticTexts["Add to Playlist"].waitForExistence(timeout: 10))
         pause(2)
         snapshot(app, "52-add-to-playlist")
@@ -456,9 +453,8 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select, forDuration: 1.5)
         let delete = menuItem(app, "Delete Playlist")
         XCTAssertTrue(delete.waitForExistence(timeout: 10))
-        if moveFocus(.down, to: delete, limit: 3) {
-            remote.press(.select)
-        }
+        // Rename, Delete Playlist.
+        chooseMenuItem(at: 1)
         pause(2)
         // The confirmation: Cancel and the destructive button side by side.
         let confirm = menuItem(app, "Delete Playlist")
@@ -508,6 +504,17 @@ final class ScreenshotTests: XCTestCase {
     /// The poster card whose title starts with `title`.
     private func card(_ app: XCUIApplication, _ title: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+    }
+
+    /// Selects the long-press menu item at `index`. Menu items do not report focus to
+    /// XCTest, so this counts presses from the first item, where the menu opens.
+    private func chooseMenuItem(at index: Int) {
+        pause(1)
+        for _ in 0..<index {
+            remote.press(.down)
+            pause(1)
+        }
+        remote.press(.select)
     }
 
     /// An item of a long-press menu or a confirmation dialog, whatever element type tvOS
