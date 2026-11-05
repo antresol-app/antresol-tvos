@@ -159,6 +159,9 @@ struct FavoriteButton: View {
 struct DetailScroll<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
+    /// Lets the header's actions take the initial focus over the list below them.
+    @Namespace private var focusNamespace
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
@@ -166,6 +169,8 @@ struct DetailScroll<Content: View>: View {
             }
             .padding(.bottom, 100)
         }
+        .focusScope(focusNamespace)
+        .environment(\.detailFocusNamespace, focusNamespace)
         .scrollClipDisabled()
         .ignoresSafeArea(edges: [.top, .horizontal])
         .background(Theme.Colors.background.ignoresSafeArea())

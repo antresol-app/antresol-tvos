@@ -217,43 +217,40 @@ final class ScreenshotTests: XCTestCase {
             pause(1)
         }
         remote.press(.select)
-        XCTAssertTrue(app.buttons["Shuffle"].waitForExistence(timeout: 20))
+        let play = app.buttons["Play"]
+        XCTAssertTrue(play.waitForExistence(timeout: 20))
         pause(3)
+        XCTAssertTrue(play.hasFocus, "The album page should start on Play")
         snapshot(app, "26-album-detail")
 
-        // Into the track list and play the first song: Now Playing comes up.
+        // Into the track list; the first song (it has lyrics) brings up Now Playing.
         remote.press(.down)
         pause(2)
         snapshot(app, "27-album-tracks")
         remote.press(.select)
-        pause(5)
+        XCTAssertTrue(app.buttons["Lyrics"].waitForExistence(timeout: 20))
+        pause(4)
+        XCTAssertTrue(app.buttons["Pause"].hasFocus, "Now Playing should start on Play/Pause")
         snapshot(app, "28-now-playing")
 
-        // Right to the panel pill, then Lyrics.
-        remote.press(.right)
-        pause(1)
-        remote.press(.up)
-        pause(1)
-        remote.press(.right)
-        pause(1)
+        // Across the controls into the right panel, up to its pill, then Lyrics.
+        for _ in 0..<4 {
+            remote.press(.right)
+            pause(1)
+        }
+        moveFocus(.up, to: app.buttons["Up Next"], limit: 3)
+        XCTAssertTrue(moveFocus(.right, to: app.buttons["Lyrics"], limit: 2))
         remote.press(.select)
         pause(3)
         snapshot(app, "29-now-playing-lyrics")
 
-        // Back to the album; the Now Playing tab is in the tab bar.
+        // Close Now Playing and the album, then the Albums section.
         remote.press(.menu)
         pause(2)
         remote.press(.menu)
         pause(2)
-        for _ in 0..<6 {
-            remote.press(.up)
-        }
-        pause(1)
-        // Albums section of the pill.
-        remote.press(.down)
-        pause(1)
-        remote.press(.right)
-        pause(1)
+        moveFocus(.up, to: app.buttons["Listen Now"], limit: 6)
+        XCTAssertTrue(moveFocus(.right, to: app.buttons["Albums"], limit: 2))
         remote.press(.select)
         pause(3)
         snapshot(app, "30-music-albums")
@@ -270,19 +267,20 @@ final class ScreenshotTests: XCTestCase {
         pause(3)
         snapshot(app, "31-books-home")
 
-        // Currently Reading: the comic volume first.
+        // Down to Currently Reading, then left to the comic volume.
         remote.press(.down)
         pause(1)
         remote.press(.down)
         pause(1)
+        XCTAssertTrue(moveFocus(.left, to: card(app, "Hero Tales"), limit: 4))
         remote.press(.select)
-        XCTAssertTrue(app.buttons["Read"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["Continue Reading"].waitForExistence(timeout: 20))
         pause(3)
         snapshot(app, "32-comic-volume")
         remote.press(.select)
         pause(5)
         snapshot(app, "33-comic-reader")
-        // Right-to-left: left turns the page forward (to the 2–3 spread).
+        // A right-to-left volume: left turns the page forward.
         remote.press(.left)
         pause(3)
         snapshot(app, "34-comic-spread")
@@ -291,9 +289,8 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.menu)
         pause(2)
 
-        // The multi-part audiobook next to it.
-        remote.press(.right)
-        pause(1)
+        // The audiobook at the end of the shelf.
+        XCTAssertTrue(moveFocus(.right, to: card(app, "Chapter Book"), limit: 4))
         remote.press(.select)
         XCTAssertTrue(app.buttons["Want to Read"].waitForExistence(timeout: 20))
         pause(3)
@@ -301,6 +298,22 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select)
         pause(5)
         snapshot(app, "36-audiobook-now-playing")
+    }
+
+    /// The poster card whose title starts with `title`.
+    private func card(_ app: XCUIApplication, _ title: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+    }
+
+    /// Presses `direction` until `element` has focus, at most `limit` times.
+    @discardableResult
+    private func moveFocus(_ direction: XCUIRemote.Button, to element: XCUIElement, limit: Int) -> Bool {
+        for _ in 0..<limit {
+            if element.exists && element.hasFocus { return true }
+            remote.press(direction)
+            pause(1)
+        }
+        return element.exists && element.hasFocus
     }
 
     /// Menu until the player is gone (it may first close a panel or the transport bar).

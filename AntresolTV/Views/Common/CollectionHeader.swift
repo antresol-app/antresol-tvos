@@ -16,6 +16,8 @@ struct CollectionHeader<Actions: View>: View {
     var error: String? = nil
     @ViewBuilder let actions: () -> Actions
 
+    @Environment(\.detailFocusNamespace) private var focusNamespace
+
     private var shape: ArtworkShape { ArtworkShape(kind: card.kind) }
 
     private var coverWidth: CGFloat {
@@ -89,6 +91,7 @@ struct CollectionHeader<Actions: View>: View {
                     }
                     .padding(.top, 18)
                     .focusSection()
+                    .modifier(PrefersDefaultFocus(namespace: focusNamespace))
                     if let error {
                         Text(verbatim: error)
                             .font(Theme.Typography.meta)
@@ -101,6 +104,24 @@ struct CollectionHeader<Actions: View>: View {
             .padding(.bottom, 60)
         }
         .frame(maxWidth: .infinity, minHeight: 820, alignment: .bottomLeading)
+    }
+}
+
+/// The focus scope of the page around a `CollectionHeader` (set by `DetailScroll`).
+extension EnvironmentValues {
+    @Entry var detailFocusNamespace: Namespace.ID?
+}
+
+/// Prefers the modified view for default focus inside `namespace`, when there is one.
+private struct PrefersDefaultFocus: ViewModifier {
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.prefersDefaultFocus(true, in: namespace)
+        } else {
+            content
+        }
     }
 }
 

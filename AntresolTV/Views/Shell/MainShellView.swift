@@ -50,7 +50,10 @@ struct MainShellView: View {
             if audio.hasContent {
                 NowPlayingView(isInTab: true)
                     .tabItem {
-                        Label("Now Playing", systemImage: audio.isPlaying ? "waveform" : "pause.fill")
+                        // Icon only, like Search: with a text label the eighth tab
+                        // pushes the profile tab out of the bar.
+                        Image(systemName: audio.isPlaying ? "waveform" : "pause.fill")
+                            .accessibilityLabel(Text("Now Playing"))
                     }
                     .tag(ShellTab.nowPlaying)
             }

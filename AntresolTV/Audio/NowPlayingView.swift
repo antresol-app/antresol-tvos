@@ -32,7 +32,12 @@ private struct NowPlayingContent: View {
     @State private var panel: Panel = .upNext
     @State private var showsSpeed = false
     @State private var showsSleep = false
-    @Namespace private var namespace
+    /// Playback controls start out focused, not the scrubber above them.
+    @FocusState private var focusedControl: FocusedControl?
+
+    enum FocusedControl: Hashable {
+        case playPause
+    }
 
     private var artworkSize: CGFloat { isInTab ? 440 : 520 }
 
@@ -49,7 +54,7 @@ private struct NowPlayingContent: View {
             .padding(.top, isInTab ? 150 : 70)
             .padding(.bottom, 50)
         }
-        .focusScope(namespace)
+        .defaultFocus($focusedControl, .playPause)
         .overlay(alignment: .bottom) {
             if let notice = audio.notice {
                 Text(verbatim: notice)
@@ -230,7 +235,7 @@ private struct NowPlayingContent: View {
             Label(audio.isPlaying ? "Pause" : "Play", systemImage: audio.isPlaying ? "pause.fill" : "play.fill")
         }
         .buttonStyle(CircleButtonStyle(diameter: 112))
-        .prefersDefaultFocus(true, in: namespace)
+        .focused($focusedControl, equals: .playPause)
     }
 
     private func transportButton(_ title: LocalizedStringKey, _ systemImage: String, action: @escaping () -> Void) -> some View {
