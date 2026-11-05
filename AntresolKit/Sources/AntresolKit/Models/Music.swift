@@ -317,7 +317,7 @@ public enum AudioCodec: String, CaseIterable, Sendable {
     case flac, mp3, aac, alac, opus, vorbis, wav, aiff, ape, wv
 
     /// What AVPlayer on Apple platforms decodes natively.
-    public static let apple: [AudioCodec] = [.aac, .mp3, .alac, .flac]
+    public static let apple: [AudioCodec] = [.aac, .mp3, .alac, .flac, .wav, .aiff]
 }
 
 /// Transcode targets for track and audiobook streams.

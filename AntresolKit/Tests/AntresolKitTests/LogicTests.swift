@@ -22,7 +22,7 @@ final class URLBuilderTests: XCTestCase {
         XCTAssertEqual(urls.stream(fileId: 12, mediaKey: nil)?.absoluteString, "http://192.168.1.10:8420/api/stream/12")
         XCTAssertEqual(
             urls.trackStream(trackId: 15, mediaKey: "k")?.absoluteString,
-            "http://192.168.1.10:8420/api/tracks/15/stream?accept=aac%2Cmp3%2Calac%2Cflac&mk=k"
+            "http://192.168.1.10:8420/api/tracks/15/stream?accept=aac%2Cmp3%2Calac%2Cflac%2Cwav%2Caiff&mk=k"
         )
         XCTAssertEqual(
             urls.audio(fileId: 11, accept: [.mp3], format: .aac, startSec: 12.5, mediaKey: "k")?.absoluteString,
@@ -57,6 +57,7 @@ final class URLBuilderTests: XCTestCase {
         XCTAssertEqual(HLSSessionID.parse("/api/hls/abc123/index.m3u8"), "abc123")
         XCTAssertEqual(HLSSessionID.parse("http://h:8420/api/hls/abc123/index.m3u8?mk=x"), "abc123")
         XCTAssertNil(HLSSessionID.parse("/api/stream/12"))
+        XCTAssertNil(HLSSessionID.parse("hls/abc123/index.m3u8"))
     }
 }
 

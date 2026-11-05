@@ -58,7 +58,11 @@ struct VideoPlayerView: View {
             if finished { dismiss() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { model.flushProgress() }
+            switch phase {
+            case .background: Task { await model.suspend() }
+            case .active: Task { await model.resumeFromBackground() }
+            default: model.flushProgress()
+            }
         }
         .onDisappear {
             Task {
@@ -128,6 +132,14 @@ private struct PlayerViewController: UIViewControllerRepresentable {
 
         func playerViewController(_ playerViewController: AVPlayerViewController, didReject proposal: AVContentProposal) {
             MainActor.assumeIsolated { model.declineUpNext() }
+        }
+
+        func playerViewController(
+            _ playerViewController: AVPlayerViewController,
+            timeToSeekAfterUserNavigatedFrom oldTime: CMTime,
+            to targetTime: CMTime
+        ) -> CMTime {
+            MainActor.assumeIsolated { model.resolveUserSeek(from: oldTime, to: targetTime) }
         }
     }
 }

@@ -67,6 +67,19 @@ final class VideoPlayerModel {
     private var upNextDeclined = false
     private var lastRecovery: Date?
     private var isStopped = false
+    /// Where playback should (re)start: the requested start, updated when the item is torn
+    /// down after a failure, so Try Again resumes there and not at 0.
+    private var requestedPosition: Double = 0
+    /// The player item still waiting for its initial seek; until then the player's time is
+    /// not the file position, so progress reads `source.startPosition` instead.
+    private var pendingSeek: (item: ObjectIdentifier, playerTime: Double, autoplay: Bool)?
+    /// Track and quality choices not yet applied; menu picks made during a switch add up here.
+    private var pendingOptions: PlaybackOptions?
+    private var isApplyingOptions = false
+    /// A recovery (new server session after an error or expiry) is in flight.
+    private var isRecovering = false
+    /// The app is in the background and the HLS session was released.
+    private var isSuspended = false
 
     private var timeObserver: Any?
     private var notificationObservers: [NSObjectProtocol] = []
@@ -87,12 +100,13 @@ final class VideoPlayerModel {
         await open(request.card, from: request.start)
     }
 
-    /// Retries after an error: from the last known position when playback had begun.
+    /// Retries after an error: from the last known (or requested) position.
     func retry() async {
-        if item != nil {
-            await begin(at: currentFilePosition ?? 0)
+        if let item, item.id == card.id {
+            await begin(at: currentFilePosition ?? requestedPosition)
         } else {
-            await open(request.card, from: request.start)
+            // Nothing resolved yet for this card (first open, or a failed episode switch).
+            await open(card, from: card.id == request.card.id ? request.start : .resume)
         }
     }
 
@@ -113,6 +127,24 @@ final class VideoPlayerModel {
         await session?.stop()
     }
 
+    /// The app went to the background: saves the position and releases the HLS session,
+    /// which counts toward the profile's limit (§5.6). Direct play keeps its item.
+    func suspend() async {
+        flushProgress()
+        guard !isStopped, !isSuspended, state == .playing, source?.hlsSessionID != nil, let session else { return }
+        isSuspended = true
+        requestedPosition = currentFilePosition ?? requestedPosition
+        player.pause()
+        await session.stop()
+    }
+
+    /// The app is active again: starts a fresh session where playback was, paused.
+    func resumeFromBackground() async {
+        guard isSuspended else { return }
+        isSuspended = false
+        await restart(reason: nil, at: requestedPosition, autoplay: false)
+    }
+
     /// Saves the position now (pause, app going to the background).
     func flushProgress() {
         guard let reporter, let position = currentFilePosition else { return }
@@ -128,17 +160,13 @@ final class VideoPlayerModel {
     func selectAudio(_ index: Int) {
         guard index != menus.audioIndex, let track = menus.audio.first(where: { $0.index == index }) else { return }
         preferences.audioLanguage = TrackLabels.normalizedLanguage(track.language)
-        var next = options
-        next.audioIndex = index
-        Task { await switchStream(next) }
+        requestOptions { $0.audioIndex = index }
     }
 
     func selectQuality(_ quality: VideoQuality) {
         guard quality != menus.quality else { return }
         preferences.quality = quality
-        var next = options
-        next.quality = quality
-        Task { await switchStream(next) }
+        requestOptions { $0.quality = quality }
     }
 
     /// Shows a text subtitle, burns in an image subtitle, or turns subtitles off (`nil`).
@@ -217,7 +245,9 @@ final class VideoPlayerModel {
     /// Starts a server session for the current file at `position` (file seconds).
     private func begin(at position: Double) async {
         guard let client, let coordinator, let item, let file else { return }
+        requestedPosition = position
         if state != .playing { state = .preparing }
+        pendingOptions = nil
         await session?.stop()
         await reporter?.stop()
         options = PlaybackOptions(
@@ -230,8 +260,15 @@ final class VideoPlayerModel {
             fileId: file.id,
             caps: Self.caps
         )
-        await session.onExpired { [weak self] in
-            Task { @MainActor in await self?.restart(reason: nil) }
+        await session.onEnded { [weak self] end in
+            Task { @MainActor in
+                switch end {
+                case .expired:
+                    await self?.restart(reason: nil)
+                case .unauthorized:
+                    self?.fail(APIError.unauthorized(message: nil))
+                }
+            }
         }
         self.session = session
         do {
@@ -240,6 +277,7 @@ final class VideoPlayerModel {
                 await session.stop()
                 return
             }
+            isSuspended = false
             let reporter = ProgressReporter(client: client, itemId: item.id)
             self.reporter = reporter
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
@@ -275,50 +313,101 @@ final class VideoPlayerModel {
 
     // MARK: - Stream changes
 
+    /// Queues a track or quality change. Changes run one at a time and each request is
+    /// built from every pick so far, so a quick audio pick then quality pick keeps both.
+    private func requestOptions(_ change: (inout PlaybackOptions) -> Void) {
+        var next = pendingOptions ?? options
+        change(&next)
+        pendingOptions = next
+        guard !isApplyingOptions else { return }
+        isApplyingOptions = true
+        isSwitching = true
+        notice = nil
+        Task {
+            while !isStopped, let target = pendingOptions {
+                if target == options {
+                    pendingOptions = nil
+                    break
+                }
+                await switchStream(target)
+                if pendingOptions == target { pendingOptions = nil }
+            }
+            pendingOptions = nil
+            isApplyingOptions = false
+            isSwitching = isRecovering
+        }
+    }
+
     /// Re-requests the stream at the current position with new options (audio track,
     /// quality, burned-in subtitle); the server replaces the HLS session.
     private func switchStream(_ newOptions: PlaybackOptions) async {
-        guard let session, let position = currentFilePosition else { return }
-        isSwitching = true
-        notice = nil
-        let wasPlaying = player.rate > 0
+        guard let session, state == .playing, !isSuspended, let position = currentFilePosition else { return }
+        let wasPlaying = player.rate > 0 || pendingSeek?.autoplay == true
         do {
             let fresh = try await session.start(at: position, options: newOptions)
-            guard !isStopped else { return }
+            guard !isStopped, state == .playing else { return }
             options = newOptions
             apply(fresh)
             load(fresh, autoplay: wasPlaying)
+        } catch is CancellationError {
+            return
         } catch {
+            guard !isStopped else { return }
             if let message = appState?.message(for: error) {
                 notice = message
             }
         }
-        isSwitching = false
     }
 
-    /// Starts a new server session at the current position: after the HLS session
-    /// expired (`reason == nil`) or the player failed. A second failure within 30 s
-    /// is shown as an error instead.
-    private func restart(reason: Error?) async {
-        guard !isStopped, let session else { return }
-        if reason != nil {
+    /// Starts a new server session: after the HLS session expired (`reason == nil`), the
+    /// player failed, the app came back from the background, or the user scrubbed outside
+    /// the produced part of a growing playlist (`position`). A second failure within 30 s
+    /// is shown as an error instead. Duplicate failure signals are ignored while one
+    /// recovery is in flight.
+    private func restart(reason: Error?, at position: Double? = nil, autoplay: Bool? = nil) async {
+        guard !isStopped, !isSuspended, !isRecovering, state == .playing, let session else { return }
+        if let reason {
             if let lastRecovery, Date().timeIntervalSince(lastRecovery) < 30 {
-                fail(reason ?? PlayerError.playbackFailed)
+                fail(reason)
                 return
             }
             lastRecovery = Date()
         }
-        let position = currentFilePosition ?? 0
+        let position = position ?? currentFilePosition ?? requestedPosition
+        // A failed item has stopped by itself; otherwise keep the user's play/pause state.
+        let play = autoplay ?? (reason != nil || player.timeControlStatus != .paused || pendingSeek?.autoplay == true)
+        isRecovering = true
         isSwitching = true
+        defer {
+            isRecovering = false
+            isSwitching = isApplyingOptions
+        }
         do {
             let fresh = try await session.start(at: position, options: options)
-            guard !isStopped else { return }
+            guard !isStopped, !isSuspended, state == .playing else { return }
             apply(fresh)
-            load(fresh)
-            isSwitching = false
+            load(fresh, autoplay: play)
+        } catch is CancellationError {
+            return
         } catch {
             fail(error)
         }
+    }
+
+    /// Decides where a transport-bar seek goes. A growing (EVENT) playlist only covers
+    /// what the server has produced since its start, so a seek outside it asks the server
+    /// for a new session at the target (`replaceSession`, §5.4) and the player stays put
+    /// until that stream loads.
+    func resolveUserSeek(from oldTime: CMTime, to targetTime: CMTime) -> CMTime {
+        guard let source, source.mode.isHLS, targetTime.isNumeric else { return targetTime }
+        let target = source.filePosition(playerTime: targetTime.seconds)
+        if source.canSeekInPlayer(toFilePosition: target) { return targetTime }
+        let seekable = player.currentItem?.seekableTimeRanges.map(\.timeRangeValue) ?? []
+        if target >= source.timelineOffset, seekable.contains(where: { $0.containsTime(targetTime) }) {
+            return targetTime
+        }
+        Task { await restart(reason: nil, at: min(max(0, target), max(0, durationSec - 1)), autoplay: true) }
+        return oldTime
     }
 
     /// Takes the server's view of the stream: duration, tracks and applied choices.
@@ -347,7 +436,7 @@ final class VideoPlayerModel {
         subtitleTask?.cancel()
         cues = []
         subtitleText = nil
-        let burned = options.burnSubtitle
+        let burned = (pendingOptions ?? options).burnSubtitle
         menus.subtitleIndex = track?.index
         guard let track else {
             if burned != nil { restream(burning: nil) }
@@ -374,9 +463,7 @@ final class VideoPlayerModel {
     }
 
     private func restream(burning index: Int?) {
-        var next = options
-        next.burnSubtitle = index
-        Task { await switchStream(next) }
+        requestOptions { $0.burnSubtitle = index }
     }
 
     private func updateSubtitle() {
@@ -467,11 +554,12 @@ final class VideoPlayerModel {
         teardownPlayerItem()
         let playerItem = AVPlayerItem(url: source.url)
         playerItem.externalMetadata = metadata
-        player.replaceCurrentItem(with: playerItem)
+        let itemID = ObjectIdentifier(playerItem)
         let seek = source.initialPlayerSeek
-        if seek > 0 {
-            player.seek(to: CMTime(seconds: seek, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-        }
+        // Seeking and playing wait for `readyToPlay`: a seek sent earlier can be dropped,
+        // and until it lands the player's time is not the resume position.
+        pendingSeek = seek > 0 ? (itemID, seek, autoplay) : nil
+        player.replaceCurrentItem(with: playerItem)
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.recordPosition()
@@ -485,14 +573,20 @@ final class VideoPlayerModel {
             },
             center.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: playerItem, queue: .main) { [weak self] note in
                 let error = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
-                Task { @MainActor in await self?.restart(reason: error ?? PlayerError.playbackFailed) }
+                Task { @MainActor in await self?.itemFailed(itemID, error: error) }
             },
         ]
         keyValueObservers = [
             playerItem.observe(\.status, options: [.new]) { [weak self] item, _ in
-                guard item.status == .failed else { return }
+                let status = item.status
                 let error = item.error
-                Task { @MainActor in await self?.restart(reason: error ?? PlayerError.playbackFailed) }
+                Task { @MainActor in
+                    switch status {
+                    case .readyToPlay: self?.itemReady(itemID)
+                    case .failed: await self?.itemFailed(itemID, error: error)
+                    default: break
+                    }
+                }
             },
             player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
                 let paused = player.timeControlStatus == .paused
@@ -504,7 +598,33 @@ final class VideoPlayerModel {
             },
         ]
         attachProposal()
-        if autoplay { player.play() }
+        if autoplay, pendingSeek == nil { player.play() }
+    }
+
+    private func isCurrentItem(_ id: ObjectIdentifier) -> Bool {
+        player.currentItem.map(ObjectIdentifier.init) == id
+    }
+
+    /// Performs the initial seek once the item can seek, then starts playing.
+    private func itemReady(_ id: ObjectIdentifier) {
+        guard let pending = pendingSeek, pending.item == id, isCurrentItem(id) else { return }
+        player.seek(
+            to: CMTime(seconds: pending.playerTime, preferredTimescale: 600),
+            toleranceBefore: .zero, toleranceAfter: .zero
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, let pending = self.pendingSeek, pending.item == id else { return }
+                self.pendingSeek = nil
+                if pending.autoplay, self.isCurrentItem(id), !self.isStopped { self.player.play() }
+            }
+        }
+    }
+
+    /// The item and its "failed to play to end" notification usually both report one
+    /// failure; only the first signal for the current item starts a recovery.
+    private func itemFailed(_ id: ObjectIdentifier, error: Error?) async {
+        guard isCurrentItem(id) else { return }
+        await restart(reason: error ?? PlayerError.playbackFailed)
     }
 
     private func teardownPlayerItem() {
@@ -517,12 +637,14 @@ final class VideoPlayerModel {
         keyValueObservers.forEach { $0.invalidate() }
         keyValueObservers = []
         player.replaceCurrentItem(with: nil)
+        pendingSeek = nil
         subtitleText = nil
     }
 
     /// The file position of the player, if it has one.
     private var currentFilePosition: Double? {
-        guard let source else { return nil }
+        guard let source, player.currentItem != nil else { return nil }
+        if pendingSeek != nil { return source.startPosition }
         let time = player.currentTime().seconds
         guard time.isFinite, player.currentItem != nil else { return nil }
         return source.filePosition(playerTime: time)
@@ -548,12 +670,32 @@ final class VideoPlayerModel {
         await reporter.stop()
     }
 
+    /// Shows the error and releases everything that would keep running behind it: the
+    /// HLS session (one of the profile's two), the progress timer and the player item.
+    /// The last position is saved and kept for Try Again.
     private func fail(_ error: Error) {
         guard !Task.isCancelled, !isStopped else { return }
         isSwitching = false
+        pendingOptions = nil
         player.pause()
-        recordPosition()
-        guard let message = appState?.message(for: error) else { return }
+        if let position = currentFilePosition { requestedPosition = position }
+        let message = appState?.message(for: error)
+        let reporter = self.reporter
+        self.reporter = nil
+        let session = self.session
+        let positionMs = Int(requestedPosition * 1000)
+        let durationMs = Int(durationSec * 1000)
+        let hadStarted = source != nil
+        teardownPlayerItem()
+        source = nil
+        Task {
+            if let reporter {
+                if hadStarted { await reporter.update(positionMs: positionMs, durationMs: durationMs) }
+                await reporter.stop()
+            }
+            await session?.stop()
+        }
+        guard let message else { return }
         if let apiError = error as? APIError, apiError.isTooManySessions {
             state = .failed(apiError.serverMessage ?? String(localized: "This profile is already watching on another device. Stop playback there and try again."))
         } else {

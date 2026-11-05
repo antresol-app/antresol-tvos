@@ -173,7 +173,7 @@ public enum HLSSessionID {
     public static func parse(_ url: String) -> String? {
         let path = url.split(separator: "?", maxSplits: 1).first.map(String.init) ?? url
         let parts = path.split(separator: "/").map(String.init)
-        guard let hls = parts.lastIndex(of: "hls"), hls + 1 < parts.count, parts[hls - 1] == "api" else {
+        guard let hls = parts.lastIndex(of: "hls"), hls > 0, hls + 1 < parts.count, parts[hls - 1] == "api" else {
             return nil
         }
         let session = parts[hls + 1]

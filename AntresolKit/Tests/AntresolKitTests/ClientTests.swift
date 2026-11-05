@@ -247,9 +247,73 @@ final class ClientTests: XCTestCase {
         }
         let client = APIClient(baseURL: base, token: "t", transport: transport)
         let session = VideoPlaybackSession(client: client, mediaKeys: MediaKeyStore(client: client), fileId: 5, keepAliveInterval: 0.05)
-        await session.onExpired { expired.fulfill() }
+        await session.onEnded { reason in
+            XCTAssertEqual(reason, .expired)
+            expired.fulfill()
+        }
         try await session.start(at: 0)
         await fulfillment(of: [expired], timeout: 5)
+        let current = await session.current
+        XCTAssertNil(current)
+    }
+
+    func testKeepAliveUnauthorizedEndsSession() async throws {
+        let ended = expectation(description: "unauthorized")
+        let transport = MockTransport { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/api/auth/media-key"):
+                return .json(#"{"key":"mk","expiresAt":"2099-01-01T00:00:00Z"}"#)
+            case ("POST", "/api/play/5"):
+                return .json(#"{"mode":"transcode","url":"/api/hls/s/index.m3u8","startSec":0,"durationMs":1000}"#)
+            case ("PUT", "/api/hls/s"):
+                return .json(#"{"error":"Sign in required"}"#, status: 401)
+            default:
+                return .noContent
+            }
+        }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        let session = VideoPlaybackSession(client: client, mediaKeys: MediaKeyStore(client: client), fileId: 5, keepAliveInterval: 0.05)
+        await session.onEnded { reason in
+            XCTAssertEqual(reason, .unauthorized)
+            ended.fulfill()
+        }
+        try await session.start(at: 0)
+        await fulfillment(of: [ended], timeout: 5)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let pings = transport.requests.filter { $0.httpMethod == "PUT" }.count
+        XCTAssertEqual(pings, 1, "keepalive stops after a 401")
+    }
+
+    func testStopDuringStartDeletesTheNewSession() async throws {
+        let gate = Locked<CheckedContinuation<Void, Never>?>(nil)
+        let playStarted = expectation(description: "play requested")
+        let transport = MockTransport { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/api/auth/media-key"):
+                return .json(#"{"key":"mk","expiresAt":"2099-01-01T00:00:00Z"}"#)
+            case ("POST", "/api/play/9"):
+                return .json(#"{"mode":"remux","url":"/api/hls/late/index.m3u8","startSec":0,"durationMs":1000,"hlsComplete":true}"#)
+            default:
+                return .noContent
+            }
+        }
+        transport.beforeReply = { request in
+            guard request.url?.path == "/api/play/9" else { return }
+            playStarted.fulfill()
+            await withCheckedContinuation { continuation in gate.withLock { $0 = continuation } }
+        }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        let session = VideoPlaybackSession(client: client, mediaKeys: MediaKeyStore(client: client), fileId: 9, keepAliveInterval: 3600)
+        let start = Task { try await session.start(at: 0) }
+        await fulfillment(of: [playStarted], timeout: 5)
+        await session.stop()
+        gate.withLock { $0?.resume() }
+        do {
+            _ = try await start.value
+            XCTFail("start should give up after stop")
+        } catch is CancellationError {}
+        let deleted = transport.requests.contains { $0.httpMethod == "DELETE" && $0.url?.path == "/api/hls/late" }
+        XCTAssertTrue(deleted)
         let current = await session.current
         XCTAssertNil(current)
     }

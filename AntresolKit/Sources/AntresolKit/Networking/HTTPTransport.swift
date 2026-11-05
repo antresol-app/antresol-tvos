@@ -30,6 +30,8 @@ public struct URLSessionTransport: HTTPTransport, @unchecked Sendable {
                     }
                 }
                 box.withLock { $0 = task }
+                // A cancellation that came before the task was stored found nothing to cancel.
+                if Task.isCancelled { task.cancel() }
                 task.resume()
             }
         } onCancel: {

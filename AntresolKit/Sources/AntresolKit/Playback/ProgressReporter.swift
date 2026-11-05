@@ -23,6 +23,10 @@ public actor ProgressReporter {
         self.minimumChangeMs = minimumChangeMs
     }
 
+    deinit {
+        timer?.cancel()
+    }
+
     /// Records the current position (file or whole-book milliseconds).
     public func update(positionMs: Int, durationMs: Int) {
         latest = (max(0, positionMs), max(0, durationMs))
@@ -35,8 +39,8 @@ public actor ProgressReporter {
         timer = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: nanos)
-                guard !Task.isCancelled else { return }
-                await self?.reportIfMoved()
+                guard !Task.isCancelled, let self else { return }
+                await self.reportIfMoved()
             }
         }
     }

@@ -41,6 +41,13 @@ final class MockTransport: HTTPTransport, @unchecked Sendable {
 
     private let handler: (URLRequest) -> Reply
     private let recorded = Locked<[URLRequest]>([])
+    private let hook = Locked<(@Sendable (URLRequest) async -> Void)?>(nil)
+
+    /// Runs before each reply, e.g. to hold a request until the test releases it.
+    var beforeReply: (@Sendable (URLRequest) async -> Void)? {
+        get { hook.current }
+        set { hook.withLock { $0 = newValue } }
+    }
 
     init(_ handler: @escaping (URLRequest) -> Reply) {
         self.handler = handler
@@ -52,6 +59,9 @@ final class MockTransport: HTTPTransport, @unchecked Sendable {
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         recorded.withLock { $0.append(request) }
+        if let beforeReply = hook.current {
+            await beforeReply(request)
+        }
         let reply = handler(request)
         let response = HTTPURLResponse(url: request.url!, statusCode: reply.status, httpVersion: "HTTP/1.1", headerFields: reply.headers)!
         return (reply.body, response)
