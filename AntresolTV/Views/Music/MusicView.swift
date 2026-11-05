@@ -68,6 +68,9 @@ struct PageHeader<Accessory: View>: View {
             Spacer(minLength: 40)
             accessory()
         }
+        // The pill sits top right: moving up from the left edge of the page should
+        // still reach it rather than skip to the tab bar.
+        .focusSection()
     }
 }
 
