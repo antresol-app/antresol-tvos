@@ -363,9 +363,15 @@ final class ScreenshotTests: XCTestCase {
         pause(2)
         snapshot(app, "44-settings-ru")
 
-        // The Home screen with the app focused shows its Top Shelf.
-        XCUIRemote.shared.press(.home)
-        pause(10)
+        // The Home screen with the app focused shows its Top Shelf. The simulator's Home
+        // screen starts on its first app (Settings); Antresol is the last in the top row.
+        remote.press(.home)
+        pause(3)
+        for _ in 0..<3 {
+            remote.press(.right)
+            pause(1)
+        }
+        pause(12)
         snapshot(XCUIScreen.main, "45-top-shelf")
     }
 
