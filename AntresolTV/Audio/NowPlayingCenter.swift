@@ -77,7 +77,7 @@ final class NowPlayingCenter {
         artworkTask?.cancel()
         guard let client = player.client, let url = client.urls.image(path) else { return }
         artworkTask = Task {
-            guard let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders, maxPixelSize: 800),
+            guard let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800),
                   !Task.isCancelled, artworkPath == path
             else { return }
             artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }

@@ -44,7 +44,7 @@ struct TopShelfArtwork {
         }
         guard let url = client.urls.image(path) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 15)
-        for (field, value) in client.authorizationHeaders {
+        for (field, value) in client.authorizationHeaders(for: url) {
             request.setValue(value, forHTTPHeaderField: field)
         }
         do {

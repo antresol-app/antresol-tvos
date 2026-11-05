@@ -46,12 +46,28 @@ public final class APIClient: Sendable {
         ServerURLs(baseURL: baseURL)
     }
 
-    /// Headers to attach when another component loads server URLs (images, subtitles,
-    /// comic pages): Bearer auth plus language.
+    /// Headers for requests to this server: Bearer auth plus language.
+    /// Components loading arbitrary URLs must use `authorizationHeaders(for:)` instead,
+    /// so the token never leaves the server's origin.
     public var authorizationHeaders: [String: String] {
         var headers = ["Accept-Language": language]
         if let token { headers["Authorization"] = "Bearer \(token)" }
         return headers
+    }
+
+    /// Headers to attach when another component loads `url` (images, subtitles, comic
+    /// pages, HLS). The Bearer token is only sent to this server's origin (scheme, host
+    /// and port); any other URL, such as external artwork, gets the language header only.
+    public func authorizationHeaders(for url: URL) -> [String: String] {
+        isServerURL(url) ? authorizationHeaders : ["Accept-Language": language]
+    }
+
+    /// Whether `url` has the same scheme, host and port as `baseURL`.
+    public func isServerURL(_ url: URL) -> Bool {
+        func port(_ u: URL) -> Int? { u.port ?? (u.scheme?.lowercased() == "https" ? 443 : u.scheme?.lowercased() == "http" ? 80 : nil) }
+        return url.scheme?.lowercased() == baseURL.scheme?.lowercased()
+            && url.host?.lowercased() == baseURL.host?.lowercased()
+            && port(url) == port(baseURL)
     }
 
     /// Maps a preferred language (e.g. `ru-RU`) to one the server supports.

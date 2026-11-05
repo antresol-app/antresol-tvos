@@ -215,7 +215,7 @@ struct HeroBackground: View {
             tint = nil
             return
         }
-        let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders, maxPixelSize: 96)
+        let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 96)
         guard !Task.isCancelled else { return }
         tint = image.flatMap(ImagePipeline.tintColor(of:))
     }

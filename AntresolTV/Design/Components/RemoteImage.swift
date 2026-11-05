@@ -44,7 +44,7 @@ struct RemoteImage: View {
             return
         }
         let loaded = await ImagePipeline.shared.image(
-            for: url, headers: client.authorizationHeaders, maxPixelSize: maxPixelSize
+            for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: maxPixelSize
         )
         guard !Task.isCancelled else { return }
         withAnimation(Theme.Motion.easeOut) { image = loaded }

@@ -214,7 +214,7 @@ final class ComicReaderModel {
         loading.insert(page)
         failedPages.remove(page)
         Task {
-            let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders, maxPixelSize: 2200)
+            let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 2200)
             loading.remove(page)
             if let image {
                 images[page] = image
