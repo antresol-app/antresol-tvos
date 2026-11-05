@@ -29,6 +29,7 @@ struct AlbumDetailView: View {
                     Label("Play", systemImage: "play.fill")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
+                .primaryDetailAction()
                 .disabled(album?.tracks.isEmpty == true)
 
                 Button {
@@ -159,8 +160,9 @@ struct FavoriteButton: View {
 struct DetailScroll<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
-    /// Lets the header's actions take the initial focus over the list below them.
-    @Namespace private var focusNamespace
+    /// The header's primary action (`primaryDetailAction()`) takes the initial focus
+    /// rather than the first row of the list below it.
+    @FocusState private var primaryActionFocused: Bool
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -169,8 +171,8 @@ struct DetailScroll<Content: View>: View {
             }
             .padding(.bottom, 100)
         }
-        .focusScope(focusNamespace)
-        .environment(\.detailFocusNamespace, focusNamespace)
+        .defaultFocus($primaryActionFocused, true)
+        .environment(\.detailPrimaryFocus, $primaryActionFocused)
         .scrollClipDisabled()
         .ignoresSafeArea(edges: [.top, .horizontal])
         .background(Theme.Colors.background.ignoresSafeArea())
@@ -205,6 +207,7 @@ struct ArtistDetailView: View {
                     Label("Play", systemImage: "play.fill")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
+                .primaryDetailAction()
                 .disabled(artist?.topTracks.isEmpty == true)
 
                 Button {
@@ -337,6 +340,7 @@ struct PlaylistDetailView: View {
                     Label("Play", systemImage: "play.fill")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
+                .primaryDetailAction()
                 .disabled(detail?.tracks.isEmpty == true)
 
                 Button {
