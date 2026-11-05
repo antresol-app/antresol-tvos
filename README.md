@@ -67,16 +67,74 @@ xcodebuild -project Antresol.xcodeproj -scheme AntresolTV \
   -destination 'generic/platform=tvOS Simulator' -configuration Debug build CODE_SIGNING_ALLOWED=NO
 ```
 
-To run on a device, set your team for the `AntresolTV` and `TopShelf` targets.
+The app and the Top Shelf extension share their session through two entitlements, used in
+`AntresolTV/AntresolTV.entitlements`, `TopShelf/TopShelf.entitlements` and
+`Shared/SharedSession.swift`:
 
-- Both targets use the App Group `group.app.antresol.tv` and the Keychain group
-  `app.antresol.shared`, so register them for your team or change them. They appear in
-  `AntresolTV/AntresolTV.entitlements`, `TopShelf/TopShelf.entitlements` and
-  `Shared/SharedSession.swift`.
-- Without these entitlements the app still works; only the Top Shelf stays on the static
-  brand image.
+- the App Group `group.app.antresol.tv` (server, profile and language, plus downloaded Top
+  Shelf artwork);
+- the Keychain group `<Team ID>.app.antresol.shared` (the profile's token).
 
-### Tests
+Without them the app still works; only the Top Shelf stays on the static brand image.
+
+## Run on an Apple TV
+
+1. Join the Apple Developer Program and note your Team ID (Membership details).
+2. In [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list):
+   - **Identifiers > App Groups**: register `group.app.antresol.tv`.
+   - **Identifiers > App IDs**: register `app.antresol.tv` and `app.antresol.tv.topshelf`, enable
+     **App Groups** on both and assign `group.app.antresol.tv` to each.
+   - The Keychain group needs no registration: Keychain Sharing groups are allowed for every
+     App ID of the team that lists them, and the entitlements already list
+     `$(AppIdentifierPrefix)app.antresol.shared` for both targets. Xcode's automatic signing
+     adds App Groups and Keychain Sharing to the provisioning profiles.
+   - With your own bundle ids, change `bundleIdPrefix`/`PRODUCT_BUNDLE_IDENTIFIER` in
+     `project.yml`, the group in both `.entitlements` files and `SharedSession.appGroup`.
+3. Pair the Apple TV: on the TV open Settings > Remotes and Devices > Remote App and Devices,
+   then in Xcode Window > Devices and Simulators select it and enter the code.
+4. `xcodegen generate`, open `Antresol.xcodeproj`, and in Signing & Capabilities choose your
+   team with "Automatically manage signing" for **AntresolTV** and **TopShelf** (regenerating
+   the project resets this; pass `DEVELOPMENT_TEAM=<Team ID>` on the `xcodebuild` command line
+   instead to keep it scripted).
+5. Pick the Apple TV as the run destination and Run. To check Top Shelf, sign in to a profile,
+   move the app into the top row of the Home screen and focus it.
+
+## Ship to TestFlight and the App Store
+
+The version is `MARKETING_VERSION` in `project.yml` (1.0.0). The build number,
+`CURRENT_PROJECT_VERSION`, is 1 in `project.yml` and must grow with every upload: pass it on the
+command line (CI uses the run number, `github.run_number`).
+
+1. In [App Store Connect](https://appstoreconnect.apple.com) > Apps > New App: platform tvOS,
+   name Antresol, primary language English (U.S.), bundle id `app.antresol.tv`, any SKU.
+2. Archive and upload (an App Store Connect role of App Manager or higher, signed in to Xcode):
+
+   ```sh
+   xcodegen generate
+   xcodebuild archive -project Antresol.xcodeproj -scheme AntresolTV \
+     -destination 'generic/platform=tvOS' -archivePath build/Antresol.xcarchive \
+     DEVELOPMENT_TEAM=<Team ID> CURRENT_PROJECT_VERSION=<build> -allowProvisioningUpdates
+   xcodebuild -exportArchive -archivePath build/Antresol.xcarchive \
+     -exportOptionsPlist scripts/ExportOptions-AppStore.plist -exportPath build/export \
+     -allowProvisioningUpdates
+   ```
+
+   `destination: upload` in the export options sends the build straight to App Store Connect.
+   Xcode's Organizer (Window > Organizer > Distribute App > App Store Connect) does the same.
+3. Export compliance is answered by `ITSAppUsesNonExemptEncryption = NO` in `Info.plist` (the app
+   uses only the system's HTTPS), so the build goes to TestFlight without a question.
+4. TestFlight: when the build finishes processing, add it to an internal testing group. Testers
+   install the TestFlight app on Apple TV and sign in with their Apple Account. External testers
+   need Beta App Review, which needs a demo server: put its address and a profile and password in
+   Test Information.
+5. App Store page: the texts are in `fastlane/metadata` (en-US and ru; check them with
+   `python3 scripts/check-metadata.py`). Upload them with `fastlane deliver` (the `Deliverfile`
+   targets `appletvos` and sends text only). Screenshots (1920x1080) can be taken from the
+   [`screenshots` branch](https://github.com/sidun-av/antresol-tvos/tree/screenshots). App Privacy: "Data Not Collected"; both bundles
+   carry a `PrivacyInfo.xcprivacy` with no tracking and the required-reason APIs (UserDefaults,
+   file timestamps). App Review also needs the demo server details in the review notes.
+
+## Tests
 
 ```sh
 cd AntresolKit
@@ -139,8 +197,13 @@ and [NOTES.md](NOTES.md) for the per-milestone hand-off log, decisions and known
 
 ## CI
 
-`.github/workflows/ci.yml` runs three jobs:
+`.github/workflows/ci.yml` runs four jobs:
 
 - `swift build` and `swift test` for the kit in a Swift 6.0.3 Linux container.
 - `xcodegen` and `xcodebuild` for the tvOS Simulator (app and Top Shelf extension).
-- The UI screenshot tests on a tvOS simulator. Their screenshots are uploaded as an artifact.
+- `xcodebuild archive` of the Release configuration for devices, unsigned, with the run number as
+  build number; it checks the App Store metadata, the privacy manifests, versions and the embedded
+  Top Shelf extension.
+- The UI screenshot tests on a tvOS simulator against the mock server. The screenshots are
+  uploaded as an artifact and, on pushes to main, published to the
+  [`screenshots` branch](https://github.com/sidun-av/antresol-tvos/tree/screenshots) with a README that shows them all.

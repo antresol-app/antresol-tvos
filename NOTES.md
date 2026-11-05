@@ -106,10 +106,8 @@ Running log between milestones. Newest entry last.
   badges; overview, runtime, rating and genres from `/api/items/{id}` for video kinds).
 - **UI screenshots in CI**: job `ui-screenshots` runs `AntresolTVUITests/ScreenshotTests` on a tvOS
   simulator against `scripts/mock-server.py` (serves the recorded samples, generates gradient
-  artwork). Screenshots are uploaded as an artifact and also printed as base64 JPEG lines
-  (`SHOT <name> <data>`) in the job log, because artifact blob downloads are blocked from the agent
-  sandbox. Decode with: `gh api repos/sidun-av/antresol-tvos/actions/jobs/<id>/logs` and
-  base64-decode each `SHOT` line. The job is `continue-on-error` (simulator flakiness must not block).
+  artwork). *(Since the release task: screenshots are published to the `screenshots` branch and
+  the job is no longer `continue-on-error`; the base64 `SHOT` log lines are gone.)*
   DEBUG-only launch arguments used by it: `-AntresolResetSession YES`, `-AntresolServerURL <addr>`.
 
 ### Decisions
@@ -427,7 +425,8 @@ Running log between milestones. Newest entry last.
 - No device management screen: the server's `/api/me/devices` list and revoke are not in the UI.
   Sign Out revokes this device. *(Done: Settings > Devices.)*
 - No playlist editing on TV (see milestone 5). *(Done.)*
-- The UI screenshot job is still `continue-on-error` and uses mock data.
+- The UI screenshot job is still `continue-on-error` and uses mock data. *(No longer
+  `continue-on-error`, see the release task.)*
 
 ## Review fixes (after milestone 6)
 
@@ -638,3 +637,59 @@ are listed below.
   and song rows have it).
 - Unchanged from before: dynamic Top Shelf unverified without a signed build; EVENT-playlist
   paths unexercised; text already on screen keeps the old language until it redraws.
+
+## Release engineering and screenshot gallery
+
+### What exists
+- **Screenshot gallery**: the `ui-screenshots` job boots the simulator explicitly (`simctl
+  bootstatus` with a 7-minute alarm; on failure it erases the simulator and boots once more), runs
+  the UI tests, exports the attachments, and on pushes to main runs `scripts/build-gallery.py`
+  (each attachment saved as `<name>.png`, scaled to 1920 pt wide with `sips`, plus a README per
+  test that names the commit and the UI test outcome) and force-pushes it as the single commit of
+  the orphan branch `screenshots` with the job's `GITHUB_TOKEN` (`contents: write`). It runs even
+  when a UI test failed, so the gallery shows where it went wrong. To look at it:
+  `git fetch origin screenshots && git show origin/screenshots:04-home-hero.png > /tmp/x.png`.
+  The 58 screenshots cover onboarding, profiles, Home, Movies, TV Shows, details, player, Up Next,
+  Music, Now Playing, Books, comics, audiobooks, Search, Settings, Russian, Top Shelf, playlists
+  and devices. The job is no longer `continue-on-error`.
+- **Release archive job** (`archive-tvos`): `scripts/check-metadata.py`, then `xcodebuild archive`
+  for `generic/platform=tvOS` (Release, `CODE_SIGNING_ALLOWED=NO`,
+  `CURRENT_PROJECT_VERSION=${{ github.run_number }}`), then checks that the app and the embedded
+  `TopShelf.appex` have a valid `PrivacyInfo.xcprivacy`, version 1.0.0, the run number as build
+  number and arm64 binaries, and that `ITSAppUsesNonExemptEncryption` is false.
+- `project.yml`: `MARKETING_VERSION` 1.0.0; `CURRENT_PROJECT_VERSION` stays 1 for local builds and
+  is overridden on the command line for uploads.
+- **Privacy manifests**: `AntresolTV/Resources/PrivacyInfo.xcprivacy` (no tracking, no collected
+  data; UserDefaults `CA92.1` for the app's settings and `1C8F.1` for the App Group defaults written
+  by `SharedSession`; file timestamps `C617.1` for the artwork cache expiry in `ImagePipeline`) and
+  `TopShelf/PrivacyInfo.xcprivacy` (UserDefaults `1C8F.1`, file timestamps `C617.1` for
+  `TopShelfArtwork` in the group container). No other required-reason API (disk space, boot time,
+  active keyboards) is used by the app, the extension or AntresolKit.
+- `Info.plist`: `ITSAppUsesNonExemptEncryption = false` (only system HTTPS).
+- **App Store metadata** in `fastlane/metadata/{en-US,ru}` (name, subtitle, description, keywords,
+  promotional text, release notes, privacy/support/marketing URLs) plus copyright and categories
+  (Entertainment, Music); `fastlane/Deliverfile` (appletvos, text only). Wording follows the
+  website (`sidun-av.github.io/antresol`) but lists only what the TV app does.
+- `scripts/ExportOptions-AppStore.plist` (app-store-connect, upload, automatic signing).
+- README: "Run on an Apple TV" (App Group and App IDs registration, why the Keychain group needs
+  none, pairing, team) and "Ship to TestFlight and the App Store" (version/build, archive and
+  export commands, export compliance, TestFlight groups, metadata, privacy label, screenshots).
+
+### Decisions
+- The `screenshots` branch is force-pushed as one commit each time instead of growing a history of
+  ~60 PNGs per push; the commit sha in its README ties it to main.
+- Russian keywords are kept within 100 bytes (App Store Connect counts bytes, so Cyrillic halves
+  the room); the check script enforces bytes for keywords and characters elsewhere.
+- The description does not claim offline downloads, the e-book reader, Picture in Picture or
+  adaptive quality: the TV app has none of those (the website copy describes the iOS app).
+- Copyright follows the website footer ("2026 Aleksandr Sidun"). The server repository's LICENSE
+  names a different holder; the user should confirm which applies to the App Store listing.
+- No signing secrets in CI: the archive proves the Release build only; uploads are manual.
+
+### Known gaps
+- Never signed or uploaded: App IDs, App Group, App Store Connect record, TestFlight and App
+  Privacy answers are the owner's steps (README).
+- The website's privacy policy and support page describe the iPhone/iPad/Mac app; they should
+  mention Apple TV (Top Shelf artwork cached in the App Group container) before submission.
+- App Review needs a reachable demo server and profile credentials.
+- Store screenshots must be picked by hand from the `screenshots` branch (mock data).
