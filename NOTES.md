@@ -264,3 +264,61 @@ Running log between milestones. Newest entry last.
   server's VTT conversion.
 - OpenSubtitles search/download is not in the player (the server returns 503 when unconfigured).
 - Multiple versions of a movie (several files) always play the first file.
+
+## Milestone 5 — Music, audiobooks, comics
+
+### What exists
+- **Kit**: `PlayQueue` (queue with shuffle that keeps the current item, repeat off/all/one,
+  play next / add to queue / remove), `ScrobbleTracker` (one `POST /api/music/plays` per song after
+  min(30 s, half the song) of actually played time; seeks do not count), `AudiobookTimeline` (whole-book ms ↔ part + offset, chapter
+  lookup, next/previous chapter, chapter end for the sleep timer), comic spread layout and
+  `ComicProgress` locators. Unit tests in `AudioLogicTests`; integration tests `testMusic` and
+  `testBooksAndComics` stream a track, an audiobook part and a comic page from the real server
+  (61 kit tests, all passing locally with `ANTRESOL_TEST_SERVER=1`).
+- **Music tab** (`Views/Music`): title + section pill — Listen Now (server shelves, Shuffle All),
+  Albums (sort pill), Artists, Songs, Genres, Playlists; paged grids. Album page (cover header,
+  Play, Shuffle, Favorite, Go to Artist, track list grouped by disc), artist page (top songs,
+  albums, appears on), playlist and genre pages. Track rows: select plays from that row, long press
+  offers Play Next, Add to Queue, favourite, album and artist.
+- **Audio player** (`Audio/AudioPlayer`): one app-wide `AVQueuePlayer` with the next item queued
+  (gapless). Stream URLs carry the media key and `accept=` the formats AVPlayer decodes
+  (aac, mp3, alac, flac); if a FLAC item fails it is retried transcoded. Transcoded streams seek
+  by reloading with `t=`. Shuffle, repeat, star/unstar (optimistic, reverted on failure),
+  scrobbling, interruption handling, `AVAudioSession` `.playback` (background audio mode is in
+  Info.plist). Video playback pauses the audio player.
+- **System integration** (`NowPlayingCenter`): `MPNowPlayingInfoCenter` (title, artist, album,
+  artwork loaded with the Bearer header, elapsed/duration/rate, chapter for audiobooks) and
+  `MPRemoteCommandCenter` (play/pause/toggle, next/previous or 15/30 s skips and chapter jumps,
+  scrubbing).
+- **Now Playing** (`NowPlayingView`): large artwork over a blurred, artwork-tinted backdrop,
+  title/context, focusable scrubber (left/right seek), transport circle buttons, and a right
+  panel with Up Next / Lyrics (synced lines follow playback; plain lyrics scroll) or Chapters for
+  audiobooks. Shown full screen when playback starts; while something is loaded the shell has an
+  icon-only Now Playing tab (waveform / pause icon) as the mini "now playing" entry.
+- **Books tab** (`Views/Books`): Reading Now (server shelves), Audiobooks, Manga & Comics, Books,
+  with sort pills. Audiobook page: chapters, Play/Resume from the whole-book position, Want to Read.
+  Audiobook playback plays all parts as one book, speed 0.75–3×, sleep timer (5–60 min or end of
+  chapter), progress `PUT /api/progress` with `positionMs`/`durationMs` every 10 s, on pause and in
+  the background. Comic series page (volumes, Continue Reading) and volume page; the comic reader
+  shows single pages or spreads (play/pause toggles), honours `rtl`, loads pages with the auth
+  header and prefetches one spread back and two ahead, saves the page as progress and shows an
+  "End of Volume" card after the last page. E-books show their page with "Reading books isn’t available on Apple TV".
+- **UI tests** `test06Music` / `test07Books` capture Listen Now, album, Now Playing with lyrics,
+  albums grid, Books home, comic volume and reader, audiobook page and Now Playing. The mock server
+  serves generated `track.m4a` / `audiobook.m4a` fixtures.
+
+### Decisions
+- Detail pages built on `DetailScroll` + `CollectionHeader` give the header actions the initial
+  focus (focus scope + `prefersDefaultFocus`), and Now Playing starts on Play/Pause — the
+  screenshots showed the first list row and the scrubber taking focus otherwise.
+- The Now Playing tab is icon-only: with a text label the eighth tab pushed the profile tab out of
+  the tvOS tab bar.
+- Lossless FLAC is requested directly (AVPlayer plays it on tvOS 17); a failure falls back to the
+  server's AAC transcode instead of surfacing an error.
+
+### Known gaps
+- No playlist editing (create/rename/reorder) on TV; the kit supports it, the UI only plays
+  playlists.
+- Audio was checked on the simulator with the mock server's AAC fixtures; FLAC/transcoded music and
+  multi-part MP3 audiobooks from the real server were verified only by the kit integration tests.
+- E-book reading is intentionally not available on TV.
