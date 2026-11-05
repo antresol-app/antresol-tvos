@@ -57,7 +57,7 @@ struct SearchView: View {
     }
 
     private func results(_ groups: [SearchGroup]) -> some View {
-        LazyVStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing - 16) {
+        VStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing - 16) {
             ForEach(groups) { group in
                 ShelfRow(title: group.title, items: group.entries, id: \.id) { entry in
                     NavigationLink(value: Route.item(entry.destination)) {

@@ -69,7 +69,7 @@ private struct BooksHomeSection: View {
                     EmptyStateView(systemImage: "books.vertical", title: "No books yet", message: "Add audiobooks, comics and books to the server's media folders and scan the library.")
                         .frame(minHeight: 500)
                 } else {
-                    LazyVStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
+                    VStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
                         ForEach(shelves) { shelf in
                             let artworkHeight = shelf.cards.mixedShapeArtworkHeight
                             ShelfRow(title: shelf.title, items: shelf.cards, id: \.uniqueKey) { card in

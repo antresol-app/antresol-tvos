@@ -725,3 +725,15 @@ DESIGN.md) and tvOS conventions. Fixed:
   Shows now use the shared `PageHeader`).
 - **Search browse tiles**: symbol top left in a fixed box and title pinned bottom left, so the
   titles of all six tiles sit on one line (before, they shifted with the symbol height).
+- **Empty shelf row on Home**: a shelf reached by scrolling (Recently Played in `06-home-shelves`)
+  showed its title but no cards: the lazy outer stack laid its row out at zero height. Home,
+  Books > Reading Now and the search results use a plain `VStack` of shelves now (a handful of
+  rows each; the rows themselves stay lazy).
+- **Settings scrolled under the tab bar**: removing `scrollClipDisabled()` was not enough, since a
+  scroll view draws into the safe area the tab bar occupies; the list is `.clipped()` to its frame.
+- Track and chapter numbers sit in a 40 pt column (was 52) so titles follow them more closely.
+
+Not changed (checked and kept): the full-screen resume prompt, Up Next and Now Playing use the
+80 pt margin inside the safe area (160 pt from the screen edge) like the system player overlays;
+shelf titles and badges such as "Audio EN RU" come localized from the server (the mock serves
+English); the logo stays the glass mark from `logo-mark.svg`.

@@ -173,7 +173,7 @@ struct ChapterRowLabel: View {
                         .foregroundStyle(secondaryColor)
                 }
             }
-            .frame(width: 52, alignment: .leading)
+            .frame(width: 40, alignment: .leading)
             Text(verbatim: chapter.title.isEmpty ? String(localized: "Chapter \(number)", bundle: .localized) : chapter.title)
                 .font(Theme.Typography.headline)
                 .lineLimit(1)

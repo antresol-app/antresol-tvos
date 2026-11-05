@@ -45,8 +45,10 @@ private struct SettingsPage: View {
                 .padding(.vertical, 80)
                 .padding(.horizontal, 24)
             }
-            // Clipped, so rows scrolled up end below the tab bar instead of under it; the
-            // padding above leaves room for the focused row's lift.
+            // A scroll view draws into the safe area the tab bar occupies; clipping it to its
+            // frame ends rows scrolled up below the tab bar instead of under it. The padding
+            // above leaves room for the focused row's lift.
+            .clipped()
             .focusSection()
         }
         .padding(.horizontal, Theme.Layout.margin)

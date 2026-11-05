@@ -43,7 +43,9 @@ struct HomeView: View {
 
     private func shelves(_ content: HomeContent) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
+            // A plain stack: Home has a handful of shelves, and a lazy outer stack laid rows
+            // created during a scroll out at zero height until they took focus.
+            VStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
                 if !content.features.isEmpty {
                     HeroView(features: content.features)
                 } else {
