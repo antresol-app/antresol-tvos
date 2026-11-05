@@ -220,7 +220,11 @@ final class VideoPlayerModel {
         }
         do {
             let detail = try await playableItem(for: target, client: client)
-            guard let file = detail.primaryFile else { throw PlayerError.nothingToPlay }
+            // The chosen version applies to the requested item, not to later episodes.
+            let chosen = detail.id == request.card.id ? request.fileId : nil
+            guard let file = detail.files.first(where: { $0.id == chosen }) ?? detail.primaryFile else {
+                throw PlayerError.nothingToPlay
+            }
             item = detail
             self.file = file
             card = detail.card
@@ -457,7 +461,7 @@ final class VideoPlayerModel {
             } catch {
                 guard !Task.isCancelled, let self else { return }
                 self.menus.subtitleIndex = nil
-                self.notice = String(localized: "Subtitles could not be loaded.")
+                self.notice = String(localized: "Subtitles could not be loaded.", bundle: .localized)
             }
         }
     }
@@ -489,7 +493,7 @@ final class VideoPlayerModel {
                 image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders, maxPixelSize: 800)
             }
             guard !Task.isCancelled, let self, self.item?.id == item.id else { return }
-            let label = String(localized: "S\(next.seasonNo), E\(next.episodeNo)")
+            let label = String(localized: "S\(next.seasonNo), E\(next.episodeNo)", bundle: .localized)
             self.upNext = UpNextOffer(
                 episode: next,
                 title: next.card.title.isEmpty ? label : "\(label) · \(next.card.title)",
@@ -552,7 +556,7 @@ final class VideoPlayerModel {
 
     private func load(_ source: PlaybackSource, autoplay: Bool = true) {
         teardownPlayerItem()
-        let playerItem = AVPlayerItem(url: source.url)
+        let playerItem = AVPlayerItem(asset: Self.asset(for: source, client: client))
         playerItem.externalMetadata = metadata
         let itemID = ObjectIdentifier(playerItem)
         let seek = source.initialPlayerSeek
@@ -599,6 +603,16 @@ final class VideoPlayerModel {
         ]
         attachProposal()
         if autoplay, pendingSeek == nil { player.play() }
+    }
+
+    /// The media-key URL needs no headers for direct play and complete (VOD) playlists.
+    /// A growing (EVENT) playlist lists segments without the key, so every request of
+    /// that asset carries the Bearer header instead (§5.4).
+    private static func asset(for source: PlaybackSource, client: APIClient?) -> AVURLAsset {
+        guard source.mode.isHLS, !source.response.hlsComplete, let client else {
+            return AVURLAsset(url: source.url)
+        }
+        return AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFieldsKey": client.authorizationHeaders])
     }
 
     private func isCurrentItem(_ id: ObjectIdentifier) -> Bool {
@@ -697,7 +711,7 @@ final class VideoPlayerModel {
         }
         guard let message else { return }
         if let apiError = error as? APIError, apiError.isTooManySessions {
-            state = .failed(apiError.serverMessage ?? String(localized: "This profile is already watching on another device. Stop playback there and try again."))
+            state = .failed(apiError.serverMessage ?? String(localized: "This profile is already watching on another device. Stop playback there and try again.", bundle: .localized))
         } else {
             state = .failed(message)
         }
@@ -779,9 +793,9 @@ enum PlayerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .nothingToPlay:
-            return String(localized: "There is no playable file for this item.")
+            return String(localized: "There is no playable file for this item.", bundle: .localized)
         case .playbackFailed:
-            return String(localized: "The video stopped playing. Check the connection to the server and try again.")
+            return String(localized: "The video stopped playing. Check the connection to the server and try again.", bundle: .localized)
         }
     }
 }

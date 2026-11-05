@@ -8,7 +8,6 @@
 	</array>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)app.antresol.tv</string>
 		<string>$(AppIdentifierPrefix)app.antresol.shared</string>
 	</array>
 </dict>

@@ -3,7 +3,13 @@ import SwiftUI
 
 /// First-run screen: enter the server address. Accepts a host, `host:port` or a full
 /// http(s) URL (port 8420 by default) and checks it with `/api/health` before continuing.
+///
+/// Opened from Settings while signed in, it is presented over the shell with `close`: the
+/// signed-in session (tabs, playback) is untouched until another server connects.
 struct ServerEntryView: View {
+    /// Dismisses the screen when it was presented over a signed-in session.
+    var close: (() -> Void)?
+
     @Environment(AppState.self) private var appState
     @State private var address = ""
     @State private var isConnecting = false
@@ -54,8 +60,8 @@ struct ServerEntryView: View {
                         .focused($focus, equals: .connect)
                         .disabled(isConnecting || trimmedAddress.isEmpty)
 
-                        if appState.canCancelServerChange {
-                            Button("Cancel") { appState.cancelServerChange() }
+                        if canCancel {
+                            Button("Cancel", action: cancel)
                                 .buttonStyle(PillButtonStyle(kind: .glass))
                         }
                     }
@@ -71,7 +77,19 @@ struct ServerEntryView: View {
             }
             focus = address.isEmpty ? .address : .connect
         }
-        .onExitCommand(perform: appState.canCancelServerChange ? { appState.cancelServerChange() } : nil)
+        .onExitCommand(perform: canCancel ? cancel : nil)
+    }
+
+    private var canCancel: Bool {
+        close != nil || appState.canCancelServerChange
+    }
+
+    private func cancel() {
+        if let close {
+            close()
+        } else {
+            appState.cancelServerChange()
+        }
     }
 
     @ViewBuilder
@@ -95,7 +113,7 @@ struct ServerEntryView: View {
     private func connect() {
         guard !isConnecting, !trimmedAddress.isEmpty else { return }
         guard ServerAddress.normalize(trimmedAddress) != nil else {
-            errorMessage = String(localized: "That doesn't look like a server address.")
+            errorMessage = String(localized: "That doesn't look like a server address.", bundle: .localized)
             return
         }
         isConnecting = true
@@ -103,6 +121,7 @@ struct ServerEntryView: View {
         Task {
             do {
                 try await appState.connect(to: trimmedAddress)
+                close?()
             } catch {
                 errorMessage = Self.describe(error)
                 focus = .address
@@ -122,11 +141,11 @@ struct ServerEntryView: View {
     private static func describe(_ error: Error) -> String {
         switch error as? APIError {
         case .transport?:
-            return String(localized: "Couldn't reach the server. Check the address and that the server is running.")
+            return String(localized: "Couldn't reach the server. Check the address and that the server is running.", bundle: .localized)
         case .decoding?, .server?:
-            return String(localized: "This address doesn't answer like an Antresol server.")
+            return String(localized: "This address doesn't answer like an Antresol server.", bundle: .localized)
         default:
-            return error.localizedDescription
+            return AppState.userMessage(for: error)
         }
     }
 }

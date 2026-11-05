@@ -11,7 +11,8 @@ final class NowPlayingCenter {
     private var artworkPath: String?
     private var artwork: MPMediaItemArtwork?
     private var artworkTask: Task<Void, Never>?
-    private var commandsRegistered = false
+    /// Registered remote-command handlers, removed again by `invalidate()`.
+    private var commandTargets: [(command: MPRemoteCommand, target: Any)] = []
 
     init(player: AudioPlayer) {
         self.player = player
@@ -86,32 +87,45 @@ final class NowPlayingCenter {
 
     // MARK: Remote commands
 
+    /// Removes the remote-command handlers from the shared command center; the player
+    /// calls it when it is shut down (a new profile gets a new player).
+    func invalidate() {
+        clear()
+        for entry in commandTargets {
+            entry.command.removeTarget(entry.target)
+        }
+        commandTargets = []
+    }
+
     private func registerCommands() {
-        guard !commandsRegistered else { return }
-        commandsRegistered = true
+        guard commandTargets.isEmpty else { return }
         let center = MPRemoteCommandCenter.shared()
-        center.playCommand.addTarget(handler: target { player, _ in player.resume() })
-        center.pauseCommand.addTarget(handler: target { player, _ in player.pause() })
-        center.togglePlayPauseCommand.addTarget(handler: target { player, _ in player.togglePlayPause() })
-        center.nextTrackCommand.addTarget(handler: target { player, _ in player.next() })
-        center.previousTrackCommand.addTarget(handler: target { player, _ in player.previous() })
+        add(center.playCommand) { player, _ in player.resume() }
+        add(center.pauseCommand) { player, _ in player.pause() }
+        add(center.togglePlayPauseCommand) { player, _ in player.togglePlayPause() }
+        add(center.nextTrackCommand) { player, _ in player.next() }
+        add(center.previousTrackCommand) { player, _ in player.previous() }
         center.skipForwardCommand.preferredIntervals = [30]
-        center.skipForwardCommand.addTarget(handler: target { player, _ in player.skip(by: 30) })
+        add(center.skipForwardCommand) { player, _ in player.skip(by: 30) }
         center.skipBackwardCommand.preferredIntervals = [15]
-        center.skipBackwardCommand.addTarget(handler: target { player, _ in player.skip(by: -15) })
-        center.changePlaybackPositionCommand.addTarget(handler: target { player, event in
+        add(center.skipBackwardCommand) { player, _ in player.skip(by: -15) }
+        add(center.changePlaybackPositionCommand) { player, event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else { return }
             if player.book != nil {
                 player.seek(toBookMs: Int(event.positionTime * 1000))
             } else {
                 player.seek(to: event.positionTime)
             }
-        })
+        }
         center.changePlaybackRateCommand.supportedPlaybackRates = AudioPlayer.speeds.map { NSNumber(value: $0) }
-        center.changePlaybackRateCommand.addTarget(handler: target { player, event in
+        add(center.changePlaybackRateCommand) { player, event in
             guard let event = event as? MPChangePlaybackRateCommandEvent else { return }
             player.setSpeed(event.playbackRate)
-        })
+        }
+    }
+
+    private func add(_ command: MPRemoteCommand, _ action: @escaping @MainActor (AudioPlayer, MPRemoteCommandEvent) -> Void) {
+        commandTargets.append((command, command.addTarget(handler: target(action))))
     }
 
     /// Music uses next/previous song; audiobooks use 15/30 s skips and chapter jumps.

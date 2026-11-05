@@ -23,6 +23,7 @@ private struct SettingsPage: View {
     @AppStorage(PlayerPreferences.Key.subtitleLanguage) private var subtitleLanguage: String?
     @AppStorage(PlayerPreferences.Key.autoplayNext) private var autoplayNext = true
     @State private var isConfirmingSignOut = false
+    @State private var showsServerEntry = false
 
     /// Languages offered for audio and subtitles (two-letter codes, as the player stores them).
     private static let mediaLanguages = ["en", "ru", "uk", "de", "fr", "es", "it", "pt", "pl", "ja", "ko", "zh"]
@@ -57,6 +58,10 @@ private struct SettingsPage: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This Apple TV is removed from the profile's devices. You can sign in again from the profile picker.")
+        }
+        .fullScreenCover(isPresented: $showsServerEntry) {
+            ServerEntryView { showsServerEntry = false }
+                .environment(appState)
         }
     }
 
@@ -122,24 +127,24 @@ private struct SettingsPage: View {
                 SettingsChoiceView(
                     title: "Audio Language",
                     footnote: "Used when a video has a track in this language. Automatic plays the file's default track.",
-                    options: [SettingsOption(value: String?.none, title: String(localized: "Automatic"))]
+                    options: [SettingsOption(value: String?.none, title: String(localized: "Automatic", bundle: .localized))]
                         + Self.mediaLanguages.map { SettingsOption<String?>(value: $0, title: languageName($0)) },
                     selection: $audioLanguage
                 )
             } label: {
-                SettingsRowLabel("Audio Language", value: audioLanguage.map(languageName) ?? String(localized: "Automatic"))
+                SettingsRowLabel("Audio Language", value: audioLanguage.map(languageName) ?? String(localized: "Automatic", bundle: .localized))
             }
 
             NavigationLink {
                 SettingsChoiceView(
                     title: "Subtitles",
                     footnote: "Subtitles in this language turn on by themselves when a video has them.",
-                    options: [SettingsOption(value: String?.none, title: String(localized: "Off"))]
+                    options: [SettingsOption(value: String?.none, title: String(localized: "Off", bundle: .localized))]
                         + Self.mediaLanguages.map { SettingsOption<String?>(value: $0, title: languageName($0)) },
                     selection: $subtitleLanguage
                 )
             } label: {
-                SettingsRowLabel("Subtitles", value: subtitleLanguage.map(languageName) ?? String(localized: "Off"))
+                SettingsRowLabel("Subtitles", value: subtitleLanguage.map(languageName) ?? String(localized: "Off", bundle: .localized))
             }
 
             Button {
@@ -147,7 +152,7 @@ private struct SettingsPage: View {
             } label: {
                 SettingsRowLabel(
                     "Autoplay Next Episode",
-                    value: autoplayNext ? String(localized: "On") : String(localized: "Off"),
+                    value: autoplayNext ? String(localized: "On", bundle: .localized) : String(localized: "Off", bundle: .localized),
                     symbol: nil
                 )
             }
@@ -172,7 +177,7 @@ private struct SettingsPage: View {
     }
 
     private func languageTitle(_ language: AppLanguage) -> String {
-        language.nativeName ?? String(localized: "System")
+        language.nativeName ?? String(localized: "System", bundle: .localized)
     }
 
     // MARK: Server
@@ -186,7 +191,7 @@ private struct SettingsPage: View {
                 // A kid profile cannot point the Apple TV at another server.
                 if !user.isKid {
                     Button {
-                        appState.changeServer()
+                        showsServerEntry = true
                     } label: {
                         SettingsRowLabel("Change Server", symbol: "server.rack")
                     }

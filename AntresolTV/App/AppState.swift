@@ -35,14 +35,23 @@ final class AppState {
         didSet {
             guard language != oldValue else { return }
             language.persist()
-            client?.language = language.serverCode
+            server?.client.language = language.serverCode
+            profileClient?.language = language.serverCode
             publishSharedSession()
         }
     }
     /// A link (Top Shelf, URL scheme) waiting for the signed-in shell to open it.
     var pendingDeepLink: DeepLink?
-    /// The connected server, once known.
+    /// The connected server, once known. Its client never carries a token: it serves
+    /// the profile picker and sign-in.
     private(set) var server: ServerConnection?
+    /// The signed-in profile's client. Each profile gets its own client with a fixed token,
+    /// so requests still in flight when the profile changes (final progress writes,
+    /// scrobbles) finish with the token they started with and never leak into the next one.
+    private var profileClient: APIClient?
+    /// Runs before the current token is revoked (sign out), so playback can write its
+    /// final position while the token is still valid. Set by the signed-in shell.
+    var prepareToLeaveProfile: (@MainActor () async -> Void)?
     /// Where "Cancel" on the server screen returns to.
     private var phaseBeforeServerChange: Phase?
 
@@ -57,7 +66,8 @@ final class AppState {
         AppLanguage.captureSystemLanguage()
     }
 
-    var client: APIClient? { server?.client }
+    /// The signed-in profile's client, or the server's anonymous one before sign-in.
+    var client: APIClient? { profileClient ?? server?.client }
 
     var currentUser: User? {
         if case .signedIn(let user) = phase { return user }
@@ -81,7 +91,7 @@ final class AppState {
             settings.serverId = connection.serverId
             await restoreProfile(on: connection)
         } catch {
-            phase = .serverUnreachable(message: error.localizedDescription)
+            phase = .serverUnreachable(message: Self.userMessage(for: error))
         }
     }
 
@@ -131,15 +141,15 @@ final class AppState {
         }
         let key = CredentialKey(serverId: server.serverId, userId: profile.id)
         if let token = tokens.token(for: key) {
-            server.client.token = token
+            let candidate = server.profileClient(token: token)
             do {
-                let user = try await server.client.me()
+                let user = try await candidate.me()
+                profileClient = candidate
                 settings.lastUserId = profile.id
                 phase = .signedIn(user)
                 return .signedIn
             } catch let error as APIError where error.statusCode == 401 {
                 try? tokens.removeToken(for: key)
-                server.client.token = nil
             }
         }
         try await signIn(profile: profile, password: nil)
@@ -151,34 +161,37 @@ final class AppState {
         guard let server else { throw APIError.invalidURL("") }
         let response = try await server.client.signIn(userId: profile.id, password: password, device: device.info)
         try tokens.setToken(response.token, for: CredentialKey(serverId: server.serverId, userId: profile.id))
-        server.client.token = response.token
+        profileClient = server.profileClient(token: response.token)
         settings.lastUserId = profile.id
         phase = .signedIn(response.user)
     }
 
     /// Returns to the profile picker, keeping the current profile's token for later.
     func switchProfile() {
-        guard let server else { return }
-        server.client.token = nil
-        settings.lastUserId = nil
-        phase = .needsProfile
+        guard server != nil else { return }
+        leaveProfile()
     }
 
-    /// Revokes the current token on the server and forgets it.
+    /// Writes the final playback position, then revokes the current token on the server
+    /// and forgets it.
     func signOut() async {
-        guard let server, let user = currentUser else { return }
-        try? await server.client.signOut()
+        guard let server, let user = currentUser, let profileClient else { return }
+        await prepareToLeaveProfile?()
+        try? await profileClient.signOut()
         try? tokens.removeToken(for: CredentialKey(serverId: server.serverId, userId: user.id))
-        server.client.token = nil
-        settings.lastUserId = nil
-        phase = .needsProfile
+        leaveProfile()
     }
 
     /// Called when any request reports `401`: the token was revoked.
     func handleUnauthorized() {
         guard let server, let user = currentUser else { return }
         try? tokens.removeToken(for: CredentialKey(serverId: server.serverId, userId: user.id))
-        server.client.token = nil
+        leaveProfile()
+    }
+
+    private func leaveProfile() {
+        profileClient = nil
+        prepareToLeaveProfile = nil
         settings.lastUserId = nil
         phase = .needsProfile
     }
@@ -190,7 +203,36 @@ final class AppState {
             handleUnauthorized()
             return nil
         }
-        return error.localizedDescription
+        return Self.userMessage(for: error)
+    }
+
+    /// A localized, non-technical description of a failure: the server's own message
+    /// when it sent one (in the app language), otherwise a plain explanation.
+    static func userMessage(for error: Error) -> String {
+        if let error = error as? APIError {
+            switch error {
+            case .unauthorized(let message):
+                return message ?? String(localized: "Sign in again to continue.", bundle: .localized)
+            case .server(let status, let message, _, _):
+                if let message, !message.isEmpty { return message }
+                if status == 404 { return String(localized: "This item is no longer in the library.", bundle: .localized) }
+                if status >= 500 { return String(localized: "The server had a problem. Try again in a moment.", bundle: .localized) }
+                return String(localized: "The server couldn't complete the request.", bundle: .localized)
+            case .decoding:
+                return String(localized: "Unexpected response from the server.", bundle: .localized)
+            case .transport:
+                return String(localized: "Couldn't reach the server. Check that it is running and on the same network.", bundle: .localized)
+            case .invalidURL:
+                return String(localized: "That doesn't look like a server address.", bundle: .localized)
+            }
+        }
+        if error is URLError {
+            return String(localized: "Couldn't reach the server. Check that it is running and on the same network.", bundle: .localized)
+        }
+        if let localized = error as? LocalizedError, let description = localized.errorDescription {
+            return description
+        }
+        return String(localized: "Something went wrong. Try again.", bundle: .localized)
     }
 
     #if DEBUG
@@ -221,19 +263,22 @@ final class AppState {
         guard let userId = settings.lastUserId,
               let token = tokens.token(for: CredentialKey(serverId: connection.serverId, userId: userId))
         else {
-            connection.client.token = nil
+            profileClient = nil
             phase = .needsProfile
             return
         }
-        connection.client.token = token
+        let candidate = connection.profileClient(token: token)
         do {
-            phase = .signedIn(try await connection.client.me())
+            let user = try await candidate.me()
+            profileClient = candidate
+            phase = .signedIn(user)
         } catch let error as APIError where error.statusCode == 401 {
             try? tokens.removeToken(for: CredentialKey(serverId: connection.serverId, userId: userId))
-            connection.client.token = nil
+            profileClient = nil
             phase = .needsProfile
         } catch {
-            phase = .serverUnreachable(message: error.localizedDescription)
+            profileClient = nil
+            phase = .serverUnreachable(message: Self.userMessage(for: error))
         }
     }
 
@@ -248,7 +293,7 @@ final class AppState {
     /// the system to reload the Top Shelf when that changed.
     private func publishSharedSession() {
         let changed: Bool
-        if case .signedIn(let user) = phase, let server, let token = server.client.token {
+        if case .signedIn(let user) = phase, let server, let token = profileClient?.token {
             let session = SharedSession(serverURL: server.url, userId: user.id, language: language.serverCode)
             changed = SharedSessionStore.save(session, token: token)
         } else {
@@ -270,6 +315,11 @@ struct ServerConnection {
 
     /// "host:port" for display.
     var displayName: String { ServerAddress.displayName(client.baseURL) }
+
+    /// A client for one signed-in profile on this server.
+    func profileClient(token: String) -> APIClient {
+        APIClient(baseURL: client.baseURL, token: token, language: client.language)
+    }
 
     static func connect(to url: URL, language: String) async throws -> ServerConnection {
         let client = APIClient(baseURL: url, language: language)

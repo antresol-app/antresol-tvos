@@ -288,9 +288,9 @@ private struct NowPlayingContent: View {
 
     private static func title(_ panel: Panel) -> String {
         switch panel {
-        case .upNext: return String(localized: "Up Next")
-        case .lyrics: return String(localized: "Lyrics")
-        case .chapters: return String(localized: "Chapters")
+        case .upNext: return String(localized: "Up Next", bundle: .localized)
+        case .lyrics: return String(localized: "Lyrics", bundle: .localized)
+        case .chapters: return String(localized: "Chapters", bundle: .localized)
         }
     }
 }
@@ -626,16 +626,16 @@ enum AudioFormat {
 
     static func sleepTimer(_ timer: AudioPlayer.SleepTimer) -> String {
         switch timer {
-        case .minutes(let minutes): return String(localized: "\(minutes) min")
-        case .endOfChapter: return String(localized: "End of Chapter")
+        case .minutes(let minutes): return String(localized: "\(minutes) min", bundle: .localized)
+        case .endOfChapter: return String(localized: "End of Chapter", bundle: .localized)
         }
     }
 
     static func repeatMode(_ mode: RepeatMode) -> String {
         switch mode {
-        case .off: return String(localized: "Off")
-        case .all: return String(localized: "Repeat All")
-        case .one: return String(localized: "Repeat One")
+        case .off: return String(localized: "Off", bundle: .localized)
+        case .all: return String(localized: "Repeat All", bundle: .localized)
+        case .one: return String(localized: "Repeat One", bundle: .localized)
         }
     }
 }

@@ -58,7 +58,7 @@ final class AudioPlayer {
             source = .audiobookPart(fileId: file.id, index: partIndex)
             title = book.card.title
             artist = book.authors.joined(separator: ", ")
-            album = book.files.count > 1 ? String(localized: "Part \(partIndex + 1) of \(book.files.count)") : ""
+            album = book.files.count > 1 ? String(localized: "Part \(partIndex + 1) of \(book.files.count)", bundle: .localized) : ""
             artwork = book.card.poster
             durationMs = file.durationMs
         }
@@ -151,15 +151,24 @@ final class AudioPlayer {
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var nowPlaying: NowPlayingCenter!
     @ObservationIgnored private let defaults = UserDefaults.standard
+    /// Bumped by every start and stop, so a start that is still saving the previous
+    /// position gives up when another one (or a stop) came after it.
+    @ObservationIgnored private var startGeneration = 0
+    /// Items that failed in a row; playback stops instead of cycling a failing queue.
+    @ObservationIgnored private var consecutiveFailures = 0
 
     private static let speedKey = "audio.audiobookSpeed"
+    private static let maxConsecutiveFailures = 3
+    /// Audiobook part formats AVPlayer plays as sent (`BookFile.format`).
+    private static let nativeFormats: Set<String> = ["MP3", "M4A", "M4B", "AAC", "ALAC", "FLAC", "WAV", "AIFF", "AIF"]
 
     /// A player item and what it plays.
     private struct LoadedItem {
         let entryId: UUID
         /// The `t` the stream was requested with: the player's 0 is this item position.
         let offset: Double
-        let transcoded: Bool
+        /// Known once the stream's headers were seen; a transcoded stream cannot seek.
+        var transcoded: Bool
         /// The stream asked for FLAC as is; a failure is retried transcoded.
         let acceptsFLAC: Bool
     }
@@ -232,7 +241,7 @@ final class AudioPlayer {
         guard content == .music, !queue.isEmpty else { return play(tracks: tracks) }
         queue.insertNext(tracks.map(Item.init(track:)))
         refreshUpcoming()
-        showNotice(String(localized: "Playing next"))
+        showNotice(String(localized: "Playing next", bundle: .localized))
     }
 
     /// Adds songs to the end of the queue, or plays them when nothing is playing.
@@ -240,7 +249,7 @@ final class AudioPlayer {
         guard content == .music, !queue.isEmpty else { return play(tracks: tracks) }
         queue.append(contentsOf: tracks.map(Item.init(track:)))
         refreshUpcoming()
-        showNotice(String(localized: "Added to queue"))
+        showNotice(String(localized: "Added to queue", bundle: .localized))
     }
 
     /// Asks the shell to show Now Playing.
@@ -263,6 +272,7 @@ final class AudioPlayer {
 
     func resume() {
         guard hasContent else { return }
+        consecutiveFailures = 0
         activateSession()
         if player.currentItem == nil, let index = queue.currentIndex {
             // The queue ran out; start the current item over.
@@ -277,8 +287,37 @@ final class AudioPlayer {
         saveProgress()
     }
 
-    /// Stops playback and empties the player; the audiobook position is saved first.
+    /// Stops playback and empties the player; the audiobook position is saved in the background.
     func stop() {
+        let save = halt()
+        Task { await save() }
+    }
+
+    /// Stops playback and waits until the audiobook position is written, e.g. before the
+    /// profile's token is revoked.
+    func stopAndFlush() async {
+        await halt()()
+    }
+
+    /// Stops playback and releases the player's observers and remote-command handlers.
+    /// Call when the signed-in shell goes away; the player is not used afterwards.
+    func shutdown() {
+        stop()
+        if let timeObserver {
+            player.removeTimeObserver(timeObserver)
+            self.timeObserver = nil
+        }
+        observers.forEach { $0.invalidate() }
+        observers = []
+        notificationTokens.forEach(NotificationCenter.default.removeObserver)
+        notificationTokens = []
+        noticeTask?.cancel()
+        nowPlaying.invalidate()
+    }
+
+    /// Empties the player and returns the write of the final audiobook position.
+    private func halt() -> @MainActor () async -> Void {
+        startGeneration += 1
         let reporter = reporter
         let bookMs = bookPositionMs
         let durationMs = book?.durationMs ?? 0
@@ -293,14 +332,13 @@ final class AudioPlayer {
         cancelSleepTimer()
         self.reporter = nil
         nowPlaying.clear()
-        if let reporter {
-            Task {
-                await reporter.update(positionMs: bookMs, durationMs: durationMs)
-                await reporter.stop()
-                self.progressRevision += 1
-            }
-        }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        return { [weak self] in
+            guard let reporter else { return }
+            await reporter.update(positionMs: bookMs, durationMs: durationMs)
+            await reporter.stop()
+            self?.progressRevision += 1
+        }
     }
 
     /// Next song, or next chapter of an audiobook.
@@ -411,7 +449,9 @@ final class AudioPlayer {
         let target = max(0, seconds)
         position = target
         scrobble?.resetPosition()
-        if !info.transcoded {
+        // A stream with nothing seekable once ready is a transcode the headers did not reveal.
+        let transcoded = info.transcoded || (playerItem.status == .readyToPlay && playerItem.seekableTimeRanges.isEmpty)
+        if !transcoded {
             if playerItem.status == .readyToPlay {
                 player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
             } else {
@@ -427,12 +467,17 @@ final class AudioPlayer {
     // MARK: - Loading
 
     private func start(_ newContent: Content, queue newQueue: PlayQueue<Item>, at offset: Double) async {
+        startGeneration += 1
+        let generation = startGeneration
+        consecutiveFailures = 0
         if let reporter {
+            // Taken first, so a start that runs meanwhile does not save it again.
+            self.reporter = nil
             let bookMs = bookPositionMs
             let durationMs = book?.durationMs ?? 0
             await reporter.update(positionMs: bookMs, durationMs: durationMs)
             await reporter.stop()
-            self.reporter = nil
+            guard generation == startGeneration else { return }
         }
         if content != newContent {
             cancelSleepTimer()
@@ -444,6 +489,10 @@ final class AudioPlayer {
             let reporter = ProgressReporter(client: client, itemId: book.id, interval: 10, minimumChangeMs: 1000)
             self.reporter = reporter
             await reporter.start()
+            guard generation == startGeneration else {
+                await reporter.stop()
+                return
+            }
         }
         presentationRequests += 1
         guard let index = queue.currentIndex else { return }
@@ -453,8 +502,9 @@ final class AudioPlayer {
     /// Makes the queue entry at `index` the current item, starting at `offset` seconds.
     private func load(index: Int, at offset: Double) async {
         guard let entry = queue.move(to: index) else { return }
-        await refreshMediaKey()
-        let isTranscoded = await transcoding(entry.element, at: offset)
+        // Without any key the stream would only answer 401.
+        guard await refreshMediaKey() || mediaKey != nil else { return }
+        let isTranscoded = await transcoding(entry.element)
         guard queue.current?.id == entry.id else { return }
         guard let playerItem = makePlayerItem(for: entry, offset: offset, transcoded: isTranscoded) else { return }
         player.removeAllItems()
@@ -483,8 +533,17 @@ final class AudioPlayer {
             forget(item)
         }
         guard let wanted, let next = makePlayerItem(for: wanted, offset: 0, transcoded: false) else { return }
-        register(next, entry: wanted, offset: 0, transcoded: false, acceptsFLAC: true)
+        let known = knownTranscoding(wanted.element)
+        register(next, entry: wanted, offset: 0, transcoded: known ?? false, acceptsFLAC: known != true)
         player.insert(next, after: currentItem)
+        if known == nil {
+            // Learn it before anyone seeks in that item.
+            let id = ObjectIdentifier(next)
+            Task {
+                let transcoded = await transcoding(wanted.element)
+                loaded[id]?.transcoded = transcoded
+            }
+        }
     }
 
     private func makePlayerItem(for entry: PlayQueue<Item>.Entry, offset: Double, transcoded: Bool, forceTranscode: Bool = false) -> AVPlayerItem? {
@@ -507,12 +566,13 @@ final class AudioPlayer {
         }
     }
 
-    /// Whether the server transcodes this item for our `accept` list. Only asked when
-    /// it matters (starting inside an item); the answer is cached per stream.
-    private func transcoding(_ item: Item, at offset: Double) async -> Bool {
-        guard offset > 0, let url = streamURL(for: item, offset: 0, forceTranscode: false) else { return false }
+    /// Whether the server transcodes this item for our `accept` list: from the part's
+    /// format for audiobooks, otherwise from the stream's response headers (a transcode
+    /// has `X-Vault-Transcode: 1` and `Accept-Ranges: none`). Cached per stream.
+    private func transcoding(_ item: Item) async -> Bool {
+        if let known = knownTranscoding(item) { return known }
+        guard let url = streamURL(for: item, offset: 0, forceTranscode: false) else { return false }
         let key = Self.streamKey(item)
-        if let known = transcodedStreams[key] { return known }
         var request = URLRequest(url: url)
         request.setValue("bytes=0-1", forHTTPHeaderField: "Range")
         do {
@@ -526,6 +586,15 @@ final class AudioPlayer {
         } catch {
             return false
         }
+    }
+
+    private func knownTranscoding(_ item: Item) -> Bool? {
+        if let known = transcodedStreams[Self.streamKey(item)] { return known }
+        if case .audiobookPart(_, let index) = item.source, let book, book.files.indices.contains(index) {
+            let format = book.files[index].format.uppercased()
+            if !format.isEmpty { return !Self.nativeFormats.contains(format) }
+        }
+        return nil
     }
 
     private static func streamKey(_ item: Item) -> String {
@@ -551,12 +620,16 @@ final class AudioPlayer {
         itemObservers[id] = nil
     }
 
-    private func refreshMediaKey() async {
-        guard let mediaKeys else { return }
+    /// Fetches a fresh media key when needed; false when that failed.
+    @discardableResult
+    private func refreshMediaKey() async -> Bool {
+        guard let mediaKeys else { return false }
         do {
             mediaKey = try await mediaKeys.key()
+            return true
         } catch {
             if let message = appState?.message(for: error) { showNotice(message) }
+            return false
         }
     }
 
@@ -594,6 +667,7 @@ final class AudioPlayer {
         guard let info = loaded[id] else { return }
         switch playerItem.status {
         case .readyToPlay:
+            if playerItem === player.currentItem { consecutiveFailures = 0 }
             if playerItem === player.currentItem, let seek = pendingSeek {
                 pendingSeek = nil
                 player.seek(to: CMTime(seconds: seek, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
@@ -606,7 +680,8 @@ final class AudioPlayer {
     }
 
     /// A stream AVPlayer could not open: retry an original FLAC once as transcoded AAC,
-    /// otherwise skip to the next song.
+    /// otherwise skip to the next song. After a few failures in a row (server down, media
+    /// key refused) playback stops rather than cycling through the queue.
     private func itemFailed(_ playerItem: AVPlayerItem, info: LoadedItem) {
         guard let entry = queue.items.first(where: { $0.id == info.entryId }) else { return }
         let isCurrent = playerItem === player.currentItem
@@ -623,7 +698,14 @@ final class AudioPlayer {
         player.remove(playerItem)
         forget(playerItem)
         guard isCurrent else { return }
-        showNotice(String(localized: "Couldn’t play “\(entry.element.title)”."))
+        consecutiveFailures += 1
+        if consecutiveFailures >= min(queue.count, Self.maxConsecutiveFailures) {
+            player.pause()
+            saveProgress()
+            showNotice(String(localized: "Playback stopped because the server isn’t sending audio. Try again later.", bundle: .localized))
+            return
+        }
+        showNotice(String(localized: "Couldn’t play “\(entry.element.title)”.", bundle: .localized))
         if let next = queue.nextIndex, next != queue.currentIndex {
             Task { await load(index: next, at: 0) }
         }

@@ -113,8 +113,11 @@ struct MainShellView: View {
             if let client = appState.client {
                 audio.attach(to: appState, mediaKeys: playback.mediaKeyStore(for: client))
             }
+            appState.prepareToLeaveProfile = { [audio] in
+                await audio.stopAndFlush()
+            }
         }
-        .onDisappear { audio.stop() }
+        .onDisappear { audio.shutdown() }
     }
 
     /// Opens a Top Shelf / URL-scheme link: the item's page on the Home tab, or playback.

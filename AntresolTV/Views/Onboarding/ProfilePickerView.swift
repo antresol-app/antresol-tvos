@@ -118,7 +118,7 @@ struct ProfilePickerView: View {
             await Task.yield()
             focusedProfileId = profiles.first?.id
         } catch {
-            if !Task.isCancelled { loadError = error.localizedDescription }
+            if !Task.isCancelled { loadError = AppState.userMessage(for: error) }
         }
         isLoading = false
     }
@@ -132,7 +132,7 @@ struct ProfilePickerView: View {
                     passwordProfile = profile
                 }
             } catch {
-                signInError = error.localizedDescription
+                signInError = AppState.userMessage(for: error)
             }
             busyProfileId = nil
         }

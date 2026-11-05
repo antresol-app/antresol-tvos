@@ -65,7 +65,7 @@ struct PasswordEntryView: View {
             do {
                 try await appState.signIn(profile: profile, password: password)
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = AppState.userMessage(for: error)
                 password = ""
                 isFieldFocused = true
             }
