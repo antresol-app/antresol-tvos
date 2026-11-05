@@ -380,3 +380,29 @@ final class IntegrationTests: XCTestCase {
         XCTAssertGreaterThan(page.count, 0)
     }
 }
+
+final class TopShelfIntegrationTests: XCTestCase {
+    func testTopShelfPlanFromLiveHome() async throws {
+        guard let url = LiveServer.baseURL else {
+            throw XCTSkip("Set ANTRESOL_TEST_SERVER to run integration tests")
+        }
+        let client = try await LiveServer.session.client(url)
+        let home = try await client.home()
+        let plan = TopShelfPlan(home: home)
+        XCTAssertFalse(plan.sections.isEmpty, "the sample library has recently added movies")
+        for section in plan.sections {
+            for entry in section.entries {
+                XCTAssertEqual(DeepLink(url: entry.displayURL), .item(id: entry.card.id))
+                // Every linked item resolves for this profile.
+                let detail = try await client.item(id: entry.card.id)
+                XCTAssertEqual(detail.id, entry.card.id)
+                if let path = entry.imagePath {
+                    var request = URLRequest(url: try XCTUnwrap(client.urls.image(path)))
+                    client.authorizationHeaders.forEach { request.setValue($1, forHTTPHeaderField: $0) }
+                    let (_, response) = try await URLSessionTransport().send(request)
+                    XCTAssertEqual(response.statusCode, 200, path)
+                }
+            }
+        }
+    }
+}

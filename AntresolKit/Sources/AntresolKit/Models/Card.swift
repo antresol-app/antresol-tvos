@@ -145,6 +145,11 @@ public struct HomeResponse: Decodable, Sendable {
     public var hero: [Card]
     public var shelves: [Shelf]
 
+    public init(hero: [Card], shelves: [Shelf]) {
+        self.hero = hero
+        self.shelves = shelves
+    }
+
     enum CodingKeys: String, CodingKey { case hero, shelves }
 
     public init(from decoder: Decoder) throws {
