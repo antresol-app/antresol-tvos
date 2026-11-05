@@ -296,7 +296,7 @@ private struct SongsSection: View {
                     LazyVStack(spacing: 4) {
                         ForEach(Array(list.items.enumerated()), id: \.element.id) { index, track in
                             TrackRow(track: track, leading: .cover, showsArtist: true) {
-                                audio.play(tracks: list.items, startAt: index)
+                                play(from: index)
                             }
                             .task { await list.loadMoreIfNeeded(after: track, threshold: 30, using: appState) }
                         }
@@ -316,6 +316,18 @@ private struct SongsSection: View {
 }
 
 extension SongsSection {
+    /// Plays from the chosen song through the end of the list: the songs loaded so far
+    /// start at once, and the rest of the library (or of the favorites) is queued in the
+    /// background.
+    private func play(from index: Int) {
+        guard let client = appState.client else { return }
+        let starred = favoritesOnly
+        let rest = RemainingPages(after: list.items, total: list.total, pageSize: 500) { offset, limit in
+            try await client.songs(starred: starred, limit: limit, offset: offset)
+        }
+        audio.play(tracks: list.items, startAt: index, continuing: rest)
+    }
+
     /// Shuffles the whole library (server-side), or every favorite, not just the songs
     /// loaded so far.
     private func shuffle() async {
@@ -422,8 +434,23 @@ private struct GenreTile: View {
 // MARK: - Playlists
 
 private struct PlaylistsSection: View {
+    /// What the name page is for.
+    private enum Naming: Identifiable {
+        case create
+        case rename(Playlist)
+
+        var id: Int {
+            if case .rename(let playlist) = self { return playlist.id }
+            return 0
+        }
+    }
+
     @Environment(AppState.self) private var appState
+    @Environment(PlaylistActions.self) private var actions
     @State private var loader = ContentLoader<[Playlist]>()
+    @State private var naming: Naming?
+    @State private var pendingDeletion: Playlist?
+    @State private var actionError: String?
 
     private let columns = Array(
         repeating: GridItem(.fixed(Theme.Layout.gridSquareWidth), spacing: Theme.Layout.gridSquareSpacing, alignment: .top),
@@ -431,7 +458,22 @@ private struct PlaylistsSection: View {
     )
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 40) {
+            HStack(spacing: 24) {
+                Button {
+                    naming = .create
+                } label: {
+                    Label("New Playlist", systemImage: "plus")
+                }
+                .buttonStyle(PillButtonStyle(kind: .primary))
+                if let actionError {
+                    ErrorLine(message: actionError)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, Theme.Layout.margin)
+            .focusSection()
+
             switch loader.state {
             case .loading:
                 ProgressView().frame(maxWidth: .infinity, minHeight: 400)
@@ -440,8 +482,12 @@ private struct PlaylistsSection: View {
                     .frame(minHeight: 600)
             case .loaded(let playlists):
                 if playlists.isEmpty {
-                    EmptyStateView(systemImage: "music.note.list", title: "No playlists yet", message: "Create playlists in the Antresol web app; they appear here.")
-                        .frame(minHeight: 500)
+                    EmptyStateView(
+                        systemImage: "music.note.list",
+                        title: "No playlists yet",
+                        message: "Choose New Playlist, or long-press a song and choose Add to Playlist."
+                    )
+                    .frame(minHeight: 500)
                 } else {
                     LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.Layout.gridRowSpacing) {
                         ForEach(playlists) { playlist in
@@ -449,6 +495,18 @@ private struct PlaylistsSection: View {
                                 PosterCard(card: playlist.card, shape: .square, width: Theme.Layout.gridSquareWidth)
                             }
                             .buttonStyle(CardButtonStyle())
+                            .contextMenu {
+                                Button {
+                                    naming = .rename(playlist)
+                                } label: {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    pendingDeletion = playlist
+                                } label: {
+                                    Label("Delete Playlist", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                     .padding(.horizontal, Theme.Layout.margin)
@@ -456,11 +514,57 @@ private struct PlaylistsSection: View {
                 }
             }
         }
-        .task { await load() }
+        // Reloads after any playlist change (here, on a playlist page or in the picker).
+        .task(id: actions.revision) { await load() }
+        .sheet(item: $naming) { naming in
+            nameView(for: naming)
+                .environment(appState)
+        }
+        .confirmsPlaylistDeletion($pendingDeletion) { playlist in
+            Task { await delete(playlist) }
+        }
+    }
+
+    @ViewBuilder
+    private func nameView(for naming: Naming) -> some View {
+        switch naming {
+        case .create:
+            PlaylistNameView(title: "New Playlist", actionTitle: "Create") { name in
+                guard let client = appState.client else { return }
+                _ = try await client.createPlaylist(name: name)
+                finishNaming()
+            } onCancel: {
+                self.naming = nil
+            }
+        case .rename(let playlist):
+            PlaylistNameView(title: "Rename Playlist", actionTitle: "Save", initialName: playlist.name) { name in
+                guard let client = appState.client else { return }
+                _ = try await client.updatePlaylist(id: playlist.id, .rename(to: name))
+                finishNaming()
+            } onCancel: {
+                self.naming = nil
+            }
+        }
+    }
+
+    private func finishNaming() {
+        naming = nil
+        actions.changed()
     }
 
     private func load() async {
         await loader.load(using: appState) { try await $0.playlists() }
+    }
+
+    private func delete(_ playlist: Playlist) async {
+        guard let client = appState.client else { return }
+        actionError = nil
+        do {
+            try await client.deletePlaylist(id: playlist.id)
+            actions.changed(String(localized: "Deleted “\(playlist.name)”", bundle: .localized))
+        } catch {
+            actionError = appState.message(for: error)
+        }
     }
 }
 

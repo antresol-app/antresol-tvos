@@ -194,6 +194,24 @@ public struct DeviceSession: Decodable, Hashable, Identifiable, Sendable {
     }
 }
 
+extension DeviceSession {
+    public var lastSeenDate: Date? { Timestamp.parse(lastSeen) }
+
+    /// A devices list for display: the current device first, then the most recently seen
+    /// (devices without a readable time last, newest session first among them).
+    public static func displayOrder(_ devices: [DeviceSession]) -> [DeviceSession] {
+        devices.sorted { a, b in
+            if a.current != b.current { return a.current }
+            switch (a.lastSeenDate, b.lastSeenDate) {
+            case let (x?, y?) where x != y: return x > y
+            case (_?, nil): return true
+            case (nil, _?): return false
+            default: return a.id > b.id
+            }
+        }
+    }
+}
+
 struct ItemsEnvelope<Element: Decodable & Sendable>: Decodable, Sendable {
     var items: [Element]
 

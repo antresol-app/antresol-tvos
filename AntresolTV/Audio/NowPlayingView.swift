@@ -57,12 +57,7 @@ private struct NowPlayingContent: View {
         .defaultFocus($focusedControl, .playPause)
         .overlay(alignment: .bottom) {
             if let notice = audio.notice {
-                Text(verbatim: notice)
-                    .font(Theme.Typography.meta)
-                    .foregroundStyle(Theme.Colors.label)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 16)
-                    .background(Theme.Colors.glassFill, in: Capsule())
+                NoticeBanner(message: notice)
                     .padding(.bottom, 40)
                     .transition(.opacity)
             }

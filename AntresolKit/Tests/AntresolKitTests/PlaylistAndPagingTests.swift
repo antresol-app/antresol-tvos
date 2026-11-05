@@ -163,3 +163,21 @@ final class RemainingPagesTests: XCTestCase {
         XCTAssertEqual(server.requests, [0])
     }
 }
+
+final class DeviceListTests: XCTestCase {
+    func testDisplayOrder() throws {
+        let json = """
+        {"items": [
+          {"id": 1, "name": "Old", "lastSeen": "2026-11-01T10:00:00Z"},
+          {"id": 2, "name": "Unknown", "lastSeen": ""},
+          {"id": 3, "name": "This", "lastSeen": "2026-10-01T10:00:00Z", "current": true},
+          {"id": 4, "name": "Recent", "lastSeen": "2026-11-04T20:08:28Z"},
+          {"id": 5, "name": "Also unknown"}
+        ]}
+        """
+        let devices = try JSONDecoder().decode(ItemsEnvelope<DeviceSession>.self, from: Data(json.utf8)).items
+        XCTAssertEqual(DeviceSession.displayOrder(devices).map(\.name), ["This", "Recent", "Old", "Also unknown", "Unknown"])
+        XCTAssertNotNil(devices[3].lastSeenDate)
+        XCTAssertNil(devices[1].lastSeenDate)
+    }
+}

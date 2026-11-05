@@ -149,6 +149,8 @@ final class AudioPlayer {
     @ObservationIgnored private var notificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var itemObservers: [ObjectIdentifier: [NSKeyValueObservation]] = [:]
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    /// Queues the rest of a paged song list behind the current queue (`play(tracks:startAt:continuing:)`).
+    @ObservationIgnored private var queueFill: Task<Void, Never>?
     @ObservationIgnored private var nowPlaying: NowPlayingCenter!
     @ObservationIgnored private let defaults = UserDefaults.standard
     /// Bumped by every start and stop, so a start that is still saving the previous
@@ -218,12 +220,42 @@ final class AudioPlayer {
     /// Plays songs from `index`, optionally shuffled (the chosen song still plays first
     /// unless `index` is nil, which shuffles everything).
     func play(tracks: [Track], startAt index: Int? = 0, shuffled: Bool = false) {
+        startMusic(tracks, at: index, shuffled: shuffled)
+    }
+
+    /// Plays songs from `index` and then queues the rest of their list (e.g. the whole song
+    /// library) page by page in the background, in list order. A page that keeps failing
+    /// ends the queue there with a notice.
+    func play(tracks: [Track], startAt index: Int, continuing rest: RemainingPages<Track>) {
+        guard let starting = startMusic(tracks, at: index, shuffled: false), !rest.isEmpty else { return }
+        queueFill = Task { [weak self] in
+            await starting.value
+            do {
+                try await rest.run { batch in
+                    guard let self, !Task.isCancelled, self.content == .music else { return false }
+                    self.queue.extend(with: batch.map(Item.init(track:)))
+                    self.refreshUpcoming()
+                    return true
+                }
+            } catch {
+                guard let self, !Task.isCancelled, !(error is CancellationError) else { return }
+                // A 401 goes back to the profile picker instead.
+                if self.appState?.message(for: error) != nil {
+                    self.showNotice(String(localized: "Some songs couldn’t be added to the queue.", bundle: .localized))
+                }
+            }
+        }
+    }
+
+    @discardableResult
+    private func startMusic(_ tracks: [Track], at index: Int?, shuffled: Bool) -> Task<Void, Never>? {
         let items = tracks.map(Item.init(track:))
-        guard !items.isEmpty else { return }
+        guard !items.isEmpty else { return nil }
+        queueFill?.cancel()
         var newQueue = PlayQueue(items, startAt: index ?? Int.random(in: 0..<items.count))
         newQueue.repeatMode = queue.repeatMode
         if shuffled { newQueue.setShuffle(true) }
-        Task { await start(.music, queue: newQueue, at: 0) }
+        return Task { await start(.music, queue: newQueue, at: 0) }
     }
 
     /// Plays an audiobook from its saved position (or `bookMs` when given).
@@ -232,6 +264,7 @@ final class AudioPlayer {
         let startMs = bookMs ?? ResumePolicy.audiobookStartMs(book)
         let location = book.audiobookTimeline.locate(bookMs: startMs)
         let items = book.files.indices.map { Item(book: book, partIndex: $0) }
+        queueFill?.cancel()
         let newQueue = PlayQueue(items, startAt: location?.partIndex ?? 0)
         Task { await start(.audiobook(book), queue: newQueue, at: Double(location?.offsetMs ?? 0) / 1000) }
     }
@@ -318,6 +351,7 @@ final class AudioPlayer {
     /// Empties the player and returns the write of the final audiobook position.
     private func halt() -> @MainActor () async -> Void {
         startGeneration += 1
+        queueFill?.cancel()
         let reporter = reporter
         let bookMs = bookPositionMs
         let durationMs = book?.durationMs ?? 0

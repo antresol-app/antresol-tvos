@@ -188,6 +188,11 @@ private struct SettingsPage: View {
             SettingsSection("Server") {
                 SettingsInfoRow(title: "Address", value: server.displayName)
                 SettingsInfoRow(title: "Version", value: server.version)
+                NavigationLink {
+                    DevicesView()
+                } label: {
+                    SettingsRowLabel("Devices")
+                }
                 // A kid profile cannot point the Apple TV at another server.
                 if !user.isKid {
                     Button {

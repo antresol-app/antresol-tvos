@@ -10,6 +10,7 @@ struct AlbumDetailView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(AudioPlayer.self) private var audio
+    @Environment(PlaylistActions.self) private var playlists
     @State private var loader = ContentLoader<AlbumDetail>()
     @State private var actionError: String?
 
@@ -41,9 +42,18 @@ struct AlbumDetailView: View {
                 .disabled(album?.tracks.isEmpty == true)
 
                 if let album {
-                    FavoriteButton(isStarred: album.starred) {
+                    // Icon-only, so the row still fits next to the cover.
+                    FavoriteButton(isStarred: album.starred, compact: true) {
                         await toggleStar(album)
                     }
+                    Button {
+                        playlists.add(album.tracks)
+                    } label: {
+                        Label("Add to Playlist", systemImage: "text.badge.plus")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(PillButtonStyle(kind: .glass))
+                    .disabled(album.tracks.isEmpty)
                     if let artist = album.artist, artist.id > 0 {
                         NavigationLink(value: Route.item(Card(id: artist.id, kind: .artist, title: artist.name, poster: album.card.poster))) {
                             Label("Go to Artist", systemImage: "music.mic")
@@ -141,9 +151,10 @@ struct TrackList: View {
     }
 }
 
-/// A star toggle pill for albums and artists.
+/// A star toggle pill for albums and artists; `compact` shows the star alone.
 struct FavoriteButton: View {
     let isStarred: Bool
+    var compact = false
     let toggle: () async -> Void
     @State private var busy = false
 
@@ -155,7 +166,12 @@ struct FavoriteButton: View {
                 busy = false
             }
         } label: {
-            Label(isStarred ? "Favorite" : "Add to Favorites", systemImage: isStarred ? "star.fill" : "star")
+            if compact {
+                Label(isStarred ? "Favorite" : "Add to Favorites", systemImage: isStarred ? "star.fill" : "star")
+                    .labelStyle(.iconOnly)
+            } else {
+                Label(isStarred ? "Favorite" : "Add to Favorites", systemImage: isStarred ? "star.fill" : "star")
+            }
         }
         .buttonStyle(PillButtonStyle(kind: .glass))
         .disabled(busy)
@@ -334,38 +350,72 @@ struct SectionTitle: View {
 
 // MARK: - Playlist
 
-/// A playlist: Play and Shuffle, then its songs.
+/// A playlist: Play, Shuffle, Rename and Delete, then its songs. Long press on a song
+/// moves it up or down or removes it; edits show at once and are saved in order.
 struct PlaylistDetailView: View {
     let card: Card
 
+    /// A playlist position; the id keeps focus on a song while it moves.
+    private struct Entry: Identifiable {
+        let id = UUID()
+        let track: Track
+    }
+
     @Environment(AppState.self) private var appState
     @Environment(AudioPlayer.self) private var audio
+    @Environment(PlaylistActions.self) private var playlists
+    @Environment(\.dismiss) private var dismiss
     @State private var loader = ContentLoader<PlaylistDetail>()
+    @State private var playlist: Playlist?
+    @State private var entries: [Entry] = []
+    @State private var actionError: String?
+    @State private var isRenaming = false
+    @State private var pendingDeletion: Playlist?
+    /// The last edit sent; the next one waits for it, so the server sees them in order.
+    @State private var lastEdit: Task<Void, Never>?
+
+    private var tracks: [Track] { entries.map(\.track) }
 
     var body: some View {
         DetailScroll {
-            let detail = loader.value
             CollectionHeader(
-                card: detail?.playlist.card ?? card,
+                card: playlist?.card ?? card,
                 eyebrow: ItemKind.playlist.displayName,
-                meta: detail.map { metaLine([$0.playlist.card.subtitle, durationText(ms: $0.playlist.durationMs)]) } ?? card.subtitle
+                meta: playlist.map { metaLine([$0.card.subtitle, durationText(ms: $0.durationMs)]) } ?? card.subtitle,
+                error: actionError
             ) {
                 Button {
-                    if let detail { audio.play(tracks: detail.tracks) }
+                    audio.play(tracks: tracks)
                 } label: {
                     Label("Play", systemImage: "play.fill")
                 }
                 .buttonStyle(PillButtonStyle(kind: .primary))
                 .primaryDetailAction()
-                .disabled(detail?.tracks.isEmpty == true)
+                .disabled(loader.value != nil && entries.isEmpty)
 
                 Button {
-                    if let detail { audio.play(tracks: detail.tracks, startAt: nil, shuffled: true) }
+                    audio.play(tracks: tracks, startAt: nil, shuffled: true)
                 } label: {
                     Label("Shuffle", systemImage: "shuffle")
                 }
                 .buttonStyle(PillButtonStyle(kind: .glass))
-                .disabled(detail?.tracks.isEmpty == true)
+                .disabled(loader.value != nil && entries.isEmpty)
+
+                if let playlist {
+                    Button {
+                        isRenaming = true
+                    } label: {
+                        Label("Rename", systemImage: "pencil")
+                    }
+                    .buttonStyle(PillButtonStyle(kind: .glass))
+
+                    Button {
+                        pendingDeletion = playlist
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .buttonStyle(PillButtonStyle(kind: .glass))
+                }
             }
 
             switch loader.state {
@@ -374,15 +424,104 @@ struct PlaylistDetailView: View {
             case .failed(let message):
                 ErrorStateView(message: message) { Task { await load() } }
                     .frame(minHeight: 500)
-            case .loaded(let detail):
-                TrackList(tracks: detail.tracks, leading: .cover, showsArtist: true)
+            case .loaded:
+                trackList
             }
         }
         .task(id: card.id) { await load() }
+        .sheet(isPresented: $isRenaming) {
+            PlaylistNameView(title: "Rename Playlist", actionTitle: "Save", initialName: playlist?.name ?? card.title) { name in
+                try await rename(to: name)
+            } onCancel: {
+                isRenaming = false
+            }
+            .environment(appState)
+        }
+        .confirmsPlaylistDeletion($pendingDeletion) { target in
+            Task { await delete(target) }
+        }
+    }
+
+    private var trackList: some View {
+        LazyVStack(alignment: .leading, spacing: 4) {
+            if entries.isEmpty {
+                Text("This playlist is empty. Long-press a song anywhere in Music and choose Add to Playlist.")
+                    .font(Theme.Typography.body)
+                    .foregroundStyle(Theme.Colors.label2)
+            }
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                TrackRow(
+                    track: entry.track,
+                    leading: .cover,
+                    showsArtist: true,
+                    playlistEdits: TrackRow.PlaylistEdits(
+                        moveUp: index > 0 ? { move(from: index, to: index - 1) } : nil,
+                        moveDown: index < entries.count - 1 ? { move(from: index, to: index + 1) } : nil,
+                        remove: { remove(at: index) }
+                    )
+                ) {
+                    audio.play(tracks: tracks, startAt: index)
+                }
+            }
+        }
+        .padding(.horizontal, Theme.Layout.margin)
+        .focusSection()
     }
 
     private func load() async {
         await loader.load(using: appState) { try await $0.playlist(id: card.id) }
+        guard let detail = loader.value else { return }
+        playlist = detail.playlist
+        entries = detail.tracks.map { Entry(track: $0) }
+    }
+
+    private func move(from source: Int, to destination: Int) {
+        guard let update = PlaylistUpdate.move(from: source, to: destination, count: entries.count), let order = update.order else { return }
+        entries = PlaylistEditing.apply(order: order, to: entries)
+        send(update)
+    }
+
+    private func remove(at position: Int) {
+        entries = PlaylistEditing.removing(positions: [position], from: entries)
+        send(.remove(positions: [position]))
+    }
+
+    /// Saves an edit already shown on screen. A failure reloads the playlist as saved.
+    private func send(_ update: PlaylistUpdate) {
+        actionError = nil
+        let previous = lastEdit
+        lastEdit = Task {
+            await previous?.value
+            guard let client = appState.client else { return }
+            do {
+                playlist = try await client.updatePlaylist(id: card.id, update)
+                playlists.changed()
+            } catch {
+                actionError = appState.message(for: error)
+                await load()
+            }
+        }
+    }
+
+    private func rename(to name: String) async throws {
+        guard let client = appState.client else { return }
+        await lastEdit?.value
+        playlist = try await client.updatePlaylist(id: card.id, .rename(to: name))
+        playlists.changed()
+        isRenaming = false
+    }
+
+    private func delete(_ target: Playlist) async {
+        guard let client = appState.client else { return }
+        actionError = nil
+        await lastEdit?.value
+        do {
+            try await client.deletePlaylist(id: target.id)
+            playlists.changed(String(localized: "Deleted “\(target.name)”", bundle: .localized))
+            dismiss()
+        } catch {
+            actionError = appState.message(for: error)
+        }
     }
 }
 

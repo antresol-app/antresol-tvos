@@ -183,7 +183,6 @@
 "No genres yet" = "Жанров пока нет";
 "Genres come from the tags of your music files." = "Жанры берутся из тегов музыкальных файлов.";
 "No playlists yet" = "Плейлистов пока нет";
-"Create playlists in the Antresol web app; they appear here." = "Создавайте плейлисты в веб-приложении Antresol — они появятся здесь.";
 "Now Playing" = "Сейчас играет";
 "Nothing is playing" = "Ничего не играет";
 "Play an album, a playlist or an audiobook and it shows up here." = "Включите альбом, плейлист или аудиокнигу — они появятся здесь.";
@@ -268,3 +267,36 @@
 "Featured %lld of %lld" = "Подборка: %1$lld из %2$lld";
 "Press Select to read the next volume, or Menu to close." = "Нажмите на сенсорную панель, чтобы читать следующий том, или Menu, чтобы закрыть.";
 "Nothing here yet" = "Здесь пока пусто";
+
+/* Playlist editing, devices */
+"Some songs couldn’t be added to the queue." = "Не все песни удалось добавить в очередь.";
+"Playlist Name" = "Название плейлиста";
+"Create" = "Создать";
+"Save" = "Сохранить";
+"New Playlist" = "Новый плейлист";
+"Rename Playlist" = "Переименовать плейлист";
+"Add to Playlist" = "Добавить в плейлист";
+"New Playlist…" = "Новый плейлист…";
+"Added to “%@”" = "Добавлено в «%@»";
+"Delete “%@”?" = "Удалить «%@»?";
+"Delete Playlist" = "Удалить плейлист";
+"The playlist is removed from every device. The songs stay in the library." = "Плейлист исчезнет на всех устройствах. Песни останутся в медиатеке.";
+"Add to Playlist…" = "Добавить в плейлист…";
+"Move Up" = "Переместить выше";
+"Move Down" = "Переместить ниже";
+"Remove from Playlist" = "Убрать из плейлиста";
+"Rename" = "Переименовать";
+"Delete" = "Удалить";
+"This playlist is empty. Long-press a song anywhere in Music and choose Add to Playlist." = "Плейлист пуст. Удерживайте кнопку на любой песне в разделе «Музыка» и выберите «Добавить в плейлист».";
+"Deleted “%@”" = "Плейлист «%@» удалён";
+"Choose New Playlist, or long-press a song and choose Add to Playlist." = "Выберите «Новый плейлист» или удерживайте кнопку на песне и выберите «Добавить в плейлист».";
+"%@, Profile and Settings" = "%@, профиль и настройки";
+"Devices" = "Устройства";
+"Apps signed in to this profile. Signing a device out means it has to sign in again; the web app is not listed." = "Приложения, в которых выполнен вход в этот профиль. Устройству, из которого вы выйдете, придётся войти снова; веб-приложение здесь не показано.";
+"Sign out “%@”?" = "Выйти на устройстве «%@»?";
+"Sign Out Device" = "Выйти на устройстве";
+"The device stops playing and has to sign in to this profile again." = "Воспроизведение на устройстве остановится, и в профиль придётся войти снова.";
+"This Apple TV" = "Эта Apple TV";
+"Signs this device out" = "Выполняет выход на этом устройстве";
+"Last seen %@" = "В сети %@";
+"Unnamed device" = "Устройство без названия";

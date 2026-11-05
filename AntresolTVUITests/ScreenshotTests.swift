@@ -375,6 +375,134 @@ final class ScreenshotTests: XCTestCase {
         snapshot(XCUIScreen.main, "45-top-shelf")
     }
 
+    func test10Playlists() {
+        let app = signInAsKid()
+
+        // Music tab, then the Playlists section of the pill.
+        for _ in 0..<3 {
+            remote.press(.right)
+            pause(1)
+        }
+        XCTAssertTrue(app.buttons["Shuffle All"].waitForExistence(timeout: 20))
+        remote.press(.down)
+        pause(1)
+        XCTAssertTrue(moveFocus(.right, to: app.buttons["Playlists"], limit: 6))
+        remote.press(.select)
+        let newPlaylist = app.buttons["New Playlist"]
+        XCTAssertTrue(newPlaylist.waitForExistence(timeout: 20))
+        pause(2)
+        snapshot(app, "46-playlists")
+
+        // New Playlist: type a name and submit it from the keyboard.
+        XCTAssertTrue(moveFocus(.down, to: newPlaylist, limit: 2))
+        remote.press(.select)
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        pause(1)
+        snapshot(app, "47-new-playlist")
+        remote.press(.select)
+        pause(2)
+        field.typeText("Road Trip\n")
+        pause(3)
+        if app.buttons["Create"].exists {
+            // The keyboard closed without submitting: use the Create button.
+            moveFocus(.down, to: app.buttons["Create"], limit: 3)
+            remote.press(.select)
+        }
+        XCTAssertTrue(card(app, "Road Trip").waitForExistence(timeout: 15), "the new playlist is in the grid")
+        pause(2)
+        snapshot(app, "48-playlist-created")
+
+        // The sample playlist: its songs can be moved, removed and added elsewhere.
+        XCTAssertTrue(moveFocus(.down, to: card(app, "Renamed Mix"), limit: 3))
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Rename"].waitForExistence(timeout: 20))
+        pause(3)
+        snapshot(app, "49-playlist-detail")
+        remote.press(.down)
+        pause(1)
+        remote.press(.select, forDuration: 1.5)
+        let moveDown = app.buttons["Move Down"]
+        XCTAssertTrue(moveDown.waitForExistence(timeout: 10), "a playlist song offers Move Down")
+        XCTAssertTrue(app.buttons["Remove from Playlist"].exists)
+        pause(1)
+        snapshot(app, "50-playlist-song-menu")
+        if moveFocus(.down, to: moveDown, limit: 8) {
+            remote.press(.select)
+        }
+        pause(3)
+        snapshot(app, "51-playlist-reordered")
+
+        // Add the focused song to the new playlist.
+        remote.press(.select, forDuration: 1.5)
+        let addToPlaylist = app.buttons["Add to Playlist…"]
+        XCTAssertTrue(addToPlaylist.waitForExistence(timeout: 10))
+        if moveFocus(.down, to: addToPlaylist, limit: 6) {
+            remote.press(.select)
+        }
+        XCTAssertTrue(app.staticTexts["Add to Playlist"].waitForExistence(timeout: 10))
+        pause(2)
+        snapshot(app, "52-add-to-playlist")
+        XCTAssertTrue(moveFocus(.down, to: setting(app, "Road Trip"), limit: 4))
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Added to “Road Trip”"].waitForExistence(timeout: 10))
+        snapshot(app, "53-added-to-playlist")
+
+        // Back in the grid, delete the new playlist from its long-press menu.
+        remote.press(.menu)
+        pause(3)
+        XCTAssertTrue(moveFocus(.right, to: card(app, "Road Trip"), limit: 3))
+        remote.press(.select, forDuration: 1.5)
+        let delete = app.buttons["Delete Playlist"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 10))
+        if moveFocus(.down, to: delete, limit: 3) {
+            remote.press(.select)
+        }
+        let confirm = app.buttons["Delete Playlist"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
+        pause(1)
+        snapshot(app, "54-delete-playlist")
+        if moveFocus(.up, to: confirm, limit: 2) || confirm.hasFocus {
+            remote.press(.select)
+        }
+        pause(3)
+        XCTAssertFalse(card(app, "Road Trip").exists, "the deleted playlist left the grid")
+        snapshot(app, "55-playlist-deleted")
+    }
+
+    func test11Devices() {
+        let app = signInAsKid()
+
+        for _ in 0..<7 {
+            remote.press(.right)
+            pause(1)
+        }
+        XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
+        remote.press(.down)
+        pause(1)
+        moveFocus(.right, to: setting(app, "Video Quality"), limit: 3)
+        XCTAssertTrue(moveFocus(.down, to: setting(app, "Devices"), limit: 8))
+        remote.press(.select)
+        let other = setting(app, "Kitchen iPad")
+        XCTAssertTrue(other.waitForExistence(timeout: 20))
+        XCTAssertTrue(setting(app, "Living Room Apple TV").exists, "this device is listed")
+        pause(2)
+        snapshot(app, "56-devices")
+
+        XCTAssertTrue(moveFocus(.down, to: other, limit: 4))
+        remote.press(.select)
+        let signOut = app.buttons["Sign Out Device"]
+        XCTAssertTrue(signOut.waitForExistence(timeout: 10))
+        pause(1)
+        snapshot(app, "57-device-sign-out")
+        if moveFocus(.up, to: signOut, limit: 2) || signOut.hasFocus {
+            remote.press(.select)
+        }
+        pause(3)
+        XCTAssertFalse(other.exists, "the signed-out device left the list")
+        snapshot(app, "58-device-signed-out")
+    }
+
     /// The poster card whose title starts with `title`.
     private func card(_ app: XCUIApplication, _ title: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch

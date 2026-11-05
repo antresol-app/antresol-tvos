@@ -39,7 +39,7 @@ struct VideoPlayerView: View {
                     }
                     .overlay(alignment: .top) {
                         if let notice = model.notice {
-                            NoticeBanner(message: notice)
+                            NoticeBanner(message: notice, systemImage: "exclamationmark.circle")
                                 .padding(.top, 60)
                                 .transition(.move(edge: .top).combined(with: .opacity))
                         }
@@ -264,24 +264,6 @@ private struct PlaybackErrorView: View {
             }
             .padding(Theme.Layout.margin)
         }
-    }
-}
-
-/// A short message over the video, e.g. a failed track change.
-private struct NoticeBanner: View {
-    let message: String
-
-    var body: some View {
-        Label {
-            Text(verbatim: message)
-        } icon: {
-            Image(systemName: "exclamationmark.circle")
-        }
-        .font(Theme.Typography.meta)
-        .foregroundStyle(Theme.Colors.label)
-        .padding(.horizontal, 32)
-        .padding(.vertical, 18)
-        .background(Theme.Colors.glassFill, in: Capsule())
     }
 }
 

@@ -183,7 +183,6 @@
 "No genres yet" = "No genres yet";
 "Genres come from the tags of your music files." = "Genres come from the tags of your music files.";
 "No playlists yet" = "No playlists yet";
-"Create playlists in the Antresol web app; they appear here." = "Create playlists in the Antresol web app; they appear here.";
 "Now Playing" = "Now Playing";
 "Nothing is playing" = "Nothing is playing";
 "Play an album, a playlist or an audiobook and it shows up here." = "Play an album, a playlist or an audiobook and it shows up here.";
@@ -268,3 +267,36 @@
 "Featured %lld of %lld" = "Featured %1$lld of %2$lld";
 "Press Select to read the next volume, or Menu to close." = "Press Select to read the next volume, or Menu to close.";
 "Nothing here yet" = "Nothing here yet";
+
+/* Playlist editing, devices */
+"Some songs couldn’t be added to the queue." = "Some songs couldn’t be added to the queue.";
+"Playlist Name" = "Playlist Name";
+"Create" = "Create";
+"Save" = "Save";
+"New Playlist" = "New Playlist";
+"Rename Playlist" = "Rename Playlist";
+"Add to Playlist" = "Add to Playlist";
+"New Playlist…" = "New Playlist…";
+"Added to “%@”" = "Added to “%@”";
+"Delete “%@”?" = "Delete “%@”?";
+"Delete Playlist" = "Delete Playlist";
+"The playlist is removed from every device. The songs stay in the library." = "The playlist is removed from every device. The songs stay in the library.";
+"Add to Playlist…" = "Add to Playlist…";
+"Move Up" = "Move Up";
+"Move Down" = "Move Down";
+"Remove from Playlist" = "Remove from Playlist";
+"Rename" = "Rename";
+"Delete" = "Delete";
+"This playlist is empty. Long-press a song anywhere in Music and choose Add to Playlist." = "This playlist is empty. Long-press a song anywhere in Music and choose Add to Playlist.";
+"Deleted “%@”" = "Deleted “%@”";
+"Choose New Playlist, or long-press a song and choose Add to Playlist." = "Choose New Playlist, or long-press a song and choose Add to Playlist.";
+"%@, Profile and Settings" = "%@, Profile and Settings";
+"Devices" = "Devices";
+"Apps signed in to this profile. Signing a device out means it has to sign in again; the web app is not listed." = "Apps signed in to this profile. Signing a device out means it has to sign in again; the web app is not listed.";
+"Sign out “%@”?" = "Sign out “%@”?";
+"Sign Out Device" = "Sign Out Device";
+"The device stops playing and has to sign in to this profile again." = "The device stops playing and has to sign in to this profile again.";
+"This Apple TV" = "This Apple TV";
+"Signs this device out" = "Signs this device out";
+"Last seen %@" = "Last seen %@";
+"Unnamed device" = "Unnamed device";

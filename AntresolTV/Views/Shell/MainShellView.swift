@@ -10,6 +10,7 @@ struct MainShellView: View {
     @State private var selection: ShellTab = .home
     @State private var playback = PlaybackCoordinator()
     @State private var audio = AudioPlayer()
+    @State private var playlists = PlaylistActions()
     @State private var showsNowPlaying = false
     @State private var homePath = NavigationPath()
     /// The profile's avatar, drawn once for the profile tab.
@@ -68,16 +69,34 @@ struct MainShellView: View {
                         Text(verbatim: user.name)
                     } icon: {
                         if let avatarImage {
+                            // Original rendering: a template image would turn into a plain disc.
                             Image(uiImage: avatarImage)
+                                .renderingMode(.original)
                         } else {
                             Image(systemName: "person.crop.circle")
                         }
                     }
+                    .accessibilityLabel(Text(verbatim: String(localized: "\(user.name), Profile and Settings", bundle: .localized)))
                 }
                 .tag(ShellTab.account)
         }
         .environment(playback)
         .environment(audio)
+        .environment(playlists)
+        .overlay(alignment: .bottom) {
+            if let message = bannerMessage {
+                NoticeBanner(message: message)
+                    .padding(.bottom, 50)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(Theme.Motion.easeOut, value: bannerMessage)
+        .sheet(item: addToPlaylistRequest) { request in
+            AddToPlaylistView(request: request)
+                .environment(appState)
+                .environment(playlists)
+        }
         .fullScreenCover(item: presentedPlayback) { request in
             VideoPlayerView(request: request)
                 .environment(appState)
@@ -157,6 +176,19 @@ struct MainShellView: View {
         let renderer = ImageRenderer(content: AvatarView(user: user, size: 40))
         renderer.scale = 2
         return renderer.uiImage?.withRenderingMode(.alwaysOriginal)
+    }
+
+    /// Playlist confirmations, and the music player's "Playing next" / "Added to queue"
+    /// (Now Playing shows those itself).
+    private var bannerMessage: String? {
+        playlists.message ?? (selection == .nowPlaying ? nil : audio.notice)
+    }
+
+    private var addToPlaylistRequest: Binding<PlaylistActions.AddRequest?> {
+        Binding(
+            get: { playlists.addRequest },
+            set: { playlists.addRequest = $0 }
+        )
     }
 
     private var presentedPlayback: Binding<PlaybackCoordinator.Request?> {

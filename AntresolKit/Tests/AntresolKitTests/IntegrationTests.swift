@@ -336,6 +336,18 @@ final class IntegrationTests: XCTestCase {
             XCTAssertEqual(detail.tracks.compactMap(\.idx), [0, 1])
             let lists = try await client.playlists()
             XCTAssertTrue(lists.contains { $0.id == created.id })
+
+            // Reorder and remove as the playlist page does, and check the local preview.
+            let ids = songs.items.prefix(3).map(\.id)
+            _ = try await client.updatePlaylist(id: created.id, .append(ids))
+            let before = try await client.playlist(id: created.id).tracks.map(\.id)
+            let move = try XCTUnwrap(PlaylistUpdate.move(from: 0, to: before.count - 1, count: before.count))
+            _ = try await client.updatePlaylist(id: created.id, move)
+            let moved = try await client.playlist(id: created.id).tracks.map(\.id)
+            XCTAssertEqual(moved, PlaylistEditing.apply(order: try XCTUnwrap(move.order), to: before))
+            _ = try await client.updatePlaylist(id: created.id, .remove(positions: [1]))
+            let removed = try await client.playlist(id: created.id).tracks.map(\.id)
+            XCTAssertEqual(removed, PlaylistEditing.removing(positions: [1], from: moved))
         } catch {
             try? await client.deletePlaylist(id: created.id)
             throw error

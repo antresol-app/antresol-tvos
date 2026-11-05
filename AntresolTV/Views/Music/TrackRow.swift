@@ -2,8 +2,16 @@ import AntresolKit
 import SwiftUI
 
 /// A song in a track list. Select plays it (the list decides what plays with it); long
-/// press offers Play Next, Add to Queue, favourites and the album and artist pages.
+/// press offers Play Next, Add to Queue, Add to Playlist, favourites, the playlist edits
+/// of a playlist page and the album and artist pages.
 struct TrackRow: View {
+    /// Edits of the row's entry on a playlist page; a nil move is not offered.
+    struct PlaylistEdits {
+        var moveUp: (() -> Void)?
+        var moveDown: (() -> Void)?
+        let remove: () -> Void
+    }
+
     enum Leading {
         /// The track number (album pages).
         case number
@@ -15,9 +23,11 @@ struct TrackRow: View {
     var leading: Leading = .number
     var showsArtist = false
     var showsAlbumLink = true
+    var playlistEdits: PlaylistEdits?
     let action: () -> Void
 
     @Environment(AudioPlayer.self) private var audio
+    @Environment(PlaylistActions.self) private var playlists: PlaylistActions?
     @Environment(\.openRoute) private var openRoute
 
     var body: some View {
@@ -43,10 +53,32 @@ struct TrackRow: View {
             } label: {
                 Label("Add to Queue", systemImage: "text.append")
             }
+            if let playlists {
+                Button {
+                    playlists.add([track])
+                } label: {
+                    Label("Add to Playlist…", systemImage: "text.badge.plus")
+                }
+            }
             Button {
                 audio.toggleStar(track)
             } label: {
                 Label(starred ? "Remove from Favorites" : "Add to Favorites", systemImage: starred ? "star.slash" : "star")
+            }
+            if let playlistEdits {
+                if let moveUp = playlistEdits.moveUp {
+                    Button(action: moveUp) {
+                        Label("Move Up", systemImage: "arrow.up")
+                    }
+                }
+                if let moveDown = playlistEdits.moveDown {
+                    Button(action: moveDown) {
+                        Label("Move Down", systemImage: "arrow.down")
+                    }
+                }
+                Button(role: .destructive, action: playlistEdits.remove) {
+                    Label("Remove from Playlist", systemImage: "minus.circle")
+                }
             }
             if showsAlbumLink, track.albumId > 0 {
                 Button {
