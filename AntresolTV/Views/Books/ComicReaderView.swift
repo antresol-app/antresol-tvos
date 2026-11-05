@@ -53,8 +53,12 @@ final class ComicReaderModel {
     private(set) var images: [Int: UIImage] = [:]
     private(set) var failedPages: Set<Int> = []
     private(set) var twoPages: Bool
+    /// The following volume of the series, offered on the end card.
+    private(set) var nextVolume: BookDetail?
 
     @ObservationIgnored private weak var appState: AppState?
+    /// The profile's client, kept so the last page is saved even while the profile changes.
+    @ObservationIgnored private var client: APIClient?
     @ObservationIgnored private var sizes: [ComicPages.PageSize] = []
     @ObservationIgnored private var loading: Set<Int> = []
     @ObservationIgnored private var saveTask: Task<Void, Never>?
@@ -85,12 +89,13 @@ final class ComicReaderModel {
     func start(appState: AppState) async {
         self.appState = appState
         guard let client = appState.client else { return }
+        self.client = client
         state = .loading
         do {
             let pages = try await client.comicPages(fileId: request.fileId)
             let progress = request.startPage == nil ? try? await client.progress(itemId: request.volumeId) : nil
             guard pages.count > 0 else {
-                state = .failed(String(localized: "This volume has no pages."))
+                state = .failed(String(localized: "This volume has no pages.", bundle: .localized))
                 return
             }
             direction = pages.readingDirection
@@ -103,6 +108,7 @@ final class ComicReaderModel {
             lastSavedPage = request.startPage == nil ? progress.flatMap { ComicProgress.pageIndex(locator: $0.locator) } : nil
             state = .reading
             loadImagesAround()
+            await loadNextVolume(client: client)
         } catch {
             guard let message = appState.message(for: error) else { return }
             state = .failed(message)
@@ -145,7 +151,8 @@ final class ComicReaderModel {
         loadImagesAround()
     }
 
-    /// Writes the reading position now (closing the reader).
+    /// Writes the reading position now (closing the reader, leaving the app). Safe to call
+    /// more than once: an unchanged page is not written again.
     func close() async {
         saveTask?.cancel()
         await save()
@@ -168,8 +175,15 @@ final class ComicReaderModel {
         }
     }
 
+    private func loadNextVolume(client: APIClient) async {
+        guard let volume = try? await client.book(id: request.volumeId), volume.nextId > 0,
+              let next = try? await client.book(id: volume.nextId), next.readFileId > 0
+        else { return }
+        nextVolume = next
+    }
+
     private func save() async {
-        guard state == .reading, let client = appState?.client else { return }
+        guard state == .reading, let client else { return }
         let page = lastVisiblePage
         guard page != lastSavedPage else { return }
         do {
@@ -219,6 +233,7 @@ struct ComicReaderView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var model: ComicReaderModel
     @State private var showsChrome = true
     @State private var chromeTask: Task<Void, Never>?
@@ -253,6 +268,26 @@ struct ComicReaderView: View {
             focused = true
             flashChrome()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { Task { await model.close() } }
+        }
+        .onDisappear {
+            // Also covers the reader going away without Menu (a profile change, sign-out).
+            let model = model
+            Task { await model.close() }
+        }
+    }
+
+    /// Opens the series' next volume in place, after saving this one.
+    private func openNextVolume(_ next: BookDetail) {
+        let current = model
+        Task {
+            await current.close()
+            model = ComicReaderModel(request: ComicReaderRequest(volume: next, startPage: nil))
+            await model.start(appState: appState)
+            focused = true
+            flashChrome()
+        }
     }
 
     private var reader: some View {
@@ -275,7 +310,13 @@ struct ComicReaderView: View {
             default: break
             }
         }
-        .onTapGesture { flashChrome(toggle: true) }
+        .onTapGesture {
+            if model.isAtEnd, let next = model.nextVolume {
+                openNextVolume(next)
+            } else {
+                flashChrome(toggle: true)
+            }
+        }
         .onPlayPauseCommand {
             model.toggleTwoPages()
             flashChrome()
@@ -300,12 +341,12 @@ struct ComicReaderView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(maxHeight: .infinity)
-                .accessibilityLabel(Text(verbatim: String(localized: "Page \(page + 1)")))
+                .accessibilityLabel(Text(verbatim: String(localized: "Page \(page + 1)", bundle: .localized)))
         } else if model.failedPages.contains(page) {
             VStack(spacing: 20) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 60))
-                Text(verbatim: String(localized: "Page \(page + 1) couldn’t be loaded."))
+                Text(verbatim: String(localized: "Page \(page + 1) couldn’t be loaded.", bundle: .localized))
                     .font(Theme.Typography.body)
             }
             .foregroundStyle(Theme.Colors.label2)
@@ -324,9 +365,26 @@ struct ComicReaderView: View {
             Text("End of Volume")
                 .font(Theme.Typography.pageTitle)
                 .foregroundStyle(Theme.Colors.label)
-            Text("Press Menu to close, or go back to the last page.")
-                .font(Theme.Typography.body)
-                .foregroundStyle(Theme.Colors.label2)
+            if let next = model.nextVolume {
+                Label {
+                    Text(verbatim: next.card.subtitle.isEmpty ? next.card.title : next.card.subtitle)
+                } icon: {
+                    Image(systemName: "book")
+                }
+                .font(Theme.Typography.button)
+                .foregroundStyle(.black)
+                .padding(.horizontal, 44)
+                .padding(.vertical, 20)
+                .background(.white, in: Capsule())
+                .padding(.top, 12)
+                Text("Press Select to read the next volume, or Menu to close.")
+                    .font(Theme.Typography.body)
+                    .foregroundStyle(Theme.Colors.label2)
+            } else {
+                Text("Press Menu to close, or go back to the last page.")
+                    .font(Theme.Typography.body)
+                    .foregroundStyle(Theme.Colors.label2)
+            }
         }
         .padding(60)
         .background(Theme.Colors.glassFill, in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous))
@@ -376,7 +434,7 @@ struct ComicReaderView: View {
     private var pageLabel: String {
         let pages = model.currentPages.map { $0 + 1 }
         let shown = pages.count > 1 ? "\(pages[0])–\(pages[1])" : String(pages.first ?? model.pageCount)
-        return String(localized: "Page \(shown) of \(model.pageCount)")
+        return String(localized: "Page \(shown) of \(model.pageCount)", bundle: .localized)
     }
 
     /// Shows the page bar for a few seconds (or toggles it on select).

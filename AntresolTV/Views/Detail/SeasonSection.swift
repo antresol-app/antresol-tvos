@@ -25,7 +25,7 @@ struct SeasonSection: View {
                             .font(Theme.Typography.sectionTitle)
                             .foregroundStyle(Theme.Colors.label)
                     }
-                    Text(verbatim: String(localized: "\(season.episodes.count) episodes"))
+                    Text(verbatim: String(localized: "\(season.episodes.count) episodes", bundle: .localized))
                         .font(Theme.Typography.meta)
                         .foregroundStyle(Theme.Colors.label3)
                 }
@@ -82,7 +82,7 @@ struct SeasonSection: View {
     }
 
     static func title(of season: SeasonInfo) -> String {
-        season.title.isEmpty ? String(localized: "Season \(season.number)") : season.title
+        season.title.isEmpty ? String(localized: "Season \(season.number)", bundle: .localized) : season.title
     }
 }
 
@@ -153,7 +153,7 @@ struct EpisodeCardView: View {
 
     /// "E2 · 20 min".
     private var codeLine: String {
-        var parts = [String(localized: "E\(episode.episodeNo)")]
+        var parts = [String(localized: "E\(episode.episodeNo)", bundle: .localized)]
         if let ms = episode.durationMs, ms > 0 {
             parts.append(VideoDetailView.duration(minutes: max(1, Int((Double(ms) / 60_000).rounded()))))
         }

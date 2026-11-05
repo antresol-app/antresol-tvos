@@ -23,7 +23,7 @@ enum PlayerMenus {
             }
         }
         return UIMenu(
-            title: String(localized: "Audio"),
+            title: String(localized: "Audio", bundle: .localized),
             image: UIImage(systemName: "speaker.wave.2"),
             options: .singleSelection,
             children: actions
@@ -32,19 +32,19 @@ enum PlayerMenus {
 
     private static func subtitleMenu(_ state: PlayerMenuState, model: VideoPlayerModel) -> UIMenu {
         var actions = [
-            UIAction(title: String(localized: "Off"), state: state.subtitleIndex == nil ? .on : .off) { [weak model] _ in
+            UIAction(title: String(localized: "Off", bundle: .localized), state: state.subtitleIndex == nil ? .on : .off) { [weak model] _ in
                 model?.selectSubtitle(nil)
             },
         ]
         for track in state.subtitles {
             var title = TrackLabels.describe(track)
-            if track.burnIn { title += " · " + String(localized: "Burned In") }
+            if track.burnIn { title += " · " + String(localized: "Burned In", bundle: .localized) }
             actions.append(UIAction(title: title, state: track.index == state.subtitleIndex ? .on : .off) { [weak model] _ in
                 model?.selectSubtitle(track.index)
             })
         }
         return UIMenu(
-            title: String(localized: "Subtitles"),
+            title: String(localized: "Subtitles", bundle: .localized),
             image: UIImage(systemName: "captions.bubble"),
             options: .singleSelection,
             children: actions
@@ -62,7 +62,7 @@ enum PlayerMenus {
             }
         }
         return UIMenu(
-            title: String(localized: "Quality"),
+            title: String(localized: "Quality", bundle: .localized),
             image: UIImage(systemName: "slider.horizontal.3"),
             options: .singleSelection,
             children: actions

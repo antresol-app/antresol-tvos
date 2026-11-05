@@ -19,9 +19,9 @@ struct HomeContent {
     init(_ home: HomeResponse) {
         let continueShelf = home.shelf(ShelfID.continueWatching)
         if let featured = home.hero.first {
-            feature = Feature(card: featured, eyebrow: Self.eyebrow(String(localized: "New in Library"), featured))
+            feature = Feature(card: featured, eyebrow: Self.eyebrow(String(localized: "New in Library", bundle: .localized), featured))
         } else if let next = continueShelf?.cards.first {
-            feature = Feature(card: next, eyebrow: Self.eyebrow(String(localized: "Continue Watching"), next))
+            feature = Feature(card: next, eyebrow: Self.eyebrow(String(localized: "Continue Watching", bundle: .localized), next))
         } else {
             feature = nil
         }

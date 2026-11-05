@@ -8,14 +8,14 @@ enum TrackLabels {
         if !track.title.isEmpty { return track.title }
         let parts = [languageName(track.language), track.codec.uppercased(), channelLayout(track.channels)]
         let text = parts.compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
-        return text.isEmpty ? String(localized: "Track \(track.index)") : text
+        return text.isEmpty ? String(localized: "Track \(track.index)", bundle: .localized) : text
     }
 
     /// "English", "English (Forced)", or the track title.
     static func describe(_ track: SubtitleTrack) -> String {
         var text = track.title.isEmpty ? (languageName(track.language) ?? track.codec.uppercased()) : track.title
-        if text.isEmpty { text = String(localized: "Track \(track.index)") }
-        if track.forced { text += " (" + String(localized: "Forced") + ")" }
+        if text.isEmpty { text = String(localized: "Track \(track.index)", bundle: .localized) }
+        if track.forced { text += " (" + String(localized: "Forced", bundle: .localized) + ")" }
         return text
     }
 
@@ -34,8 +34,8 @@ enum TrackLabels {
 
     private static func channelLayout(_ channels: Int) -> String? {
         switch channels {
-        case 1: return String(localized: "Mono")
-        case 2: return String(localized: "Stereo")
+        case 1: return String(localized: "Mono", bundle: .localized)
+        case 2: return String(localized: "Stereo", bundle: .localized)
         case 6: return "5.1"
         case 8: return "7.1"
         default: return nil

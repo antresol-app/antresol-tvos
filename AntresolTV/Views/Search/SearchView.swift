@@ -42,7 +42,7 @@ struct SearchView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 64))
                         .foregroundStyle(Theme.Colors.label3)
-                    Text(verbatim: String(localized: "No results for “\(query)”"))
+                    Text(verbatim: String(localized: "No results for “\(query)”", bundle: .localized))
                         .font(Theme.Typography.headline)
                         .foregroundStyle(Theme.Colors.label)
                     Text("Try another title, artist or author.")

@@ -22,6 +22,8 @@ final class PlaybackCoordinator {
         let id = UUID()
         let card: Card
         let start: StartPoint
+        /// The version (file) to play; nil plays the item's first file.
+        var fileId: Int?
     }
 
     /// The request the player is showing, if any.
@@ -33,8 +35,8 @@ final class PlaybackCoordinator {
     private var mediaKeys: MediaKeyStore?
     private var mediaKeyToken: String?
 
-    func play(_ card: Card, from start: StartPoint = .resume) {
-        presented = Request(card: card, start: start)
+    func play(_ card: Card, from start: StartPoint = .resume, fileId: Int? = nil) {
+        presented = Request(card: card, start: start, fileId: fileId)
     }
 
     func playerDidClose() {

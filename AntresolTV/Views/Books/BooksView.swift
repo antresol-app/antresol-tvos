@@ -9,10 +9,10 @@ struct BooksView: View {
 
         var title: String {
             switch self {
-            case .home: return String(localized: "Reading Now")
-            case .audiobooks: return String(localized: "Audiobooks")
-            case .comics: return String(localized: "Manga & Comics")
-            case .books: return String(localized: "Books")
+            case .home: return String(localized: "Reading Now", bundle: .localized)
+            case .audiobooks: return String(localized: "Audiobooks", bundle: .localized)
+            case .comics: return String(localized: "Manga & Comics", bundle: .localized)
+            case .books: return String(localized: "Books", bundle: .localized)
             }
         }
 
@@ -115,9 +115,9 @@ private struct BookListSection: View {
                 }
                 Spacer()
                 SegmentedPill(options: [
-                    SegmentedPill<BookSort>.Option(value: .added, title: String(localized: "Recently Added")),
-                    SegmentedPill<BookSort>.Option(value: .title, title: String(localized: "By Title")),
-                    SegmentedPill<BookSort>.Option(value: .author, title: String(localized: "By Author")),
+                    SegmentedPill<BookSort>.Option(value: .added, title: String(localized: "Recently Added", bundle: .localized)),
+                    SegmentedPill<BookSort>.Option(value: .title, title: String(localized: "By Title", bundle: .localized)),
+                    SegmentedPill<BookSort>.Option(value: .author, title: String(localized: "By Author", bundle: .localized)),
                 ], selection: $sort)
             }
             .padding(.horizontal, Theme.Layout.margin)
@@ -139,9 +139,9 @@ private struct BookListSection: View {
 
     private var countText: String {
         switch kind {
-        case .audiobook: return String(localized: "\(list.total) audiobooks")
-        case .comic: return String(localized: "\(list.total) series")
-        case .book: return String(localized: "\(list.total) books")
+        case .audiobook: return String(localized: "\(list.total) audiobooks", bundle: .localized)
+        case .comic: return String(localized: "\(list.total) series", bundle: .localized)
+        case .book: return String(localized: "\(list.total) books", bundle: .localized)
         }
     }
 }

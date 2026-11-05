@@ -7,7 +7,7 @@ struct CastRow: View {
     let cast: [CastMember]
 
     var body: some View {
-        ShelfRow(title: String(localized: "Cast"), items: entries, id: \.index) { entry in
+        ShelfRow(title: String(localized: "Cast", bundle: .localized), items: entries, id: \.index) { entry in
             CastCell(member: entry.member)
                 .focusable()
         }
@@ -126,35 +126,33 @@ struct AboutPanel: View {
     private var facts: [Fact] {
         var facts: [Fact] = []
         if let original = detail.originalTitle, !original.isEmpty, original != detail.title {
-            facts.append(Fact(label: String(localized: "Original Title"), value: original))
+            facts.append(Fact(label: String(localized: "Original Title", bundle: .localized), value: original))
         }
         if !detail.genres.isEmpty {
-            facts.append(Fact(label: String(localized: "Genres"), value: detail.genres.joined(separator: ", ")))
+            facts.append(Fact(label: String(localized: "Genres", bundle: .localized), value: detail.genres.joined(separator: ", ")))
         }
         if let rating = detail.rating, !rating.isEmpty {
-            facts.append(Fact(label: String(localized: "Rating"), value: rating))
+            facts.append(Fact(label: String(localized: "Rating", bundle: .localized), value: rating))
         }
         if detail.files.count > 1 {
-            let versions = detail.files.map { file in
-                [file.resolution, file.name].compactMap { $0?.isEmpty == false ? $0 : nil }.joined(separator: " · ")
-            }
-            facts.append(Fact(label: String(localized: "Versions"), value: versions.joined(separator: "\n")))
+            let versions = detail.files.map(VideoDetailView.versionLabel)
+            facts.append(Fact(label: String(localized: "Versions", bundle: .localized), value: versions.joined(separator: "\n")))
         }
         if let file = detail.primaryFile {
             if let resolution = file.resolution, !resolution.isEmpty, detail.files.count == 1 {
-                facts.append(Fact(label: String(localized: "Video"), value: resolution))
+                facts.append(Fact(label: String(localized: "Video", bundle: .localized), value: resolution))
             }
             let audio = file.audio.map(TrackLabels.describe)
             if !audio.isEmpty {
-                facts.append(Fact(label: String(localized: "Audio"), value: audio.joined(separator: ", ")))
+                facts.append(Fact(label: String(localized: "Audio", bundle: .localized), value: audio.joined(separator: ", ")))
             }
             let subtitles = file.subs.map(TrackLabels.describe)
             if !subtitles.isEmpty {
-                facts.append(Fact(label: String(localized: "Subtitles"), value: subtitles.joined(separator: ", ")))
+                facts.append(Fact(label: String(localized: "Subtitles", bundle: .localized), value: subtitles.joined(separator: ", ")))
             }
             if detail.files.count == 1 {
                 let size = ByteCountFormatter.string(fromByteCount: Int64(file.size), countStyle: .file)
-                facts.append(Fact(label: String(localized: "File"), value: file.size > 0 ? "\(file.name) · \(size)" : file.name))
+                facts.append(Fact(label: String(localized: "File", bundle: .localized), value: file.size > 0 ? "\(file.name) · \(size)" : file.name))
             }
         }
         return facts

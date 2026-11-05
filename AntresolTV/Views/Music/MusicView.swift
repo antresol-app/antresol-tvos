@@ -9,12 +9,12 @@ struct MusicView: View {
 
         var title: String {
             switch self {
-            case .listenNow: return String(localized: "Listen Now")
-            case .albums: return String(localized: "Albums")
-            case .artists: return String(localized: "Artists")
-            case .songs: return String(localized: "Songs")
-            case .genres: return String(localized: "Genres")
-            case .playlists: return String(localized: "Playlists")
+            case .listenNow: return String(localized: "Listen Now", bundle: .localized)
+            case .albums: return String(localized: "Albums", bundle: .localized)
+            case .artists: return String(localized: "Artists", bundle: .localized)
+            case .songs: return String(localized: "Songs", bundle: .localized)
+            case .genres: return String(localized: "Genres", bundle: .localized)
+            case .playlists: return String(localized: "Playlists", bundle: .localized)
             }
         }
     }
@@ -137,7 +137,7 @@ private struct MusicHomeSection: View {
         do {
             let tracks = try await client.shuffle(.all)
             if tracks.isEmpty {
-                shuffleError = String(localized: "There are no songs to play.")
+                shuffleError = String(localized: "There are no songs to play.", bundle: .localized)
             } else {
                 audio.play(tracks: tracks)
             }
@@ -159,11 +159,11 @@ private struct AlbumsSection: View {
             HStack {
                 Spacer()
                 SegmentedPill(options: [
-                    SegmentedPill<AlbumSort>.Option(value: .added, title: String(localized: "Recently Added")),
-                    SegmentedPill<AlbumSort>.Option(value: .title, title: String(localized: "By Title")),
-                    SegmentedPill<AlbumSort>.Option(value: .artist, title: String(localized: "By Artist")),
-                    SegmentedPill<AlbumSort>.Option(value: .year, title: String(localized: "By Year")),
-                    SegmentedPill<AlbumSort>.Option(value: .recent, title: String(localized: "Recently Played")),
+                    SegmentedPill<AlbumSort>.Option(value: .added, title: String(localized: "Recently Added", bundle: .localized)),
+                    SegmentedPill<AlbumSort>.Option(value: .title, title: String(localized: "By Title", bundle: .localized)),
+                    SegmentedPill<AlbumSort>.Option(value: .artist, title: String(localized: "By Artist", bundle: .localized)),
+                    SegmentedPill<AlbumSort>.Option(value: .year, title: String(localized: "By Year", bundle: .localized)),
+                    SegmentedPill<AlbumSort>.Option(value: .recent, title: String(localized: "Recently Played", bundle: .localized)),
                 ], selection: $sort)
             }
             .padding(.horizontal, Theme.Layout.margin)
@@ -265,8 +265,8 @@ private struct SongsSection: View {
                 .disabled(list.items.isEmpty)
                 Spacer()
                 SegmentedPill(options: [
-                    SegmentedPill<Bool>.Option(value: false, title: String(localized: "All Songs")),
-                    SegmentedPill<Bool>.Option(value: true, title: String(localized: "Favorites")),
+                    SegmentedPill<Bool>.Option(value: false, title: String(localized: "All Songs", bundle: .localized)),
+                    SegmentedPill<Bool>.Option(value: true, title: String(localized: "Favorites", bundle: .localized)),
                 ], selection: $favoritesOnly)
             }
             .focusSection()
@@ -362,8 +362,8 @@ private struct GenreTile: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
             Text(verbatim: metaLine([
-                genre.albums > 0 ? String(localized: "\(genre.albums) albums") : "",
-                genre.songs > 0 ? String(localized: "\(genre.songs) songs") : "",
+                genre.albums > 0 ? String(localized: "\(genre.albums) albums", bundle: .localized) : "",
+                genre.songs > 0 ? String(localized: "\(genre.songs) songs", bundle: .localized) : "",
             ]))
             .font(Theme.Typography.cardMeta)
             .foregroundStyle(.white.opacity(0.8))
@@ -434,7 +434,7 @@ extension Playlist {
             id: id,
             kind: .playlist,
             title: name,
-            subtitle: String(localized: "\(trackCount) songs"),
+            subtitle: String(localized: "\(trackCount) songs", bundle: .localized),
             poster: cover.isEmpty ? (covers.first ?? "") : cover
         )
     }

@@ -13,6 +13,7 @@ struct VideoDetailView: View {
     @FocusState private var focusedButton: HeaderButton?
     @Environment(\.claimsFocusOnAppear) private var claimsFocusOnAppear
     @State private var didClaimFocus = false
+    @State private var choosingVersion = false
 
     enum HeaderButton: Hashable {
         case play
@@ -147,7 +148,7 @@ struct VideoDetailView: View {
             return shownCard.subtitle
         }
         if shownCard.kind == .series {
-            return String(localized: "TV Show")
+            return String(localized: "TV Show", bundle: .localized)
         }
         return shownCard.kind.displayName
     }
@@ -157,7 +158,7 @@ struct VideoDetailView: View {
         if let year = shownCard.year { parts.append(String(year)) }
         if let detail = model.detail {
             if detail.kind == .series, !detail.seasons.isEmpty {
-                parts.append(String(localized: "\(detail.seasons.count) seasons"))
+                parts.append(String(localized: "\(detail.seasons.count) seasons", bundle: .localized))
             }
             if let runtime = detail.runtime, runtime > 0 {
                 parts.append(Self.duration(minutes: runtime))
@@ -176,16 +177,16 @@ struct VideoDetailView: View {
         guard model.canResume, let progress = model.progress, progress.durationMs > 0 else { return nil }
         let remaining = max(0, progress.durationMs - progress.positionMs)
         let minutes = max(1, Int((Double(remaining) / 60_000).rounded()))
-        return (Double(progress.positionMs) / Double(progress.durationMs), String(localized: "\(minutes) min left"))
+        return (Double(progress.positionMs) / Double(progress.durationMs), String(localized: "\(minutes) min left", bundle: .localized))
     }
 
     static func duration(minutes: Int) -> String {
         let hours = minutes / 60
         let rest = minutes % 60
         if hours > 0 {
-            return rest > 0 ? String(localized: "\(hours) h \(rest) min") : String(localized: "\(hours) h")
+            return rest > 0 ? String(localized: "\(hours) h \(rest) min", bundle: .localized) : String(localized: "\(hours) h", bundle: .localized)
         }
-        return String(localized: "\(minutes) min")
+        return String(localized: "\(minutes) min", bundle: .localized)
     }
 
     // MARK: Actions
@@ -197,6 +198,14 @@ struct VideoDetailView: View {
                 seriesActions
             } else {
                 playableActions
+            }
+            if model.detail == nil, failureMessage != nil {
+                Button {
+                    Task { await model.load(using: appState) }
+                } label: {
+                    Label("Try Again", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(PillButtonStyle(kind: .glass))
             }
         }
         .focusSection()
@@ -222,6 +231,23 @@ struct VideoDetailView: View {
                 Label("Restart", systemImage: "arrow.counterclockwise")
             }
             .buttonStyle(PillButtonStyle(kind: .glass))
+        }
+
+        if let files = detail?.files, files.count > 1 {
+            Button {
+                choosingVersion = true
+            } label: {
+                Label("Versions", systemImage: "square.stack")
+            }
+            .buttonStyle(PillButtonStyle(kind: .glass))
+            .confirmationDialog("Play Version", isPresented: $choosingVersion, titleVisibility: .visible) {
+                ForEach(files) { file in
+                    Button(Self.versionLabel(file)) {
+                        playback.play(shownCard, from: .resume, fileId: file.id)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
         }
 
         if shownCard.kind == .movie {
@@ -295,11 +321,16 @@ struct VideoDetailView: View {
     }
 
     private func playSeriesTitle(_ episode: EpisodeCard?) -> String {
-        guard let episode else { return String(localized: "Play") }
-        let code = String(localized: "S\(episode.seasonNo), E\(episode.episodeNo)")
+        guard let episode else { return String(localized: "Play", bundle: .localized) }
+        let code = String(localized: "S\(episode.seasonNo), E\(episode.episodeNo)", bundle: .localized)
         return episode.progress > 0
-            ? String(localized: "Resume \(code)")
-            : String(localized: "Play \(code)")
+            ? String(localized: "Resume \(code)", bundle: .localized)
+            : String(localized: "Play \(code)", bundle: .localized)
+    }
+
+    /// "4K · Movie.Name.2160p.mkv", for the version picker.
+    static func versionLabel(_ file: FileInfo) -> String {
+        [file.resolution, file.name].compactMap { $0?.isEmpty == false ? $0 : nil }.joined(separator: " · ")
     }
 
     /// The parent show of an episode, for "Go to Show".

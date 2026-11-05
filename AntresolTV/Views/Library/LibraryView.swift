@@ -68,17 +68,17 @@ struct LibraryView: View {
             }
             Spacer(minLength: 40)
             SegmentedPill(options: [
-                SegmentedPill<ItemSort>.Option(value: .recent, title: String(localized: "Recently Added")),
-                SegmentedPill<ItemSort>.Option(value: .title, title: String(localized: "By Title")),
-                SegmentedPill<ItemSort>.Option(value: .year, title: String(localized: "By Year")),
+                SegmentedPill<ItemSort>.Option(value: .recent, title: String(localized: "Recently Added", bundle: .localized)),
+                SegmentedPill<ItemSort>.Option(value: .title, title: String(localized: "By Title", bundle: .localized)),
+                SegmentedPill<ItemSort>.Option(value: .year, title: String(localized: "By Year", bundle: .localized)),
             ], selection: sort)
         }
     }
 
     private var countText: String {
         kind == .series
-            ? String(localized: "\(model.total) shows")
-            : String(localized: "\(model.total) movies")
+            ? String(localized: "\(model.total) shows", bundle: .localized)
+            : String(localized: "\(model.total) movies", bundle: .localized)
     }
 
     @ViewBuilder

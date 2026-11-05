@@ -108,7 +108,7 @@ struct AudiobookDetailView: View {
 
     private static func meta(_ book: BookDetail) -> String {
         metaLine([
-            book.narrator.isEmpty ? "" : String(localized: "Narrated by \(book.narrator)"),
+            book.narrator.isEmpty ? "" : String(localized: "Narrated by \(book.narrator)", bundle: .localized),
             durationText(ms: book.durationMs),
             book.series.map { $0.index > 0 ? "\($0.name) #\(BookFormat.number($0.index))" : $0.name } ?? "",
             book.year > 0 ? String(book.year) : "",
@@ -124,7 +124,7 @@ struct AudiobookDetailView: View {
 
     private static func progressLabel(_ book: BookDetail) -> String {
         guard let progress = book.progress else { return "" }
-        if progress.finished { return String(localized: "Finished") }
+        if progress.finished { return String(localized: "Finished", bundle: .localized) }
         let remaining = max(0, book.durationMs - progress.positionMs)
         return remaining > 0 ? PlaybackTime.remaining(Double(remaining) / 1000) : ""
     }
@@ -173,7 +173,7 @@ struct ChapterRowLabel: View {
                 }
             }
             .frame(width: 52, alignment: .trailing)
-            Text(verbatim: chapter.title.isEmpty ? String(localized: "Chapter \(number)") : chapter.title)
+            Text(verbatim: chapter.title.isEmpty ? String(localized: "Chapter \(number)", bundle: .localized) : chapter.title)
                 .font(Theme.Typography.headline)
                 .lineLimit(1)
             Spacer(minLength: 20)
@@ -241,7 +241,7 @@ struct ComicSeriesView: View {
             let series = loader.value
             CollectionHeader(
                 card: series?.card ?? card,
-                eyebrow: String(localized: "Manga & Comics"),
+                eyebrow: String(localized: "Manga & Comics", bundle: .localized),
                 subtitle: series.map { $0.authors.joined(separator: ", ") } ?? "",
                 meta: series.map { metaLine([$0.card.subtitle, $0.year > 0 ? String($0.year) : "", Self.directionLabel($0.readingDirection)]) } ?? card.subtitle,
                 description: series?.description ?? "",
@@ -270,7 +270,7 @@ struct ComicSeriesView: View {
                     .frame(minHeight: 500)
             case .loaded(let series):
                 if !series.volumes.isEmpty {
-                    ShelfRow(title: String(localized: "Volumes"), items: series.volumes, id: \.id) { volume in
+                    ShelfRow(title: String(localized: "Volumes", bundle: .localized), items: series.volumes, id: \.id) { volume in
                         Button {
                             reading = ComicReaderRequest(volume: volume)
                         } label: {
@@ -312,7 +312,7 @@ struct ComicSeriesView: View {
     }
 
     static func directionLabel(_ direction: ReadingDirection) -> String {
-        direction == .rightToLeft ? String(localized: "Right to left") : ""
+        direction == .rightToLeft ? String(localized: "Right to left", bundle: .localized) : ""
     }
 }
 
@@ -333,12 +333,12 @@ struct ComicVolumeView: View {
             let savedPage = volume?.progress.flatMap { ComicProgress.pageIndex(locator: $0.locator) }
             CollectionHeader(
                 card: volume?.card ?? card,
-                eyebrow: volume?.series?.name ?? String(localized: "Manga & Comics"),
+                eyebrow: volume?.series?.name ?? String(localized: "Manga & Comics", bundle: .localized),
                 subtitle: volume?.card.subtitle ?? card.subtitle,
                 meta: volume.map { metaLine([$0.authors.joined(separator: ", "), ComicSeriesView.directionLabel($0.readingDirection)]) } ?? "",
                 description: volume?.description ?? "",
                 progress: volume?.progress?.fraction ?? card.progress,
-                progressLabel: savedPage.map { String(localized: "Page \($0 + 1)") } ?? ""
+                progressLabel: savedPage.map { String(localized: "Page \($0 + 1)", bundle: .localized) } ?? ""
             ) {
                 let canResume = savedPage.map { $0 > 0 } ?? false
                 Button {
@@ -418,6 +418,11 @@ struct EbookDetailView: View {
                 }
             }
 
+            if case .failed(let message) = loader.state {
+                ErrorStateView(message: message) { Task { await load() } }
+                    .frame(minHeight: 500)
+            }
+
             HStack(alignment: .top, spacing: 24) {
                 Image(systemName: "iphone.and.arrow.forward")
                     .font(.system(size: 40))
@@ -437,9 +442,11 @@ struct EbookDetailView: View {
             .padding(.horizontal, Theme.Layout.margin)
             .focusable()
         }
-        .task(id: card.id) {
-            await loader.load(using: appState) { try await $0.book(id: card.id) }
-        }
+        .task(id: card.id) { await load() }
+    }
+
+    private func load() async {
+        await loader.load(using: appState) { try await $0.book(id: card.id) }
     }
 
     private func setWant(_ want: Bool) async {

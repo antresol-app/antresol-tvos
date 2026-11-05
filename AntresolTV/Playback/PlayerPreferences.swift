@@ -63,8 +63,8 @@ struct PlayerPreferences {
 extension VideoQuality {
     var displayName: String {
         switch self {
-        case .auto: return String(localized: "Auto")
-        case .original: return String(localized: "Original")
+        case .auto: return String(localized: "Auto", bundle: .localized)
+        case .original: return String(localized: "Original", bundle: .localized)
         case .p1080: return "1080p"
         case .p720: return "720p"
         case .p480: return "480p"

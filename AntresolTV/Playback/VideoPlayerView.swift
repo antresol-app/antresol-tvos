@@ -301,6 +301,6 @@ enum PlaybackTime {
     /// "42 min left", or "1 min left" for the last minute.
     static func remaining(_ seconds: Double) -> String {
         let minutes = max(1, Int((seconds / 60).rounded(.up)))
-        return String(localized: "\(minutes) min left")
+        return String(localized: "\(minutes) min left", bundle: .localized)
     }
 }

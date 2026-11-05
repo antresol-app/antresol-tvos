@@ -87,7 +87,7 @@ struct AlbumDetailView: View {
         metaLine([
             album.year > 0 ? String(album.year) : "",
             album.genres.prefix(2).joined(separator: ", "),
-            album.trackCount > 0 ? String(localized: "\(album.trackCount) songs") : "",
+            album.trackCount > 0 ? String(localized: "\(album.trackCount) songs", bundle: .localized) : "",
             durationText(ms: album.durationMs),
             album.quality,
         ])
@@ -116,7 +116,7 @@ struct TrackList: View {
             }
             ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
                 if groupsByDisc, discs.count > 1, index == 0 || tracks[index - 1].discNo != track.discNo {
-                    Text(verbatim: String(localized: "Disc \(track.discNo)"))
+                    Text(verbatim: String(localized: "Disc \(track.discNo)", bundle: .localized))
                         .font(Theme.Typography.eyebrow)
                         .tracking(2)
                         .textCase(.uppercase)
@@ -247,13 +247,13 @@ struct ArtistDetailView: View {
                     }
                 }
                 if !artist.albums.isEmpty {
-                    ShelfRow(title: String(localized: "Albums"), items: artist.albums, id: \.uniqueKey) { album in
+                    ShelfRow(title: String(localized: "Albums", bundle: .localized), items: artist.albums, id: \.uniqueKey) { album in
                         NavigationLink(value: Route.item(album)) { PosterCard(card: album) }
                             .buttonStyle(CardButtonStyle())
                     }
                 }
                 if !artist.appearsOn.isEmpty {
-                    ShelfRow(title: String(localized: "Appears On"), items: artist.appearsOn, id: \.uniqueKey) { album in
+                    ShelfRow(title: String(localized: "Appears On", bundle: .localized), items: artist.appearsOn, id: \.uniqueKey) { album in
                         NavigationLink(value: Route.item(album)) { PosterCard(card: album) }
                             .buttonStyle(CardButtonStyle())
                     }
@@ -302,7 +302,7 @@ struct ArtistDetailView: View {
 
     private static func meta(_ artist: ArtistDetail) -> String {
         metaLine([
-            artist.albums.isEmpty ? "" : String(localized: "\(artist.albums.count) albums"),
+            artist.albums.isEmpty ? "" : String(localized: "\(artist.albums.count) albums", bundle: .localized),
             artist.card.subtitle,
         ])
     }
@@ -447,7 +447,7 @@ struct GenreView: View {
         do {
             let tracks = try await client.shuffle(.genre(name))
             if tracks.isEmpty {
-                actionError = String(localized: "There are no songs to play.")
+                actionError = String(localized: "There are no songs to play.", bundle: .localized)
             } else {
                 audio.play(tracks: tracks)
             }
