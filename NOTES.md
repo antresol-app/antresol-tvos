@@ -324,3 +324,101 @@ Running log between milestones. Newest entry last.
 - Audio was checked on the simulator with the mock server's AAC fixtures; FLAC/transcoded music and
   multi-part MP3 audiobooks from the real server were verified only by the kit integration tests.
 - E-book reading is intentionally not available on TV.
+
+## Milestone 6 — Settings, Top Shelf, polish, docs
+
+### What exists
+- **Settings** (`Views/Settings`, the profile tab; replaces `AccountView`):
+  - The left column has the avatar, name and role (Administrator, or "Kid profile · up to PG"),
+    plus Switch Profile and Sign Out. Sign Out asks for confirmation and revokes the device token
+    with `POST /api/logout`.
+  - The right column is a scrolling list of glass rows (`SettingsRowButtonStyle`,
+    `SettingsRowLabel`, `SettingsInfoRow`) in four sections:
+    - Playback: Video Quality, Audio Language, Subtitles and Autoplay Next Episode. These are the
+      same `UserDefaults` keys the player uses (`PlayerPreferences.Key`, bound with `@AppStorage`),
+      so choices made in the player's menus show here and the other way round.
+    - Language: App Language (System / English / Русский).
+    - Server: address and version, plus Change Server, which kid profiles do not get.
+    - About: version (build) and Acknowledgements.
+  - Each choice opens `SettingsChoiceView`, a pushed page with a check mark on the current value,
+    which starts focused. Picking an option saves it and goes back.
+- **Language override** (`Services/AppLanguage`):
+  - The choice is stored in `app.language` and written to the app's `AppleLanguages`, which the
+    system applies to everything from the next launch.
+  - Right away, SwiftUI text follows `.environment(\.locale)` and the server gets the new
+    `Accept-Language`. Home re-fetches when it reappears.
+  - A footnote says that some text changes after a relaunch: strings built with
+    `String(localized:)` and the system UI.
+  - "System" uses the device language, which is captured at launch so it is right even while
+    an override is active.
+- **Top Shelf extension** (`TopShelf/`, target `TopShelf`, bundle id `app.antresol.tv.topshelf`,
+  embedded in the app):
+  - `ContentProvider` is a `TVTopShelfContentProvider` with sectioned content: Continue Watching
+    (16:9, backdrop first, with a progress bar) and Recently Added (posters; movies and shows
+    interleaved).
+  - The plan comes from `/api/home` through the kit's `TopShelfPlan`, which is unit-tested and
+    checked against the live server.
+  - Tiles carry `displayAction` set to `antresol://item/{id}` and `playAction` set to
+    `antresol://play/{id}`.
+  - `TopShelfArtwork` downloads artwork with the Bearer header into the App Group container
+    (fresh for 1 day, removed after 7, a stale copy is used offline) and passes file URLs to
+    the system.
+  - Without a shared session (signed out) it returns nil, so the static brand Top Shelf image
+    shows.
+- **Shared session** (`Shared/`, compiled into both targets):
+  - `SharedSessionStore` keeps the server URL, profile and language in the App Group defaults
+    (`group.app.antresol.tv`), and the token in the shared Keychain group
+    `<team prefix>app.antresol.shared`. The group name comes from the `AntresolKeychainGroup`
+    Info.plist key, so the build fills in the team prefix.
+  - `AppState` publishes the session whenever `phase` or `language` changes, clears it when
+    leaving the signed-in state, and calls `TVTopShelfContentProvider.topShelfContentDidChange()`
+    when something changed. The shell also calls it after each video session.
+  - Both entitlements files list the app's own Keychain group first, so the app's existing
+    Keychain items stay where they were.
+- **Deep links**:
+  - The app registers the `antresol` URL scheme.
+  - `.onOpenURL` passes the URL to `AppState.open`, which stores a `pendingDeepLink` until a
+    profile is signed in.
+  - The shell resolves the item with `/api/items/{id}`. `item` opens its page on the Home tab
+    (the Home stack's path is owned by the shell). `play` plays videos with resume.
+  - Unknown or forbidden ids are ignored, and a 401 goes back to the profile picker as usual.
+  - Parsing lives in the kit's `DeepLink`, which has tests.
+- **Polish**:
+  - New accessibility labels: the Now Playing waveform on track rows, and the sleep timer button.
+  - Every UI string is in both en and ru. A key-coverage script found no missing or unused keys,
+    and the Russian screenshots were checked.
+  - The mock server now treats profile 2 as a kid (`isKid`, `maxRating` PG), as the sample
+    server does. It also logs User-Agents, so CI can show the Top Shelf extension's requests.
+- **Docs**: README rewritten (features, requirements, build/run/test, architecture, CI).
+- **CI**:
+  - The tvOS build job now builds into `build/`, checks that `TopShelf.appex` is embedded with
+    its extension point, and greps warnings from `TopShelf/` and `Shared/` too.
+  - New UI tests: `test08Settings` (settings, language page, server/about, acknowledgements; kid
+    has no Change Server) and `test09DeepLinkAndRussian` (Russian UI, the
+    `-AntresolOpenURL antresol://item/19` launch hook, and the Home-screen Top Shelf).
+- **Kit**: 66 tests (new: `DeepLinkTests`, `TopShelfPlanTests`, the live
+  `TopShelfIntegrationTests`). All pass locally with `ANTRESOL_TEST_SERVER=1`.
+
+### Decisions
+- Settings is the profile tab rather than an extra tab. The tab bar is already full: an eighth
+  labelled tab pushes the profile tab out of the bar (see milestone 5).
+- Kid profiles keep playback and language settings but cannot change the server. Both profile
+  kinds can sign out or switch profile, because the picker still protects password profiles.
+- The audio and subtitle language lists are fixed (12 common languages, names localised by the
+  current locale). The player menus can still store any language a file has.
+- The Top Shelf shows video only: Continue Watching is limited to video kinds, and Recently
+  Added draws on the movie and show shelves. Books and music have their own surfaces.
+- Artwork is stored as local files because the system fetches Top Shelf image URLs without our
+  Bearer header, and the server does not accept the media key on images.
+
+### Known gaps
+- The Top Shelf and the shared Keychain and App Group need a signed build with a team that has
+  `group.app.antresol.tv` and the Keychain group registered. CI builds unsigned, so a real
+  device Top Shelf was not seen. The UI test captures the simulator's Home screen
+  (`45-top-shelf`).
+- The language override changes `String(localized:)` text (some labels and menus) and the
+  system UI (keyboard, player chrome) only after a relaunch. tvOS has no API to restart an app.
+- No device management screen: the server's `/api/me/devices` list and revoke are not in the UI.
+  Sign Out revokes this device.
+- No playlist editing on TV (see milestone 5).
+- The UI screenshot job is still `continue-on-error` and uses mock data.

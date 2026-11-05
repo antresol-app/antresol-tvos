@@ -163,6 +163,8 @@ struct DetailScroll<Content: View>: View {
     /// The header's primary action (`primaryDetailAction()`) takes the initial focus
     /// rather than the first row of the list below it.
     @FocusState private var primaryActionFocused: Bool
+    @Environment(\.claimsFocusOnAppear) private var claimsFocusOnAppear
+    @State private var didClaimFocus = false
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -172,6 +174,13 @@ struct DetailScroll<Content: View>: View {
             .padding(.bottom, 100)
         }
         .defaultFocus($primaryActionFocused, true)
+        .task {
+            // Opened from outside the app: take the focus from the tab bar.
+            guard claimsFocusOnAppear, !didClaimFocus else { return }
+            didClaimFocus = true
+            try? await Task.sleep(for: .milliseconds(400))
+            primaryActionFocused = true
+        }
         .environment(\.detailPrimaryFocus, $primaryActionFocused)
         .scrollClipDisabled()
         .ignoresSafeArea(edges: [.top, .horizontal])

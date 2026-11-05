@@ -11,6 +11,8 @@ struct VideoDetailView: View {
     @Environment(PlaybackCoordinator.self) private var playback
     @State private var model: VideoDetailModel
     @FocusState private var focusedButton: HeaderButton?
+    @Environment(\.claimsFocusOnAppear) private var claimsFocusOnAppear
+    @State private var didClaimFocus = false
 
     enum HeaderButton: Hashable {
         case play
@@ -40,6 +42,14 @@ struct VideoDetailView: View {
         .ignoresSafeArea(edges: [.top, .horizontal])
         .background(Theme.Colors.background.ignoresSafeArea())
         .defaultFocus($focusedButton, .play)
+        .task {
+            // Opened from outside (Top Shelf): focus is still on the tab bar, where Menu
+            // would leave the app, so move it to Play once the page is on screen.
+            guard claimsFocusOnAppear, !didClaimFocus else { return }
+            didClaimFocus = true
+            try? await Task.sleep(for: .milliseconds(400))
+            focusedButton = .play
+        }
         .task(id: card.uniqueKey) { await model.load(using: appState) }
         .onChange(of: playback.completedSessions) {
             Task { await model.load(using: appState) }

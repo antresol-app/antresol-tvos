@@ -23,6 +23,10 @@ VIDEO = FIXTURES / "sample.mp4"
 TRACK = FIXTURES / "track.m4a"
 AUDIOBOOK = FIXTURES / "audiobook.m4a"
 
+KID_TOKEN = "mock-kid-token"
+KID_USER = {"id": 2, "name": "Kiddo", "avatar": "grad-4", "hasPassword": False, "isAdmin": False,
+            "isKid": True, "maxRating": "PG", "remote": False, "libraryOnly": True}
+
 ROUTES = {
     ("GET", r"/api/health"): "health.json",
     ("GET", r"/api/setup"): "setup-get.json",
@@ -143,9 +147,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def route(self, method):
         length = int(self.headers.get("Content-Length") or 0)
-        if length:
-            self.rfile.read(length)
+        body = self.rfile.read(length) if length else b""
         path, _, query = self.path.partition("?")
+        # Profile 2 is a kid profile, as on the sample server.
+        if method == "POST" and path == "/api/auth/token" and json.loads(body or b"{}").get("userId") == 2:
+            return self.send(200, json.dumps({"token": KID_TOKEN, "user": KID_USER}).encode(), "application/json")
+        if method == "GET" and path == "/api/me" and KID_TOKEN in (self.headers.get("Authorization") or ""):
+            return self.send(200, json.dumps(KID_USER).encode(), "application/json")
         if method == "GET" and path.startswith("/api/images/"):
             return self.send(200, image_for(path), "image/png")
         if method == "POST" and path == "/api/logout":

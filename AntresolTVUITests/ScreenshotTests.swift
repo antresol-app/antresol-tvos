@@ -328,6 +328,8 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(moveFocus(.down, to: setting(app, "Acknowledgements"), limit: 8))
         pause(1)
         snapshot(app, "39-settings-server-about")
+        // The mock's second profile is a kid profile, which cannot change the server.
+        XCTAssertFalse(setting(app, "Change Server").exists)
         remote.press(.select)
         pause(2)
         snapshot(app, "40-acknowledgements")
@@ -346,6 +348,8 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select)
         pause(6)
         snapshot(app, "42-deep-link-detail-ru")
+        // The linked page takes the focus from the tab bar, so Menu goes back to Home.
+        XCTAssertTrue(app.buttons["Продолжить"].hasFocus, "The linked page should start on Resume")
         remote.press(.menu)
         pause(3)
         snapshot(app, "43-home-ru")

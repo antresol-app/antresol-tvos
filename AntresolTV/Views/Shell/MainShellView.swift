@@ -137,7 +137,7 @@ struct MainShellView: View {
         }
         selection = .home
         var path = NavigationPath()
-        path.append(Route.item(card))
+        path.append(Route.linkedItem(card))
         homePath = path
     }
 
@@ -176,6 +176,9 @@ struct TabNavigation<Root: View>: View {
                     switch route {
                     case .item(let card):
                         ItemDetailView(card: card)
+                    case .linkedItem(let card):
+                        ItemDetailView(card: card)
+                            .environment(\.claimsFocusOnAppear, true)
                     case .genre(let name):
                         GenreView(name: name)
                     }

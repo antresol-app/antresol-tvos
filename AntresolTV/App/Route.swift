@@ -5,6 +5,9 @@ import SwiftUI
 enum Route: Hashable {
     /// The detail page of a library card (movie, series, episode, album, book...).
     case item(Card)
+    /// The detail page of an item opened from outside the app (Top Shelf, URL scheme);
+    /// it takes the focus from the tab bar.
+    case linkedItem(Card)
     /// The albums of a music genre.
     case genre(String)
 }
@@ -25,4 +28,7 @@ struct OpenRouteAction {
 
 extension EnvironmentValues {
     @Entry var openRoute = OpenRouteAction { _ in }
+    /// Whether a page should move focus to its main action when it appears, even though
+    /// focus is elsewhere (set for `Route.linkedItem`).
+    @Entry var claimsFocusOnAppear = false
 }

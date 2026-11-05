@@ -198,7 +198,7 @@ private struct SettingsPage: View {
     // MARK: About
 
     private var aboutSection: some View {
-        SettingsSection("About") {
+        SettingsSection("About This App") {
             SettingsInfoRow(title: "Antresol for Apple TV", value: Self.appVersion)
             NavigationLink {
                 AcknowledgementsView()
