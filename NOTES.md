@@ -426,3 +426,130 @@ Running log between milestones. Newest entry last.
   Sign Out revokes this device.
 - No playlist editing on TV (see milestone 5).
 - The UI screenshot job is still `continue-on-error` and uses mock data.
+
+## Review fixes (after milestone 6)
+
+Reviewer findings were checked against the code. The real ones are fixed; the rejected ones
+are listed below.
+
+### Playback and sessions
+- **Kit `VideoPlaybackSession`**:
+  - `start` runs one call at a time.
+  - `stop()` always wins: it bumps an epoch, and a start still in flight deletes the session
+    it created and throws `CancellationError`.
+  - A failed start deletes any session it created. If the old session was not replaced, its
+    keepalive restarts.
+  - The media key is fetched before `/api/play`.
+  - The stale-`replaceSession` 404 fallback is gone. The live server ignores an unknown
+    `replaceSession`.
+  - The keepalive holds the actor weakly and ends with it (plus `deinit`). A `401` ends it
+    too, and is reported through `onEnded(.unauthorized)` (it was `onExpired`).
+  - New tests: stopping during a start, and a 401 keepalive.
+- **`ProgressReporter`**: its loop ends with its owner, and it has a `deinit`.
+- **`URLSessionTransport`**: a cancellation that arrives before the data task exists still
+  cancels the task.
+- **`HLSSessionID.parse`**: cannot trap on a leading `hls`.
+- **`AudioCodec.apple`**: now includes WAV and AIFF.
+- **`VideoPlayerModel`**:
+  - The resume seek waits for `readyToPlay`, and playing waits for the seek to land.
+    Meanwhile `currentFilePosition` reports `source.startPosition`, so no progress write
+    can carry 0.
+  - `requestedPosition` keeps the resume point. Try Again resumes there after a failed
+    first start, a failed Up Next, or a failed episode switch.
+  - Track and quality changes queue in `pendingOptions` and run one at a time, so a quick
+    audio pick then quality pick keeps both.
+  - Duplicate failure signals (item status and failed-to-end) only start one recovery.
+    Stale items are ignored.
+  - Restarts keep the paused state.
+  - `fail()` saves the position, then releases the HLS session, the progress timer and the
+    item.
+  - In the background the HLS session is released (§5.6). It is restarted, paused, on return.
+  - Transport-bar seeks outside a growing (EVENT) playlist ask `/api/play` for a new
+    session at the target
+    (`AVPlayerViewControllerDelegate.timeToSeekAfterUserNavigatedFrom`).
+  - EVENT playlists send the Bearer header on the asset (`AVURLAssetHTTPHeaderFieldsKey`),
+    because their segments carry no `mk`. Every sample playlist is complete (VOD), so this
+    path is untested against the server.
+- **Version picker**: movies with several files show a Versions pill on the detail page.
+  `PlaybackCoordinator.Request.fileId` carries the chosen file.
+- **`AudioPlayer`**:
+  - Every item learns whether its stream is transcoded before any seek. Audiobook parts use
+    `BookFile.format`. Songs are probed once per stream, including preloaded ones. As a
+    safety net, an item with no seekable range is treated as transcoded.
+  - After 3 failures in a row (or the queue length, if smaller), playback stops with a
+    notice instead of cycling the queue.
+  - Nothing is loaded without a media key.
+  - Starts are serialised by a generation counter.
+  - `shutdown()` removes the observers and the remote-command handlers. The shell calls it
+    when it goes away.
+  - `stopAndFlush()` awaits the final audiobook write.
+
+### Session and app state
+- **Per-profile clients**:
+  - Each signed-in profile gets its own `APIClient` with a fixed token
+    (`ServerConnection.profileClient`). The server's client never carries a token.
+  - Final writes that are still in flight when the profile changes finish with their own
+    token.
+  - `signOut` awaits `prepareToLeaveProfile` (set by the shell: `audio.stopAndFlush()`)
+    before it revokes the token.
+- **Change Server from Settings** is a full-screen cover. The shell, its tab stacks and the
+  music are untouched unless another server actually connects.
+- **Error messages**: `AppState.userMessage(for:)` gives localized, plain text. It uses the
+  server's message when there is one, otherwise a transport, decoding, 404 or 5xx
+  explanation. The profile picker, password and server screens use it too.
+- **Language override**:
+  - Every `String(localized:)` passes `bundle: .localized`, the chosen language's `.lproj`.
+    Text built after a change follows it at once.
+  - Views that are already on screen and have no other reason to redraw keep their text
+    until they redraw.
+  - The Top Shelf extension keeps the system bundle.
+- **Top Shelf entitlements**: the extension now has only the shared Keychain group. The
+  app's own group, which holds every profile's token, is no longer listed.
+
+### UI
+- **Paged grids** (`PagedList`, `LibraryModel`):
+  - Only a new sort or filter resets the grid.
+  - A plain reappear (Back, tab switch, finished video) merges the fresh first page into
+    the loaded items (`PageMerge`), so focus, scroll position and later pages stay.
+- **Focus**: the Movies, TV Shows, Albums and book-list sort rows are focus sections, so Up
+  from any column reaches the pill.
+- **Home**:
+  - The hero is a carousel:
+    - it auto-advances every 8 s while its buttons are not focused;
+    - Left on Play and Right on Details page through it;
+    - it shows dots and cross-fades the backgrounds.
+  - A series hero names its episode ("Play S1, E1"), as the detail page does.
+  - Shelf titles carry a chevron and open `Route.shelf` (`ShelfGridView`):
+    - Recently Added Movies, New Episodes and Recently Played page through the full lists;
+    - Currently Reading and Want to Watch show the cards from `/api/home`, because the API
+      has no separate list for them.
+- **Play/Pause** on a focused movie, show or episode card starts it (Home, Movies and TV
+  Shows, the season row).
+- **Detail pages**:
+  - Video detail offers Try Again when it fails to load.
+  - E-books show the error state.
+  - Season pills scroll when they do not fit.
+- **Music**:
+  - Songs > Shuffle uses the server's whole-library shuffle (All Songs), or pages through
+    every favorite (Favorites).
+  - Album pages no longer offer Go to Album.
+- **Comics**:
+  - The reader saves on disappear and when the app leaves the foreground.
+  - Its end card offers the next volume: Select reads it in place.
+- **Profile picker** is one horizontally scrolling row.
+- **Profile tab** shows the avatar, rendered with `ImageRenderer` in original rendering mode.
+
+### Rejected findings
+- None were rejected outright.
+- One part was not done as suggested: the next-volume action on the comic end card is "press
+  Select" rather than a separately focusable pill. The reader is one focus target that
+  takes left/right presses, and a second focusable would steal those presses.
+
+### Known gaps
+- Selecting a song in Songs queues only the songs loaded so far (shuffle covers the whole
+  library).
+- The profile tab avatar has not been checked on a device. If tvOS template-renders tab
+  images, it shows as a white disc, and the Settings page still shows the coloured avatar.
+- The EVENT-playlist paths (seek outside the window, Bearer on the asset) have not been
+  exercised: the sample server always returns complete playlists.
+- Strings already on screen keep the old language until their view redraws.
