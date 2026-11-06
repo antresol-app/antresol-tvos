@@ -61,7 +61,7 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.menu)
         pause(2)
 
-        XCTAssertTrue(openSection(app, "Kiddo"))
+        XCTAssertTrue(openSection(app, "Kiddo", showing: app.buttons["Switch Profile"]))
         XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
         pause(2)
         snapshot(app, "08-account")
@@ -70,7 +70,7 @@ final class ScreenshotTests: XCTestCase {
     func test03BrowseDetailsAndSearch() {
         let app = signInAsKid()
 
-        XCTAssertTrue(openSection(app, "Movies"))
+        XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Recently Added"]))
         pause(2)
         snapshot(app, "09-movies")
 
@@ -91,7 +91,7 @@ final class ScreenshotTests: XCTestCase {
         pause(2)
 
         // TV Shows, then the show's page.
-        XCTAssertTrue(openSection(app, "TV Shows"))
+        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
         pause(2)
         snapshot(app, "12-shows")
         XCTAssertTrue(moveFocus(.down, to: card(app, "Test Show"), limit: 3))
@@ -112,7 +112,7 @@ final class ScreenshotTests: XCTestCase {
         pause(2)
 
         // Search: Browse tiles, then results. Selecting it moves focus into the keyboard.
-        XCTAssertTrue(openSection(app, "Search"))
+        XCTAssertTrue(openSection(app, "Search", showing: app.searchFields.firstMatch))
         pause(3)
         snapshot(app, "16-search")
         app.searchFields.firstMatch.typeText("test")
@@ -177,10 +177,10 @@ final class ScreenshotTests: XCTestCase {
     func test06Music() {
         let app = signInAsKid()
 
-        XCTAssertTrue(openSection(app, "Music"))
+        XCTAssertTrue(openSection(app, "Music", showing: app.buttons["Listen Now"]))
         // The section pill remembers the last section (another test may have left one).
         if !app.buttons["Shuffle All"].waitForExistence(timeout: 5) {
-            moveFocus(.up, to: app.buttons["Listen Now"], limit: 3)
+            XCTAssertTrue(moveFocus(.up, to: app.buttons["Listen Now"], limit: 3))
             remote.press(.select)
         }
         XCTAssertTrue(app.buttons["Shuffle All"].waitForExistence(timeout: 20))
@@ -188,7 +188,7 @@ final class ScreenshotTests: XCTestCase {
         snapshot(app, "25-music-listen-now")
 
         // Shuffle All, then the first album of the first shelf.
-        moveFocus(.down, to: app.buttons["Shuffle All"], limit: 2)
+        XCTAssertTrue(moveFocus(.down, to: app.buttons["Shuffle All"], limit: 2))
         remote.press(.down)
         pause(1)
         remote.press(.select)
@@ -213,7 +213,7 @@ final class ScreenshotTests: XCTestCase {
             remote.press(.right)
             pause(1)
         }
-        moveFocus(.up, to: app.buttons["Up Next"], limit: 3)
+        XCTAssertTrue(moveFocus(.up, to: app.buttons["Up Next"], limit: 3))
         XCTAssertTrue(moveFocus(.right, to: app.buttons["Lyrics"], limit: 2))
         remote.press(.select)
         pause(3)
@@ -224,7 +224,7 @@ final class ScreenshotTests: XCTestCase {
         pause(2)
         remote.press(.menu)
         pause(2)
-        moveFocus(.up, to: app.buttons["Listen Now"], limit: 6)
+        XCTAssertTrue(moveFocus(.up, to: app.buttons["Listen Now"], limit: 6))
         XCTAssertTrue(moveFocus(.right, to: app.buttons["Albums"], limit: 2))
         remote.press(.select)
         pause(3)
@@ -234,7 +234,7 @@ final class ScreenshotTests: XCTestCase {
     func test07Books() {
         let app = signInAsKid()
 
-        XCTAssertTrue(openSection(app, "Books"))
+        XCTAssertTrue(openSection(app, "Books", showing: app.buttons["Reading Now"]))
         pause(3)
         snapshot(app, "31-books-home")
 
@@ -276,7 +276,7 @@ final class ScreenshotTests: XCTestCase {
         let app = signInAsKid()
 
         // The profile is the sidebar's last entry.
-        XCTAssertTrue(openSection(app, "Kiddo"))
+        XCTAssertTrue(openSection(app, "Kiddo", showing: app.buttons["Switch Profile"]))
         XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
         pause(2)
         snapshot(app, "37-settings")
@@ -324,7 +324,7 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.menu)
         pause(3)
         snapshot(app, "43-home-ru")
-        XCTAssertTrue(openSection(app, "Kiddo"))
+        XCTAssertTrue(openSection(app, "Kiddo", showing: app.buttons["Сменить профиль"]))
         pause(2)
         snapshot(app, "44-settings-ru")
 
@@ -344,10 +344,10 @@ final class ScreenshotTests: XCTestCase {
         let app = signInAsKid()
 
         // Music, then the Playlists section of the pill.
-        XCTAssertTrue(openSection(app, "Music"))
+        XCTAssertTrue(openSection(app, "Music", showing: app.buttons["Listen Now"]))
         // The section pill remembers the last section (another test may have left Albums).
         XCTAssertTrue(app.buttons["Listen Now"].waitForExistence(timeout: 20))
-        moveFocus(.up, to: app.buttons["Listen Now"], limit: 3)
+        XCTAssertTrue(moveFocus(.up, to: app.buttons["Listen Now"], limit: 3))
         XCTAssertTrue(moveFocus(.right, to: app.buttons["Playlists"], limit: 6))
         remote.press(.select)
         let newPlaylist = app.buttons["New Playlist"]
@@ -432,7 +432,7 @@ final class ScreenshotTests: XCTestCase {
     func test11Devices() {
         let app = signInAsKid()
 
-        XCTAssertTrue(openSection(app, "Kiddo"))
+        XCTAssertTrue(openSection(app, "Kiddo", showing: app.buttons["Switch Profile"]))
         XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
         remote.press(.down)
         pause(1)
@@ -504,8 +504,9 @@ final class ScreenshotTests: XCTestCase {
     /// Opens a section from the sidebar: Left until the sidebar has focus, then up or down
     /// to its entry and select. Entries are the full-width rows at the screen's left edge
     /// (the profile's starts with its name).
+    /// Returns whether `marker`, an element only that section shows, appeared.
     @discardableResult
-    private func openSection(_ app: XCUIApplication, _ title: String) -> Bool {
+    private func openSection(_ app: XCUIApplication, _ title: String, showing marker: XCUIElement) -> Bool {
         let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
         func inSidebar() -> Bool { focused.exists && focused.frame.minX < 1 && focused.frame.width < 600 }
         for _ in 0..<6 where !inSidebar() {
@@ -523,7 +524,8 @@ final class ScreenshotTests: XCTestCase {
         }
         guard abs(entry.frame.midY - focused.frame.midY) < 4 else { return false }
         remote.press(.select)
-        pause(3)
+        guard marker.waitForExistence(timeout: 15) else { return false }
+        pause(2)
         return true
     }
 
