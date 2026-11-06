@@ -37,7 +37,8 @@ final class ScreenshotTests: XCTestCase {
         pause(4)
         snapshot(app, "04-home-hero")
 
-        // Focus starts on the tab bar: down to the hero's Resume pill, right to Details.
+        // Focus starts on the tab bar; Down from Home lands on the hero's Details pill (the
+        // nearest one), and Right there stays put with a single featured item.
         remote.press(.down)
         pause(1)
         remote.press(.right)

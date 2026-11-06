@@ -78,6 +78,10 @@ struct HeroView: View {
                     .onMoveCommand { if $0 == .right { page(by: 1) } }
                 }
                 .padding(.top, 22)
+                // As wide as the text column, so Down from any tab bar item above it lands
+                // on the pills; the pills alone sit left of most tabs, and the focus engine
+                // would skip past them to the first shelf.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .focusSection()
             }
             .frame(maxWidth: 1200, alignment: .leading)
