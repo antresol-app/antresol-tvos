@@ -15,7 +15,8 @@ final class StoreScreenshotTests: XCTestCase {
         continueAfterFailure = false
         dir = env["STORE_SHOTS_DIR"] ?? ""
         guard let server = env["DEMO_SERVER"], !server.isEmpty else { throw XCTSkip("DEMO_SERVER not set") }
-        app.launchArguments += ["-AntresolResetSession", "YES", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        // Music opens on Listen Now whatever pane the simulator remembers
+        app.launchArguments += ["-AntresolResetSession", "YES", "-music.section", "listenNow", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         connect(server)
         signIn(password)
@@ -122,6 +123,7 @@ final class StoreScreenshotTests: XCTestCase {
         }
         let entry = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).allElementsBoundByIndex
             .first { $0.frame.minX < 1 && $0.frame.width < 600 && $0.frame.width > 0 }
+        if entry == nil { shot("0-no-\(title)", delay: 0); dump("no-section") }
         XCTAssertNotNil(entry, "no section \(title)")
         for _ in 0..<10 {
             guard let entry, focused.exists else { break }
@@ -134,7 +136,9 @@ final class StoreScreenshotTests: XCTestCase {
     }
 
     private func open(_ prefix: String) {
-        XCTAssertTrue(moveFocus(to: button(prefix)), "cannot reach \(prefix)")
+        let ok = moveFocus(to: button(prefix))
+        if !ok { shot("0-unreached", delay: 0); dump("unreached") }
+        XCTAssertTrue(ok, "cannot reach \(prefix)")
         remote.press(.select)
         sleep(4)
     }
@@ -161,8 +165,11 @@ final class StoreScreenshotTests: XCTestCase {
         sleep(10)
         remote.press(.select)
         shot("5-player", delay: 2)
-        remote.press(.menu)
-        sleep(3)
+        // Menu until the film's page is back (the info panel, then the player close)
+        for _ in 0..<4 where !app.buttons["Resume"].hasFocus {
+            remote.press(.menu)
+            sleep(3)
+        }
         dump("after-player")
         remote.press(.menu)
         sleep(2)
