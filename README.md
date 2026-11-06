@@ -186,7 +186,7 @@ AntresolKit/          Swift package, Foundation only (builds and tests on Linux)
   Models/             Codable API models with tolerant decoding
   Networking/         APIClient (async/await), APIError, ServerURLs, ServerAddress, TokenStore
   Playback/           VideoPlaybackSession, MediaKeyStore, PlaybackProgressReporter, PlayQueue,
-                      AudiobookTimeline, UpNext, WebVTT
+                      ResumePolicy, UpNext, WebVTT
   Integration/        DeepLink (antresol:// URLs), TopShelfPlan (Top Shelf sections from /api/home)
 AntresolTV/           The tvOS app
   App/                AntresolTVApp, AppState (session phases, language, deep links), Route
@@ -204,7 +204,7 @@ AntresolTVUITests/    Screenshot tests against scripts/mock-server.py
 
 - **Logic lives in the kit.** Everything that does not need an Apple UI framework sits in
   `AntresolKit`, so it is unit-tested on Linux in CI. This covers API calls, playback session
-  rules, progress timing, queueing, audiobook timing, subtitles, deep links and the Top Shelf
+  rules, progress timing, queueing, subtitles, deep links and the Top Shelf
   plan.
 - **Auth.** Each profile signs in with `POST /api/auth/token` and gets a device token. Every
   request sends `Authorization: Bearer` and `Accept-Language`, and so do image requests. Player

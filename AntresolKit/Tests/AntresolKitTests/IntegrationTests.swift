@@ -357,40 +357,6 @@ final class IntegrationTests: XCTestCase {
         XCTAssertFalse(afterDelete.contains { $0.id == created.id })
     }
 
-    func testBooksAndComics() async throws {
-        let client = try await client()
-        let home = try await client.booksHome()
-        XCTAssertFalse(home.shelves.isEmpty)
-        for sort in BookSort.allCases {
-            _ = try await client.books(kind: .audiobook, sort: sort)
-        }
-        let key = try await MediaKeyStore(client: client).key()
-
-        let audiobooks = try await client.books(kind: .audiobook)
-        XCTAssertFalse(audiobooks.items.isEmpty)
-        for card in audiobooks.items {
-            let book = try await client.book(id: card.id)
-            XCTAssertEqual(book.kind, .audiobook)
-            XCTAssertFalse(book.files.isEmpty)
-            XCTAssertEqual(book.audiobookTimeline.totalMs, book.durationMs)
-            XCTAssertFalse(book.chapters.isEmpty)
-            let audioURL = try XCTUnwrap(client.urls.audio(fileId: book.files[0].id, mediaKey: key))
-            let (_, response) = try await LiveServer.rawGet(audioURL)
-            XCTAssertTrue([200, 206].contains(response.statusCode))
-        }
-
-        _ = try await client.books(kind: .book)
-
-        let comics = try await client.books(kind: .comic)
-        let series = try await client.book(id: try XCTUnwrap(comics.items.first?.id))
-        let volume = try XCTUnwrap(series.volumes.first)
-        let volumeDetail = try await client.book(id: volume.id)
-        XCTAssertEqual(volumeDetail.readFileId, volume.fileId)
-        let pages = try await client.comicPages(fileId: volume.fileId)
-        XCTAssertEqual(pages.count, volume.pages)
-        let page = try await client.comicPage(fileId: volume.fileId, index: 0)
-        XCTAssertGreaterThan(page.count, 0)
-    }
 }
 
 final class TopShelfIntegrationTests: XCTestCase {

@@ -262,11 +262,6 @@ public struct ProgressUpdate: Encodable, Hashable, Sendable {
     public static func media(positionMs: Int, durationMs: Int, at date: Date? = nil) -> ProgressUpdate {
         ProgressUpdate(positionMs: positionMs, durationMs: durationMs, updatedAt: date)
     }
-
-    /// Book and comic reader position.
-    public static func reader(locator: String, fraction: Double, at date: Date? = nil) -> ProgressUpdate {
-        ProgressUpdate(locator: locator, fraction: fraction, updatedAt: date)
-    }
 }
 
 /// One result of OpenSubtitles search (`GET /api/subtitles/{fileId}/search`).

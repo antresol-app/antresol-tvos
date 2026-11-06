@@ -25,11 +25,6 @@ final class URLBuilderTests: XCTestCase {
             "http://192.168.1.10:8420/api/tracks/15/stream?accept=aac%2Cmp3%2Calac%2Cflac%2Cwav%2Caiff&mk=k"
         )
         XCTAssertEqual(
-            urls.audio(fileId: 11, accept: [.mp3], format: .aac, startSec: 12.5, mediaKey: "k")?.absoluteString,
-            "http://192.168.1.10:8420/api/audio/11?accept=mp3&format=aac&t=12.5&mk=k"
-        )
-        XCTAssertEqual(urls.comicPage(fileId: 13, index: 0)?.absoluteString, "http://192.168.1.10:8420/api/comics/13/page/0")
-        XCTAssertEqual(
             urls.subtitle("/api/subs/12/1000.vtt?src=b70596c2")?.absoluteString,
             "http://192.168.1.10:8420/api/subs/12/1000.vtt?src=b70596c2"
         )
@@ -62,33 +57,6 @@ final class URLBuilderTests: XCTestCase {
 }
 
 final class PlaybackLogicTests: XCTestCase {
-    func testAudiobookTimeline() {
-        let timeline = AudiobookTimeline(files: [BookFile(id: 1, durationMs: 30041), BookFile(id: 2, durationMs: 30000)])
-        XCTAssertEqual(timeline.totalMs, 60041)
-        XCTAssertEqual(timeline.locate(bookMs: 0), .init(partIndex: 0, offsetMs: 0))
-        XCTAssertEqual(timeline.locate(bookMs: 30040), .init(partIndex: 0, offsetMs: 30040))
-        XCTAssertEqual(timeline.locate(bookMs: 30041), .init(partIndex: 1, offsetMs: 0))
-        XCTAssertEqual(timeline.locate(bookMs: 45000), .init(partIndex: 1, offsetMs: 14959))
-        XCTAssertEqual(timeline.locate(bookMs: 99999), .init(partIndex: 1, offsetMs: 30000))
-        XCTAssertEqual(timeline.bookMs(partIndex: 1, offsetMs: 1000), 31041)
-        XCTAssertNil(AudiobookTimeline(files: []).locate(bookMs: 0))
-    }
-
-    func testChapterLookup() throws {
-        let book = try Samples.decode(BookDetail.self, "book-audiobook.json")
-        XCTAssertEqual(AudiobookTimeline.chapter(at: 0, in: book.chapters)?.title, "Opening")
-        XCTAssertEqual(AudiobookTimeline.chapter(at: 25000, in: book.chapters)?.title, "Middle")
-        XCTAssertEqual(AudiobookTimeline.chapter(at: 59999, in: book.chapters)?.title, "Ending")
-    }
-
-    func testAudiobookResume() {
-        XCTAssertEqual(ResumePolicy.audiobookStartMs(positionMs: 20000, durationMs: 600_000, finished: false), 20000)
-        XCTAssertEqual(ResumePolicy.audiobookStartMs(positionMs: 20000, durationMs: 600_000, finished: true), 0)
-        XCTAssertEqual(ResumePolicy.audiobookStartMs(positionMs: 590_000, durationMs: 600_000, finished: false), 0)
-        XCTAssertEqual(ResumePolicy.audiobookStartMs(positionMs: 3_500_000, durationMs: 3_600_000, finished: false), 3_500_000)
-        XCTAssertEqual(ResumePolicy.audiobookStartMs(positionMs: 3_580_000, durationMs: 3_600_000, finished: false), 0)
-    }
-
     func testPlaybackSourceTimeline() throws {
         let hls = try Samples.decode(PlayResponse.self, "play-transcode-quality.json")
         let source = PlaybackSource(response: hls, url: URL(string: "http://x/a.m3u8")!)
@@ -125,15 +93,6 @@ final class PlaybackLogicTests: XCTestCase {
         XCTAssertNil(UpNext.proposalTime(durationSec: 0))
         XCTAssertTrue(UpNext.isFinished(positionSec: 56, durationSec: 60))
         XCTAssertFalse(UpNext.isFinished(positionSec: 30, durationSec: 60))
-    }
-
-    func testComicProgress() {
-        let update = ComicProgress.update(pageIndex: 1, count: 3)
-        XCTAssertEqual(update.locator, "page:2")
-        XCTAssertEqual(update.fraction!, 2.0 / 3.0, accuracy: 0.0001)
-        XCTAssertEqual(ComicProgress.pageIndex(locator: "page:2"), 1)
-        XCTAssertNil(ComicProgress.pageIndex(locator: "epubcfi(/6/2)"))
-        XCTAssertNil(ComicProgress.pageIndex(locator: "page:0"))
     }
 
     func testScrobbleThreshold() {

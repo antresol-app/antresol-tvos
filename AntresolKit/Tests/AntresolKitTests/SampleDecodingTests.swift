@@ -229,7 +229,6 @@ final class SampleDecodingTests: XCTestCase {
 
         let multi = try Samples.decode(BookDetail.self, "book-audiobook-multifile.json")
         XCTAssertEqual(multi.files.count, 2)
-        XCTAssertEqual(multi.audiobookTimeline.totalMs, multi.files.map(\.durationMs).reduce(0, +))
 
         let series = try Samples.decode(BookDetail.self, "book-comic.json")
         XCTAssertEqual(series.volumes.first?.fileId, 13)

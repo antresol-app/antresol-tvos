@@ -116,12 +116,10 @@ final class ClientTests: XCTestCase {
         let client = APIClient(baseURL: base, token: "t", transport: transport)
         _ = try await client.items(kind: .movie, sort: .title, offset: 120)
         _ = try await client.albums(sort: .year, genre: "Rock", artistId: 13, starred: true)
-        _ = try await client.books(kind: .comic, sort: .author, limit: nil)
         _ = try await client.shuffle(.genre("Hip Hop"))
         XCTAssertEqual(transport.requests.map(\.pathAndQuery), [
             "/api/items?kind=movie&sort=title&limit=120&offset=120",
             "/api/music/albums?sort=year&genre=Rock&artist=13&starred=1&limit=120",
-            "/api/books?kind=comic&sort=author",
             "/api/music/shuffle?source=genre&genre=Hip%20Hop",
         ])
     }

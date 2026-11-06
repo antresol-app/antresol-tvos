@@ -68,22 +68,9 @@ public struct ServerURLs: Hashable, Sendable {
         url(path: "/api/tracks/\(trackId)/stream", query: Self.audioQuery(accept: accept, format: format, startSec: startSec, mediaKey: mediaKey))
     }
 
-    /// Audiobook part stream (§8.3).
-    public func audio(
-        fileId: Int, accept: [AudioCodec] = AudioCodec.apple, format: AudioTranscodeFormat? = nil,
-        startSec: Double? = nil, mediaKey: String?
-    ) -> URL? {
-        url(path: "/api/audio/\(fileId)", query: Self.audioQuery(accept: accept, format: format, startSec: startSec, mediaKey: mediaKey))
-    }
-
     /// A WebVTT subtitle from `SubtitleTrack.url` (Bearer only).
     public func subtitle(_ path: String) -> URL? {
         url(path: path)
-    }
-
-    /// A comic page image; `index` is 0-based (Bearer only).
-    public func comicPage(fileId: Int, index: Int) -> URL? {
-        url(path: "/api/comics/\(fileId)/page/\(index)")
     }
 
     /// Server-sent events stream (Bearer only).
