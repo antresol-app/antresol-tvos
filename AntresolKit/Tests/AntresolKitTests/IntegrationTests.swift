@@ -231,7 +231,7 @@ final class IntegrationTests: XCTestCase {
         let original = try await client.progress(itemId: movie.id)
         let detail = try await client.item(id: movie.id)
         let duration = try XCTUnwrap(detail.primaryFile?.durationMs)
-        let reporter = ProgressReporter(client: client, itemId: movie.id)
+        let reporter = PlaybackProgressReporter(client: client, itemId: movie.id)
         await reporter.update(positionMs: 4321, durationMs: duration)
         await reporter.flush()
         let stored = try await client.progress(itemId: movie.id)

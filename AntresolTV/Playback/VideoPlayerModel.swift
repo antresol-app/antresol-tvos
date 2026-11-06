@@ -58,7 +58,7 @@ final class VideoPlayerModel {
     private var item: ItemDetail?
     private var file: FileInfo?
     private var session: VideoPlaybackSession?
-    private var reporter: ProgressReporter?
+    private var reporter: PlaybackProgressReporter?
     private var source: PlaybackSource?
     private var options = PlaybackOptions()
     private var cues: [SubtitleCue] = []
@@ -282,7 +282,7 @@ final class VideoPlayerModel {
                 return
             }
             isSuspended = false
-            let reporter = ProgressReporter(client: client, itemId: item.id)
+            let reporter = PlaybackProgressReporter(client: client, itemId: item.id)
             self.reporter = reporter
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
             upNext = nil

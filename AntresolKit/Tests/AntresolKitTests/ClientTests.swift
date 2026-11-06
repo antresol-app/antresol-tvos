@@ -146,10 +146,10 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(transport.requests[0].httpMethod, "POST")
     }
 
-    func testProgressReporter() async throws {
+    func testPlaybackProgressReporter() async throws {
         let transport = MockTransport { _ in .noContent }
         let client = APIClient(baseURL: base, token: "t", transport: transport)
-        let reporter = ProgressReporter(client: client, itemId: 19)
+        let reporter = PlaybackProgressReporter(client: client, itemId: 19)
 
         await reporter.reportIfMoved()
         XCTAssertTrue(transport.requests.isEmpty, "nothing recorded yet")

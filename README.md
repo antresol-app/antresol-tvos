@@ -130,7 +130,7 @@ command line (CI uses the run number, `github.run_number`).
 5. App Store page: the texts are in `fastlane/metadata` (en-US and ru; check them with
    `python3 scripts/check-metadata.py`). Upload them with `fastlane deliver` (the `Deliverfile`
    targets `appletvos` and sends text only). Screenshots (1920x1080) can be taken from the
-   [`screenshots` branch](https://github.com/sidun-av/antresol-tvos/tree/screenshots). App Privacy: "Data Not Collected"; both bundles
+   [`screenshots` branch](https://github.com/antresol-app/antresol-tvos/tree/screenshots). App Privacy: "Data Not Collected"; both bundles
    carry a `PrivacyInfo.xcprivacy` with no tracking and the required-reason APIs (UserDefaults,
    file timestamps). App Review also needs the demo server details in the review notes.
 
@@ -159,7 +159,7 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
 AntresolKit/          Swift package, Foundation only (builds and tests on Linux)
   Models/             Codable API models with tolerant decoding
   Networking/         APIClient (async/await), APIError, ServerURLs, ServerAddress, TokenStore
-  Playback/           VideoPlaybackSession, MediaKeyStore, ProgressReporter, PlayQueue,
+  Playback/           VideoPlaybackSession, MediaKeyStore, PlaybackProgressReporter, PlayQueue,
                       AudiobookTimeline, UpNext, WebVTT
   Integration/        DeepLink (antresol:// URLs), TopShelfPlan (Top Shelf sections from /api/home)
 AntresolTV/           The tvOS app
@@ -206,4 +206,4 @@ and [NOTES.md](NOTES.md) for the per-milestone hand-off log, decisions and known
   Top Shelf extension.
 - The UI screenshot tests on a tvOS simulator against the mock server. The screenshots are
   uploaded as an artifact and, on pushes to main, published to the
-  [`screenshots` branch](https://github.com/sidun-av/antresol-tvos/tree/screenshots) with a README that shows them all.
+  [`screenshots` branch](https://github.com/antresol-app/antresol-tvos/tree/screenshots) with a README that shows them all.

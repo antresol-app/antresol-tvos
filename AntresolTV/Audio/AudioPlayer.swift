@@ -142,7 +142,7 @@ final class AudioPlayer {
     /// Whether a track id's stream is transcoded (learned from the response headers).
     @ObservationIgnored private var transcodedStreams: [String: Bool] = [:]
     @ObservationIgnored private var scrobble: ScrobbleTracker?
-    @ObservationIgnored private var reporter: ProgressReporter?
+    @ObservationIgnored private var reporter: PlaybackProgressReporter?
     @ObservationIgnored private var pendingSeek: Double?
     @ObservationIgnored private var timeObserver: Any?
     @ObservationIgnored private var observers: [NSKeyValueObservation] = []
@@ -520,7 +520,7 @@ final class AudioPlayer {
         queue = newQueue
         notice = nil
         if case .audiobook(let book) = newContent, let client = appState?.client {
-            let reporter = ProgressReporter(client: client, itemId: book.id, interval: 10, minimumChangeMs: 1000)
+            let reporter = PlaybackProgressReporter(client: client, itemId: book.id, interval: 10, minimumChangeMs: 1000)
             self.reporter = reporter
             await reporter.start()
             guard generation == startGeneration else {

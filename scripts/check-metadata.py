@@ -38,7 +38,8 @@ for locale in LOCALES:
         if not url.startswith("https://"):
             errors.append(f"{locale}/{name}: not an https URL")
 
-for name in ["copyright.txt", "primary_category.txt"]:
+# Copyright is set in App Store Connect only: the rights holder is not named in this repo.
+for name in ["primary_category.txt"]:
     if not (ROOT / name).is_file():
         errors.append(f"{name}: missing")
 

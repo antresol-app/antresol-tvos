@@ -3,7 +3,7 @@ import Foundation
 /// Reports playback position with `PUT /api/progress/{itemId}` the way the web player
 /// does (§11): periodically while playing when the position moved enough, and on
 /// demand (pause, backgrounding, exit) via `flush()`.
-public actor ProgressReporter {
+public actor PlaybackProgressReporter {
     public let itemId: Int
     private let client: APIClient
     private let interval: TimeInterval

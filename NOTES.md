@@ -24,7 +24,7 @@ Running log between milestones. Newest entry last.
   - Playback: `MediaKeyStore` (actor, caches mk, refreshes with < 1 h left), `VideoPlaybackSession`
     (actor: `/api/play` with Apple TV caps, mk-signed URL, 20 s keepalive, `replaceSession` on re-start,
     expiry callback on keepalive 404, DELETE on stop), `PlaybackSource` (player <-> file time mapping,
-    `canSeekInPlayer`), `ProgressReporter` (actor: 10 s periodic PUT when moved >= 0.5 s, `flush()` for
+    `canSeekInPlayer`), `PlaybackProgressReporter` (actor: 10 s periodic PUT when moved >= 0.5 s, `flush()` for
     pause/background/exit), `AudiobookTimeline` + `ResumePolicy` (whole-book <-> part mapping, web resume
     rules), `ComicProgress`, `ScrobblePolicy`, `WebVTT` parser with HLS offset shifting, `Timestamp`.
   - Tests: `SampleDecodingTests` decodes every `Tests/AntresolKitTests/Samples/*.json` (copied from
@@ -164,7 +164,7 @@ Running log between milestones. Newest entry last.
   presents `VideoPlayerView` full screen. `VideoPlayerModel` resolves series to their next episode,
   reads the resume point, starts `VideoPlaybackSession` (caps, media key, keepalive, expiry
   restart), plays in `AVPlayerViewController` with title/subtitle/overview metadata, reports
-  progress every 10 s via `ProgressReporter`, flushes and deletes the HLS session on close, and
+  progress every 10 s via `PlaybackProgressReporter`, flushes and deletes the HLS session on close, and
   closes itself at the end. `completedSessions` lets Home, grids and detail pages refresh.
 - Plurals (`%lld movies/shows/seasons/episodes`) are in `Localizable.stringsdict` (en, ru).
 - Mock server: series list, season/episode details, progress, watchlist/watched writes. UI test
@@ -219,7 +219,7 @@ Running log between milestones. Newest entry last.
   - **Preferences** (`PlayerPreferences`, UserDefaults): last audio language, last subtitle
     language (or off), quality and `autoplayNext` (default on; settings UI is milestone 6).
     Language codes are normalised to two letters so "eng" and "en" match.
-  - **Progress**: `ProgressReporter` every 10 s, plus a flush on pause, when the app leaves the
+  - **Progress**: `PlaybackProgressReporter` every 10 s, plus a flush on pause, when the app leaves the
     foreground and a final write on close (the full duration when the video ended). The final
     write is awaited before the reporter stops (no racing Task).
   - **Up Next** for episodes: the series' seasons give the next episode (`UpNext.episode(after:)`);
@@ -446,7 +446,7 @@ are listed below.
   - The keepalive holds the actor weakly and ends with it (plus `deinit`). A `401` ends it
     too, and is reported through `onEnded(.unauthorized)` (it was `onExpired`).
   - New tests: stopping during a start, and a 401 keepalive.
-- **`ProgressReporter`**: its loop ends with its owner, and it has a `deinit`.
+- **`PlaybackProgressReporter`**: its loop ends with its owner, and it has a `deinit`.
 - **`URLSessionTransport`**: a cancellation that arrives before the data task exists still
   cancels the task.
 - **`HLSSessionID.parse`**: cannot trap on a leading `hls`.
@@ -667,7 +667,7 @@ are listed below.
   active keyboards) is used by the app, the extension or AntresolKit.
 - `Info.plist`: `ITSAppUsesNonExemptEncryption = false` (only system HTTPS).
 - **App Store metadata** in `fastlane/metadata/{en-US,ru}` (name, subtitle, description, keywords,
-  promotional text, release notes, privacy/support/marketing URLs) plus copyright and categories
+  promotional text, release notes, privacy/support/marketing URLs) plus categories
   (Entertainment, Music); `fastlane/Deliverfile` (appletvos, text only). Wording follows the
   website (`sidun-av.github.io/antresol`) but lists only what the TV app does.
 - `scripts/ExportOptions-AppStore.plist` (app-store-connect, upload, automatic signing).
@@ -682,8 +682,8 @@ are listed below.
   the room); the check script enforces bytes for keywords and characters elsewhere.
 - The description does not claim offline downloads, the e-book reader, Picture in Picture or
   adaptive quality: the TV app has none of those (the website copy describes the iOS app).
-- Copyright follows the website footer ("2026 Aleksandr Sidun"). The server repository's LICENSE
-  names a different holder; the user should confirm which applies to the App Store listing.
+- Copyright is set in App Store Connect only; `fastlane deliver` leaves it alone, as there is
+  no `copyright.txt`.
 - No signing secrets in CI: the archive proves the Release build only; uploads are manual.
 
 ### Known gaps
