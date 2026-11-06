@@ -42,6 +42,13 @@ final class AppState {
     }
     /// A link (Top Shelf, URL scheme) waiting for the signed-in shell to open it.
     var pendingDeepLink: DeepLink?
+    /// A short message for the shell's banner (a failed action outside a page that can
+    /// show it). Cleared after a few seconds.
+    private(set) var notice: String?
+    @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    /// Grows when the profile's library state changed (watchlist), so Home reloads its
+    /// shelves.
+    private(set) var libraryRevision = 0
     /// The connected server, once known. Its client never carries a token: it serves
     /// the profile picker and sign-in.
     private(set) var server: ServerConnection?
@@ -194,6 +201,22 @@ final class AppState {
         prepareToLeaveProfile = nil
         settings.lastUserId = nil
         phase = .needsProfile
+    }
+
+    /// Shows `message` in the shell's banner for a few seconds.
+    func showNotice(_ message: String) {
+        noticeTask?.cancel()
+        notice = message
+        noticeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            self?.notice = nil
+        }
+    }
+
+    /// Records a change to the profile's library state (for example the watchlist).
+    func libraryChanged() {
+        libraryRevision += 1
     }
 
     /// Routes a failed request: `401` signs the profile out to the picker and returns

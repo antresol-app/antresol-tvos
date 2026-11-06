@@ -264,7 +264,7 @@ struct MainShellView: View {
     /// Playlist confirmations, and the music player's "Playing next" / "Added to queue"
     /// (Now Playing shows those itself).
     private var bannerMessage: String? {
-        playlists.message ?? (selection == .nowPlaying ? nil : audio.notice)
+        playlists.message ?? appState.notice ?? (selection == .nowPlaying ? nil : audio.notice)
     }
 
     private var addToPlaylistRequest: Binding<PlaylistActions.AddRequest?> {

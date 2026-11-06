@@ -97,6 +97,7 @@ final class VideoDetailModel {
         await perform(.watchlist, appState: appState) {
             try await client.setInWatchlist(itemId: detail.id, !detail.inWatchlist)
         }
+        appState.libraryChanged()
     }
 
     /// Marks a movie, episode, season or the whole series watched or unwatched.

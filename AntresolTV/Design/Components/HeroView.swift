@@ -18,11 +18,9 @@ struct HeroView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
     @State private var index = 0
-    /// The featured item's page: genres, rating, description, watchlist state.
-    @State private var detail: ItemDetail?
-    @State private var inWatchlist = false
-    /// For a series: the episode Play starts, so the button can name it.
-    @State private var seriesEpisode: EpisodeCard?
+    /// Each featured item's page (genres, rating, description, watchlist state), loaded
+    /// once per item: the carousel comes back to the same few items every 8 seconds.
+    @State private var details: [String: ItemDetail] = [:]
     @FocusState private var focusedButton: Control?
 
     private enum Control: Hashable {
@@ -36,6 +34,16 @@ struct HeroView: View {
     }
 
     private var card: Card { feature.card }
+
+    private var detail: ItemDetail? { details[card.uniqueKey] }
+
+    private var inWatchlist: Bool { detail?.inWatchlist ?? false }
+
+    /// For a series: the episode Play starts, so the button can name it.
+    private var seriesEpisode: EpisodeCard? {
+        guard card.kind == .series, let detail else { return nil }
+        return detail.next ?? detail.seasons.first?.episodes.first
+    }
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -87,7 +95,11 @@ struct HeroView: View {
                 withAnimation(Theme.Motion.slowEaseOut) { index = (index + 1) % features.count }
             }
         }
-        .task(id: card.uniqueKey) { await loadDetail() }
+        .task(id: "\(card.uniqueKey) \(appState.libraryRevision)") { await loadDetail() }
+        .onChange(of: appState.libraryRevision) {
+            // A watchlist change (here or on a page) makes the cached pages stale.
+            details = [:]
+        }
         .onChange(of: features) {
             if index >= features.count { index = 0 }
         }
@@ -109,15 +121,18 @@ struct HeroView: View {
                 .focused($focusedButton, equals: .play)
                 .onMoveCommand { if $0 == .left { page(by: -1) } }
 
-                Button {
-                    Task { await toggleWatchlist() }
-                } label: {
-                    Label("Watchlist", systemImage: inWatchlist ? "checkmark" : "plus")
+                // Only films and shows have a watchlist.
+                if card.kind.isVideo {
+                    Button {
+                        Task { await toggleWatchlist() }
+                    } label: {
+                        Label("Watchlist", systemImage: inWatchlist ? "checkmark" : "plus")
+                    }
+                    .buttonStyle(CircleButtonStyle(diameter: 76))
+                    .focused($focusedButton, equals: .watchlist)
+                    .disabled(detail == nil)
+                    .accessibilityValue(Text(inWatchlist ? LocalizedStringKey("In Watchlist") : LocalizedStringKey("Not in Watchlist")))
                 }
-                .buttonStyle(CircleButtonStyle(diameter: 76))
-                .focused($focusedButton, equals: .watchlist)
-                .disabled(detail == nil)
-                .accessibilityValue(Text(inWatchlist ? LocalizedStringKey("In Watchlist") : LocalizedStringKey("Not in Watchlist")))
 
                 NavigationLink(value: Route.item(card)) {
                     Label("Details", systemImage: "info.circle")
@@ -180,30 +195,31 @@ struct HeroView: View {
         }
     }
 
-    /// The item's page (genres, rating, description, watchlist) and, for a series, its next
-    /// episode as on the detail page.
+    /// A film's or show's page (genres, rating, description, watchlist), unless loaded.
     private func loadDetail() async {
-        detail = nil
-        seriesEpisode = nil
-        guard let client = appState.client,
+        let key = card.uniqueKey
+        // `GET /api/items/{id}` serves films and shows only.
+        guard card.kind.isVideo, details[key] == nil, let client = appState.client,
               let loaded = try? await client.item(id: card.id), !Task.isCancelled
         else { return }
-        detail = loaded
-        inWatchlist = loaded.inWatchlist
-        if card.kind == .series {
-            seriesEpisode = loaded.next ?? loaded.seasons.first?.episodes.first
-        }
+        details[key] = loaded
     }
 
     private func toggleWatchlist() async {
-        guard let detail, let client = appState.client else { return }
-        let target = !inWatchlist
-        inWatchlist = target
+        guard var updated = detail, let client = appState.client else { return }
+        let key = card.uniqueKey
+        let target = !updated.inWatchlist
+        updated.inWatchlist = target
+        details[key] = updated
         do {
-            try await client.setInWatchlist(itemId: detail.id, target)
+            try await client.setInWatchlist(itemId: updated.id, target)
+            appState.libraryChanged()
         } catch {
-            inWatchlist = !target
-            _ = appState.message(for: error)
+            updated.inWatchlist = !target
+            details[key] = updated
+            if let message = appState.message(for: error) {
+                appState.showNotice(message)
+            }
         }
     }
 

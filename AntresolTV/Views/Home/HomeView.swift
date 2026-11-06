@@ -36,6 +36,10 @@ struct HomeView: View {
         .onChange(of: playback.completedSessions) {
             Task { await model.load(using: appState) }
         }
+        .onChange(of: appState.libraryRevision) {
+            // Want to Watch follows watchlist changes made from the hero or a page.
+            Task { await model.load(using: appState) }
+        }
         .onChange(of: audio.progressRevision) {
             Task { await model.load(using: appState) }
         }
