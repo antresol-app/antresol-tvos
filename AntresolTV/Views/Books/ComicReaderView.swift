@@ -387,7 +387,7 @@ struct ComicReaderView: View {
             }
         }
         .padding(60)
-        .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous), highlighted: false)
+        .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous), highlighted: false, interactive: false)
     }
 
     private var chrome: some View {

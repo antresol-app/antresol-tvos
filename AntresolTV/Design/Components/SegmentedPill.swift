@@ -15,7 +15,6 @@ struct SegmentedPill<Value: Hashable>: View {
     @Binding var selection: Value
 
     var body: some View {
-        GlassGroup(spacing: 6) {
         HStack(spacing: 6) {
             ForEach(options) { option in
                 Button {
@@ -29,7 +28,6 @@ struct SegmentedPill<Value: Hashable>: View {
         }
         .padding(6)
         .glassSurface(in: Capsule(), highlighted: false)
-        }
         .focusSection()
     }
 }
@@ -54,16 +52,18 @@ private struct SegmentBody: View {
             .foregroundStyle(isSelected || isFocused ? Theme.Colors.labelInverse : Theme.Colors.label2)
             .padding(.horizontal, 30)
             .frame(minHeight: 60)
-            .background {
-                if isSelected || isFocused {
-                    Color.clear.glassSurface(in: Capsule(), highlighted: true)
-                        .opacity(isSelected ? 1 : 0.8)
-                }
-            }
+            // Plain fills inside the capsule's glass (no glass on glass): white for the
+            // selected option, a lighter white for a focused unselected one.
+            .background(plate, in: Capsule())
             .scaleEffect(isFocused ? Theme.Motion.focusScale : (configuration.isPressed ? 0.97 : 1))
             .shadow(color: .black.opacity(isFocused ? 0.5 : 0), radius: 16, y: 8)
             .animation(Theme.Motion.easeOut, value: isFocused)
             .animation(Theme.Motion.easeOut, value: isSelected)
+    }
+
+    private var plate: Color {
+        if isSelected { return .white }
+        return isFocused ? Theme.Colors.segmentFocusTint : .clear
     }
 
 }

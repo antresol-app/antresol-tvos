@@ -18,6 +18,6 @@ struct NoticeBanner: View {
         .foregroundStyle(Theme.Colors.label)
         .padding(.horizontal, 32)
         .padding(.vertical, 16)
-        .glassSurface(in: Capsule(), highlighted: false)
+        .glassSurface(in: Capsule(), highlighted: false, interactive: false)
     }
 }

@@ -7,11 +7,12 @@ import SwiftUI
 /// when focused (the system's focus highlight), with the lift the style adds on top.
 extension View {
     /// Fills `shape` with glass behind the view. `highlighted` is the focused / selected
-    /// state: bright white glass that takes dark text.
+    /// state: bright white glass that takes dark text. `interactive` is for controls (the
+    /// glass reacts to focus and presses); passive surfaces such as banners pass false.
     @ViewBuilder
-    func glassSurface<S: InsettableShape>(in shape: S, highlighted: Bool, prominent: Bool = false) -> some View {
+    func glassSurface<S: InsettableShape>(in shape: S, highlighted: Bool, prominent: Bool = false, interactive: Bool = true) -> some View {
         if #available(tvOS 26.0, *) {
-            self.glassEffect(Self.glass(highlighted: highlighted, prominent: prominent), in: shape)
+            self.glassEffect(Self.glass(highlighted: highlighted, prominent: prominent, interactive: interactive), in: shape)
         } else {
             self
                 .background(highlighted || prominent ? Color.white : Theme.Colors.glassFill, in: shape)
@@ -20,11 +21,18 @@ extension View {
     }
 
     @available(tvOS 26.0, *)
-    private static func glass(highlighted: Bool, prominent: Bool) -> Glass {
-        if highlighted { return .regular.tint(.white).interactive() }
-        // The primary action (Play) stays a light pill at rest, like the TV app's.
-        if prominent { return .regular.tint(.white.opacity(0.78)).interactive() }
-        return .regular.interactive()
+    private static func glass(highlighted: Bool, prominent: Bool, interactive: Bool) -> Glass {
+        let glass: Glass
+        if highlighted {
+            glass = .regular.tint(.white)
+        } else if prominent {
+            // The primary action (Play) stays a near-white pill at rest, like the TV app's;
+            // focus adds the lift and shadow.
+            glass = .regular.tint(Theme.Colors.glassProminentTint)
+        } else {
+            glass = .regular
+        }
+        return glass.interactive(interactive)
     }
 }
 

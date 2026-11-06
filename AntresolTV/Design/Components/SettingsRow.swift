@@ -18,7 +18,12 @@ private struct SettingsRowBody: View {
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
             .padding(.horizontal, 36)
             .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-            .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous), highlighted: isFocused)
+            .background {
+                // Clear at rest like list rows; the focused row gets the lit glass plate.
+                if isFocused {
+                    Color.clear.glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous), highlighted: true)
+                }
+            }
             .scaleEffect(configuration.isPressed ? 0.99 : (isFocused ? 1.02 : 1))
             .shadow(color: .black.opacity(isFocused ? 0.45 : 0), radius: 18, y: 10)
             .animation(Theme.Motion.easeOut, value: isFocused)
