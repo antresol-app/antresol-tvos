@@ -97,6 +97,7 @@ private struct UpNextPanel: View {
                             .foregroundStyle(Theme.Colors.label2)
                             .lineLimit(2)
                     }
+                    GlassGroup {
                     HStack(spacing: 24) {
                         Button(action: play) {
                             Label {
@@ -112,6 +113,7 @@ private struct UpNextPanel: View {
                         }
                         .buttonStyle(PillButtonStyle(kind: .glass))
                         .focused($focused, equals: .cancel)
+                    }
                     }
                     .padding(.top, 14)
                 }

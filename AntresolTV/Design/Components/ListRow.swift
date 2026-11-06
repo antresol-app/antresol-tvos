@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A full-width list row (track lists, queue, chapters): transparent at rest, a soft
-/// glass plate when focused with the text turning black on white, like the design's pills.
+/// white glass plate when focused with the text turning black on white, like the design's pills.
 struct ListRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         ListRowBody(configuration: configuration)
@@ -18,10 +18,11 @@ private struct ListRowBody: View {
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
             .padding(.horizontal, Theme.Layout.listRowInset)
             .frame(minHeight: 84)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                    .fill(isFocused ? Color.white : Color.clear)
-            )
+            .background {
+                if isFocused {
+                    Color.clear.glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous), highlighted: true)
+                }
+            }
             .scaleEffect(configuration.isPressed ? 0.99 : (isFocused ? 1.02 : 1))
             .shadow(color: .black.opacity(isFocused ? 0.45 : 0), radius: 18, y: 10)
             .animation(Theme.Motion.easeOut, value: isFocused)
@@ -36,8 +37,8 @@ extension View {
     }
 }
 
-/// A round transport control (previous, play, next, shuffle...). Glass at rest, white
-/// with a black glyph when focused; `isActive` tints the glyph for toggles that are on.
+/// A round transport control (previous, play, next, shuffle...). Glass at rest, lit
+/// white glass with a black glyph when focused; `isActive` tints the glyph for toggles that are on.
 struct CircleButtonStyle: ButtonStyle {
     var diameter: CGFloat = 96
     var isActive = false
@@ -60,8 +61,7 @@ private struct CircleButtonBody: View {
             .font(.system(size: diameter * 0.36, weight: .semibold))
             .foregroundStyle(foreground)
             .frame(width: diameter, height: diameter)
-            .background(isFocused ? Color.white : Theme.Colors.glassFill, in: Circle())
-            .overlay(Circle().strokeBorder(isFocused ? .clear : Theme.Colors.glassBorder, lineWidth: 1.5))
+            .glassSurface(in: Circle(), highlighted: isFocused)
             .overlay(alignment: .bottom) {
                 if isActive {
                     Circle()

@@ -48,6 +48,8 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
                 if !content.features.isEmpty {
                     HeroView(features: content.features)
+                        // The next row rises into the hero's bottom edge, as in the TV app.
+                        .padding(.bottom, -HeroView.overlap)
                 } else {
                     Color.clear.frame(height: 140)
                 }

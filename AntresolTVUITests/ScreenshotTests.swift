@@ -37,12 +37,10 @@ final class ScreenshotTests: XCTestCase {
         pause(4)
         snapshot(app, "04-home-hero")
 
-        // Focus starts on the tab bar; Down from Home lands on the hero's Details pill (the
-        // nearest one), and Right there stays put with a single featured item.
-        remote.press(.down)
-        pause(1)
+        // Focus starts in the sidebar on Home; Right enters the hero, then on to Details.
         remote.press(.right)
-        pause(1)
+        pause(2)
+        XCTAssertTrue(moveFocus(.right, to: app.buttons["Details"], limit: 3))
         remote.press(.select)
         pause(4)
         snapshot(app, "05-movie-detail")
@@ -63,30 +61,23 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.menu)
         pause(2)
 
-        for _ in 0..<8 {
-            remote.press(.up)
-        }
-        pause(1)
-        for _ in 0..<6 {
-            remote.press(.right)
-        }
-        pause(3)
+        XCTAssertTrue(openSection(app, "Kiddo"))
+        XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
+        pause(2)
         snapshot(app, "08-account")
     }
 
     func test03BrowseDetailsAndSearch() {
         let app = signInAsKid()
 
-        // Tab bar order: Search, Home, Movies, TV Shows... Focus starts on Home.
-        remote.press(.right)
-        pause(4)
+        XCTAssertTrue(openSection(app, "Movies"))
+        pause(2)
         snapshot(app, "09-movies")
 
-        // Into the grid (the first press may land on the sort pill) and open a poster.
+        // Focus starts on the sort pill: down into the grid, left to the first poster.
         remote.press(.down)
         pause(1)
-        remote.press(.down)
-        pause(1)
+        XCTAssertTrue(moveFocus(.left, to: card(app, "Big Buck Demo"), limit: 2))
         remote.press(.select)
         pause(4)
         snapshot(app, "10-movie-detail")
@@ -98,17 +89,12 @@ final class ScreenshotTests: XCTestCase {
         snapshot(app, "11-movie-about")
         remote.press(.menu)
         pause(2)
-        remote.press(.menu)
-        pause(2)
 
-        // TV Shows tab, then the show's page.
-        remote.press(.right)
-        pause(4)
+        // TV Shows, then the show's page.
+        XCTAssertTrue(openSection(app, "TV Shows"))
+        pause(2)
         snapshot(app, "12-shows")
-        remote.press(.down)
-        pause(1)
-        remote.press(.down)
-        pause(1)
+        XCTAssertTrue(moveFocus(.down, to: card(app, "Test Show"), limit: 3))
         remote.press(.select)
         pause(4)
         snapshot(app, "13-series-detail")
@@ -123,20 +109,12 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.menu)
         pause(1)
         remote.press(.menu)
-        pause(1)
-        remote.press(.menu)
         pause(2)
 
-        // Search tab: Browse tiles, then results.
-        for _ in 0..<3 {
-            remote.press(.left)
-            pause(1)
-        }
+        // Search: Browse tiles, then results. Selecting it moves focus into the keyboard.
+        XCTAssertTrue(openSection(app, "Search"))
         pause(3)
         snapshot(app, "16-search")
-        // Down from the tab bar into the keyboard, which gives the field keyboard focus.
-        remote.press(.down)
-        pause(2)
         app.searchFields.firstMatch.typeText("test")
         pause(4)
         remote.press(.down)
@@ -148,11 +126,11 @@ final class ScreenshotTests: XCTestCase {
         // English subtitles preferred, so the side-loaded overlay shows from the start.
         let app = signInAsKid(extraArguments: ["-player.subtitleLanguage", "en"])
 
-        // Tab bar → hero buttons → first Continue Watching card (a movie with progress).
-        remote.press(.down)
-        pause(1)
-        remote.press(.down)
+        // Sidebar → hero buttons → first Continue Watching card (a movie with progress).
+        remote.press(.right)
         pause(2)
+        XCTAssertTrue(moveFocus(.down, to: card(app, "Big Buck Demo"), limit: 2))
+        pause(1)
         remote.press(.select)
         XCTAssertTrue(app.buttons["Start Over"].waitForExistence(timeout: 20))
         pause(3)
@@ -182,14 +160,10 @@ final class ScreenshotTests: XCTestCase {
 
         // The episode in Continue Watching (third card); its resume point is close to
         // the end, so the Up Next panel comes up right away.
-        remote.press(.down)
-        pause(1)
-        remote.press(.down)
+        remote.press(.right)
         pause(2)
-        remote.press(.right)
-        pause(1)
-        remote.press(.right)
-        pause(1)
+        XCTAssertTrue(moveFocus(.down, to: card(app, "Big Buck Demo"), limit: 2))
+        XCTAssertTrue(moveFocus(.right, to: card(app, "Episode 1"), limit: 3))
         remote.press(.select)
         XCTAssertTrue(app.buttons["Start Over"].waitForExistence(timeout: 20))
         pause(1)
@@ -203,20 +177,20 @@ final class ScreenshotTests: XCTestCase {
     func test06Music() {
         let app = signInAsKid()
 
-        // Tab bar: Search, Home, Movies, TV Shows, Music. Focus starts on Home.
-        for _ in 0..<3 {
-            remote.press(.right)
-            pause(1)
+        XCTAssertTrue(openSection(app, "Music"))
+        // The section pill remembers the last section (another test may have left one).
+        if !app.buttons["Shuffle All"].waitForExistence(timeout: 5) {
+            moveFocus(.up, to: app.buttons["Listen Now"], limit: 3)
+            remote.press(.select)
         }
         XCTAssertTrue(app.buttons["Shuffle All"].waitForExistence(timeout: 20))
         pause(3)
         snapshot(app, "25-music-listen-now")
 
-        // Section pill, Shuffle All, then the first album of the first shelf.
-        for _ in 0..<3 {
-            remote.press(.down)
-            pause(1)
-        }
+        // Shuffle All, then the first album of the first shelf.
+        moveFocus(.down, to: app.buttons["Shuffle All"], limit: 2)
+        remote.press(.down)
+        pause(1)
         remote.press(.select)
         let play = app.buttons["Play"]
         XCTAssertTrue(play.waitForExistence(timeout: 20))
@@ -260,20 +234,15 @@ final class ScreenshotTests: XCTestCase {
     func test07Books() {
         let app = signInAsKid()
 
-        // Tab bar: Search, Home, Movies, TV Shows, Music, Books.
-        for _ in 0..<4 {
-            remote.press(.right)
-            pause(1)
-        }
+        XCTAssertTrue(openSection(app, "Books"))
         pause(3)
         snapshot(app, "31-books-home")
 
         // Down to Currently Reading, then left to the comic volume.
+        // Focus starts on the section pill; down lands on the shelf's nearest card.
         remote.press(.down)
         pause(1)
-        remote.press(.down)
-        pause(1)
-        XCTAssertTrue(moveFocus(.left, to: card(app, "Hero Tales"), limit: 4))
+        XCTAssertTrue(moveFocus(.left, to: card(app, "Hero Tales"), limit: 3))
         remote.press(.select)
         let read = app.buttons.matching(NSPredicate(format: "label IN %@", ["Read", "Continue Reading"])).firstMatch
         XCTAssertTrue(read.waitForExistence(timeout: 20))
@@ -306,11 +275,8 @@ final class ScreenshotTests: XCTestCase {
     func test08Settings() {
         let app = signInAsKid()
 
-        // The profile tab is the last one.
-        for _ in 0..<7 {
-            remote.press(.right)
-            pause(1)
-        }
+        // The profile is the sidebar's last entry.
+        XCTAssertTrue(openSection(app, "Kiddo"))
         XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
         pause(2)
         snapshot(app, "37-settings")
@@ -349,18 +315,16 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select)
         pause(6)
         snapshot(app, "42-deep-link-detail-ru")
-        // The linked page takes the focus from the tab bar, so Menu goes back to Home.
-        XCTAssertTrue(app.buttons["Продолжить"].hasFocus, "The linked page should start on Resume")
+        // The linked page is on top of Home. At launch the system sidebar keeps the focus
+        // (it cannot be moved out programmatically); Right enters the page, Menu goes back.
+        XCTAssertTrue(app.buttons["Продолжить"].exists, "The linked page should be open")
+        remote.press(.right)
+        pause(2)
+        XCTAssertTrue(app.buttons["Продолжить"].hasFocus, "Right from the sidebar lands on Resume")
         remote.press(.menu)
         pause(3)
         snapshot(app, "43-home-ru")
-        for _ in 0..<8 {
-            remote.press(.up)
-        }
-        for _ in 0..<7 {
-            remote.press(.right)
-            pause(1)
-        }
+        XCTAssertTrue(openSection(app, "Kiddo"))
         pause(2)
         snapshot(app, "44-settings-ru")
 
@@ -379,15 +343,11 @@ final class ScreenshotTests: XCTestCase {
     func test10Playlists() {
         let app = signInAsKid()
 
-        // Music tab, then the Playlists section of the pill.
-        for _ in 0..<3 {
-            remote.press(.right)
-            pause(1)
-        }
+        // Music, then the Playlists section of the pill.
+        XCTAssertTrue(openSection(app, "Music"))
         // The section pill remembers the last section (another test may have left Albums).
         XCTAssertTrue(app.buttons["Listen Now"].waitForExistence(timeout: 20))
-        remote.press(.down)
-        pause(1)
+        moveFocus(.up, to: app.buttons["Listen Now"], limit: 3)
         XCTAssertTrue(moveFocus(.right, to: app.buttons["Playlists"], limit: 6))
         remote.press(.select)
         let newPlaylist = app.buttons["New Playlist"]
@@ -472,10 +432,7 @@ final class ScreenshotTests: XCTestCase {
     func test11Devices() {
         let app = signInAsKid()
 
-        for _ in 0..<7 {
-            remote.press(.right)
-            pause(1)
-        }
+        XCTAssertTrue(openSection(app, "Kiddo"))
         XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
         remote.press(.down)
         pause(1)
@@ -542,6 +499,32 @@ final class ScreenshotTests: XCTestCase {
             pause(1)
         }
         return element.exists && element.hasFocus
+    }
+
+    /// Opens a section from the sidebar: Left until the sidebar has focus, then up or down
+    /// to its entry and select. Entries are the full-width rows at the screen's left edge
+    /// (the profile's starts with its name).
+    @discardableResult
+    private func openSection(_ app: XCUIApplication, _ title: String) -> Bool {
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        func inSidebar() -> Bool { focused.exists && focused.frame.minX < 1 && focused.frame.width < 600 }
+        for _ in 0..<6 where !inSidebar() {
+            remote.press(.left)
+            pause(1)
+        }
+        guard inSidebar() else { return false }
+        let candidates = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).allElementsBoundByIndex
+        guard let entry = candidates.first(where: { $0.frame.minX < 1 && $0.frame.width < 600 }) else { return false }
+        for _ in 0..<10 {
+            let delta = entry.frame.midY - focused.frame.midY
+            if abs(delta) < 4 { break }
+            remote.press(delta > 0 ? .down : .up)
+            pause(1)
+        }
+        guard abs(entry.frame.midY - focused.frame.midY) < 4 else { return false }
+        remote.press(.select)
+        pause(3)
+        return true
     }
 
     /// Menu until the player is gone (it may first close a panel or the transport bar).

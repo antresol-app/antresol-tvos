@@ -6,12 +6,18 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 
 ## Features
 
+- **Look**: Liquid Glass on tvOS 26 and later (the app's own pills, round controls, segmented
+  pills and settings rows use the system glass, lit white when focused), and the system
+  sidebar on tvOS 18 and later: profile and time at the top, Search, Home, Movies, TV Shows,
+  Music and Books, collapsing to a chip naming the section. Earlier systems keep the top tab
+  bar and flat dark-glass fills.
 - **Onboarding**: enter the server as a host, `host:port` or URL (port 8420 by default). Then
   "Who's watching?" profile picker with avatar gradients, password entry for protected profiles,
   and kid profiles. Tokens are kept per server and profile in the Keychain, and the session is
   restored at launch.
-- **Home**: a hero tinted with the artwork's colour, Continue Watching (plays at once), and the
-  server's shelves: recently added, new episodes, Want to Watch, reading, recently played.
+- **Home**: a full-screen hero carousel like the TV app's (title, kind and genres with the age
+  rating, a one-line description, Play and round watchlist, info and next buttons, page dots),
+  Continue Watching rising into it (plays at once), and the server's shelves: recently added, new episodes, Want to Watch, reading, recently played.
 - **Movies and TV Shows**: poster grids with sort pills (recent, title, year) and paging.
 - **Details**: movie, show and episode pages offer Play, Resume and Restart, plus watchlist and
   watched toggles. Show pages have seasons and episodes; all of them list cast, versions,
@@ -28,7 +34,8 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Gapless queue with shuffle and repeat, favourites, and play reporting. Choosing a song in
     Songs queues the whole library from there.
   - Playlists: create, rename and delete; add songs or albums; move and remove songs.
-  - Now Playing with synced lyrics.
+  - Now Playing with synced lyrics: the lyrics page takes the artwork's colour, with the
+    artwork, title and artist on the left and large lines on the right, the current one bright.
   - Background audio, with Control Center and remote controls.
 - **Books**: Reading Now, audiobooks, and manga and comics.
   - Audiobooks play as one book across parts, with chapters, speed, a sleep timer and
@@ -187,7 +194,7 @@ AntresolTV/           The tvOS app
   Design/             Theme tokens, button styles, cards, shelves, hero, settings rows
   Services/           ImagePipeline (authenticated, cached artwork), Keychain token store,
                       AppSettings, AppLanguage, DeviceIdentity
-  Views/              Onboarding, Shell (tab bar), Home, Library, Detail, Search, Music,
+  Views/              Onboarding, Shell (sidebar; top tab bar before tvOS 18), Home, Library, Detail, Search, Music,
                       Books, Settings
   Playback/           PlaybackCoordinator, VideoPlayerModel/View, menus, subtitles, Up Next
   Audio/              AudioPlayer (app-wide AVQueuePlayer), Now Playing screen and system controls

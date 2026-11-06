@@ -1,24 +1,32 @@
 import AntresolKit
 import SwiftUI
 
-/// The full-bleed feature carousel at the top of Home: artwork-tinted background, an
-/// eyebrow line, a huge title, a meta line and the Play / Details pills.
+/// The full-bleed feature carousel at the top of Home, laid out like the TV app's: the
+/// artwork fills the screen, then a huge title, a metadata line (kind, genres, rating
+/// badge), a one-line description, the light Play pill and round glass buttons for the
+/// watchlist, the details page and the next featured item. Page dots show the position.
+/// The first shelf below overlaps the hero's bottom edge (`HeroView.overlap`).
 ///
 /// With several featured items it advances every 8 seconds while its buttons are not
-/// focused; Left on Play and Right on Details page through them by hand. Page dots show
-/// where you are, and the backgrounds cross-fade.
+/// focused; Left on Play goes back by hand. The backgrounds cross-fade.
 struct HeroView: View {
     let features: [HomeContent.Feature]
+
+    /// How far the next row on the page rises into the hero.
+    static let overlap: CGFloat = 300
 
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
     @State private var index = 0
+    /// The featured item's page: genres, rating, description, watchlist state.
+    @State private var detail: ItemDetail?
+    @State private var inWatchlist = false
     /// For a series: the episode Play starts, so the button can name it.
     @State private var seriesEpisode: EpisodeCard?
     @FocusState private var focusedButton: Control?
 
     private enum Control: Hashable {
-        case play, details
+        case play, watchlist, details, next
     }
 
     private static let interval: Duration = .seconds(8)
@@ -34,66 +42,39 @@ struct HeroView: View {
             HeroBackground(card: card)
                 .id(card.uniqueKey)
                 .transition(.opacity)
-            VStack(alignment: .leading, spacing: 18) {
-                Text(verbatim: feature.eyebrow)
-                    .font(Theme.Typography.eyebrow)
-                    .tracking(2)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Theme.Colors.label2)
+            VStack(alignment: .leading, spacing: 0) {
                 Text(verbatim: card.title)
                     .font(Theme.Typography.heroTitle)
                     .foregroundStyle(Theme.Colors.label)
                     .lineLimit(2)
                     .minimumScaleFactor(0.6)
                     .shadow(color: .black.opacity(0.35), radius: 12)
-                if !metaLine.isEmpty {
-                    Text(verbatim: metaLine)
+                metaRow
+                    .padding(.top, 18)
+                if let summary {
+                    Text(verbatim: summary)
                         .font(Theme.Typography.meta)
                         .foregroundStyle(Theme.Colors.label2)
                         .lineLimit(1)
+                        .padding(.top, 10)
                 }
                 if progress > 0 {
-                    ProgressBar(value: progress, height: 8)
-                        .frame(width: 420)
-                        .padding(.top, 4)
+                    ProgressBar(value: progress, height: 6)
+                        .frame(width: 320)
+                        .padding(.top, 18)
                 }
-                HStack(spacing: 28) {
-                    Button {
-                        playback.play(seriesEpisode?.card ?? card, from: .resume)
-                    } label: {
-                        Label {
-                            Text(verbatim: playTitle)
-                        } icon: {
-                            Image(systemName: "play.fill")
-                        }
-                    }
-                    .buttonStyle(PillButtonStyle(kind: .primary))
-                    .focused($focusedButton, equals: .play)
-                    .onMoveCommand { if $0 == .left { page(by: -1) } }
-                    NavigationLink(value: Route.item(card)) {
-                        Label("Details", systemImage: "info.circle")
-                    }
-                    .buttonStyle(PillButtonStyle(kind: .glass))
-                    .focused($focusedButton, equals: .details)
-                    .onMoveCommand { if $0 == .right { page(by: 1) } }
-                }
-                .padding(.top, 22)
-                // As wide as the text column, so Down from any tab bar item above it lands
-                // on the pills; the pills alone sit left of most tabs, and the focus engine
-                // would skip past them to the first shelf.
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .focusSection()
+                buttons
+                    .padding(.top, 30)
             }
-            .frame(maxWidth: 1200, alignment: .leading)
+            .frame(maxWidth: 1100, alignment: .leading)
             .padding(.horizontal, Theme.Layout.margin)
-            .padding(.bottom, 56)
+            .padding(.bottom, Self.overlap + 70)
             .animation(Theme.Motion.easeOut, value: index)
 
             if features.count > 1 {
                 pageDots
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.horizontal, Theme.Layout.margin)
-                    .padding(.bottom, 80)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, Self.overlap + 24)
             }
         }
         .frame(maxWidth: .infinity, minHeight: Theme.Layout.heroHeight, maxHeight: Theme.Layout.heroHeight, alignment: .bottomLeading)
@@ -106,20 +87,88 @@ struct HeroView: View {
                 withAnimation(Theme.Motion.slowEaseOut) { index = (index + 1) % features.count }
             }
         }
-        .task(id: card.uniqueKey) { await loadSeriesEpisode() }
+        .task(id: card.uniqueKey) { await loadDetail() }
         .onChange(of: features) {
             if index >= features.count { index = 0 }
         }
     }
 
-    private var pageDots: some View {
-        HStack(spacing: 14) {
-            ForEach(features.indices, id: \.self) { dot in
-                Circle()
-                    .fill(.white.opacity(dot == index ? 0.95 : 0.35))
-                    .frame(width: 12, height: 12)
+    private var buttons: some View {
+        GlassGroup(spacing: 20) {
+            HStack(spacing: 20) {
+                Button {
+                    playback.play(seriesEpisode?.card ?? card, from: .resume)
+                } label: {
+                    Label {
+                        Text(verbatim: playTitle)
+                    } icon: {
+                        Image(systemName: "play.fill")
+                    }
+                }
+                .buttonStyle(PillButtonStyle(kind: .primary))
+                .focused($focusedButton, equals: .play)
+                .onMoveCommand { if $0 == .left { page(by: -1) } }
+
+                Button {
+                    Task { await toggleWatchlist() }
+                } label: {
+                    Label("Watchlist", systemImage: inWatchlist ? "checkmark" : "plus")
+                }
+                .buttonStyle(CircleButtonStyle(diameter: 76))
+                .focused($focusedButton, equals: .watchlist)
+                .disabled(detail == nil)
+                .accessibilityValue(Text(inWatchlist ? LocalizedStringKey("In Watchlist") : LocalizedStringKey("Not in Watchlist")))
+
+                NavigationLink(value: Route.item(card)) {
+                    Label("Details", systemImage: "info.circle")
+                }
+                .buttonStyle(CircleButtonStyle(diameter: 76))
+                .focused($focusedButton, equals: .details)
+
+                if features.count > 1 {
+                    Button {
+                        page(by: 1)
+                    } label: {
+                        Label("Next", systemImage: "chevron.right")
+                    }
+                    .buttonStyle(CircleButtonStyle(diameter: 76))
+                    .focused($focusedButton, equals: .next)
+                }
             }
         }
+        // As wide as the text column, so Down from anywhere above lands on the buttons;
+        // the buttons alone would let the focus engine skip past them to the first shelf.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .focusSection()
+    }
+
+    /// Kind · genres, then the age rating as an outlined badge.
+    private var metaRow: some View {
+        HStack(spacing: 14) {
+            Text(verbatim: metaLine)
+                .font(Theme.Typography.meta)
+                .foregroundStyle(Theme.Colors.label)
+                .lineLimit(1)
+            if let rating = detail?.rating, !rating.isEmpty {
+                Text(verbatim: rating)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Theme.Colors.label)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.Colors.label, lineWidth: 1.5))
+            }
+        }
+    }
+
+    private var pageDots: some View {
+        HStack(spacing: 10) {
+            ForEach(features.indices, id: \.self) { dot in
+                Capsule()
+                    .fill(.white.opacity(dot == index ? 0.95 : 0.35))
+                    .frame(width: dot == index ? 26 : 10, height: 10)
+            }
+        }
+        .animation(Theme.Motion.easeOut, value: index)
         .accessibilityElement()
         .accessibilityLabel(Text(verbatim: String(localized: "Featured \(index + 1) of \(features.count)", bundle: .localized)))
     }
@@ -131,13 +180,31 @@ struct HeroView: View {
         }
     }
 
-    /// The series' next episode, as on its detail page.
-    private func loadSeriesEpisode() async {
+    /// The item's page (genres, rating, description, watchlist) and, for a series, its next
+    /// episode as on the detail page.
+    private func loadDetail() async {
+        detail = nil
         seriesEpisode = nil
-        guard card.kind == .series, let client = appState.client,
-              let detail = try? await client.item(id: card.id), !Task.isCancelled
+        guard let client = appState.client,
+              let loaded = try? await client.item(id: card.id), !Task.isCancelled
         else { return }
-        seriesEpisode = detail.next ?? detail.seasons.first?.episodes.first
+        detail = loaded
+        inWatchlist = loaded.inWatchlist
+        if card.kind == .series {
+            seriesEpisode = loaded.next ?? loaded.seasons.first?.episodes.first
+        }
+    }
+
+    private func toggleWatchlist() async {
+        guard let detail, let client = appState.client else { return }
+        let target = !inWatchlist
+        inWatchlist = target
+        do {
+            try await client.setInWatchlist(itemId: detail.id, target)
+        } catch {
+            inWatchlist = !target
+            _ = appState.message(for: error)
+        }
     }
 
     private var playTitle: String {
@@ -151,12 +218,25 @@ struct HeroView: View {
         seriesEpisode?.progress ?? card.progress
     }
 
-    /// Year, context line and the first badges, joined with middots.
+    /// The description: the item's overview, else the card's context line.
+    private var summary: String? {
+        if let overview = detail?.overview, !overview.isEmpty {
+            return overview.components(separatedBy: .newlines).first
+        }
+        return card.subtitle.isEmpty ? nil : card.subtitle
+    }
+
+    /// Kind, genres (or the year when there are none), joined with middots.
     private var metaLine: String {
         var parts: [String] = []
-        if let year = card.year { parts.append(String(year)) }
-        if !card.subtitle.isEmpty { parts.append(card.subtitle) }
-        parts.append(contentsOf: card.badges.prefix(2))
+        let kind = card.kind.displayName
+        if !kind.isEmpty { parts.append(kind) }
+        let genres = detail?.genres.prefix(2) ?? []
+        if genres.isEmpty {
+            if let year = card.year { parts.append(String(year)) }
+        } else {
+            parts.append(contentsOf: genres)
+        }
         return parts.joined(separator: " · ")
     }
 }

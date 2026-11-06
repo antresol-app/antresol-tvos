@@ -789,3 +789,50 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   EVENT-playlist paths unexercised, no skip-intro markers, no long-press "Add to Playlist" on
   album/artist grid cards, text already on screen keeps the old language until it redraws.
 - Privacy policy, App Review demo server and store screenshots: see "Release engineering".
+
+## Liquid Glass, sidebar and the TV-app look (release 1.1)
+
+### What exists
+- **Glass** (`Design/Glass.swift`): `glassSurface(in:highlighted:prominent:)` draws Liquid Glass
+  on tvOS 26 (`glassEffect`, interactive; white-tinted when focused, a light tint for the primary
+  Play pill at rest) and the old flat fills before it. `PillButtonStyle`, `CircleButtonStyle`,
+  the segmented pill, settings rows, list-row focus plates, shelf-title focus, the notice banner
+  and the comic reader panel use it, so every control the app draws (detail actions, hero
+  buttons, Now Playing and audiobook transport, the resume prompt and Up Next over the video)
+  is glass with a lift and shadow when focused. `GlassGroup` wraps rows in a
+  `GlassEffectContainer` (merge distance 0, so a lifting pill does not grow a bridge to its
+  neighbour). AVKit's transport bar stays native.
+- **Sidebar** (`MainShellView`): on tvOS 18+ a `Tab`-based `TabView` with `.sidebarAdaptable`:
+  Search (search role), Home, Movies, TV Shows, Music, Books, Now Playing while audio is loaded,
+  and the profile last. tvOS 27 adds `tabViewSidebarHeader` with avatar, name and time. The
+  collapsed sidebar is the system chip naming the section. tvOS 17 keeps the top tab bar.
+- **Home hero**: full-screen (1080 pt) with title, kind · genres + outlined age-rating badge, one
+  line of description (from `GET /api/items/{id}`, loaded per featured item), the light Play pill
+  and round glass buttons for watchlist (toggles via the API), details and the next item, page
+  dots; Continue Watching rises 300 pt into it (`HeroView.overlap`).
+- **Lyrics page**: choosing Lyrics in Now Playing switches the layout: artwork colour fills the
+  screen (blurred artwork at full opacity), artwork with title and artist centred under it and
+  previous/play/next on the left, 64 pt synced lines on the right (current white, others 38 %).
+- The mock server adds genres, ratings and descriptions to the featured items and puts three
+  items in the hero (`HERO_EXTRAS`); the recorded samples have none of these.
+
+### Decisions
+- The deployment target stays tvOS 17: glass is behind `#available(tvOS 26)`, the sidebar
+  behind `#available(tvOS 18)` and its header behind tvOS 27, each with the previous look as the
+  fallback. The fallbacks are the existing code, so they cost little, and raising the target
+  would drop nothing the App Store would gain.
+- The system sidebar instead of a custom one, as asked.
+- Hero buttons are round icon buttons (accessibility labels Watchlist, Details, Next) like the
+  TV app's; the detail pages keep labelled pills.
+
+### Known gaps
+- At launch the system sidebar is open and holds focus for a few seconds before it collapses
+  onto the hero. A deep link opened at launch (Top Shelf) therefore shows the page with focus
+  still in the sidebar: Right enters it. Moving focus out programmatically failed with a
+  `FocusState` assignment after a delay and with `focusScope` + `prefersDefaultFocus` +
+  `resetFocus`. On tvOS 17 the old path (focus moves to Play) still applies.
+- Compared with Apple's references, the mock has no real artwork (gradient placeholders, the
+  series has no backdrop), so the hero and lyrics screens look emptier; the lyrics have two lines.
+- The lyrics page keeps a small transport row and the Up Next / Lyrics pill visible; the Music
+  app hides its controls until the remote is touched.
+- Glass was checked on the tvOS 27.2 simulator only, not on a device or on tvOS 26.

@@ -45,7 +45,8 @@ struct VideoDetailView: View {
         .defaultFocus($focusedButton, .play)
         .task {
             // Opened from outside (Top Shelf): focus is still on the tab bar, where Menu
-            // would leave the app, so move it to Play once the page is on screen.
+            // would leave the app, so move it to Play once the page is on screen. (Before
+            // tvOS 18 only: the system sidebar keeps the focus at launch, see NOTES.md.)
             guard claimsFocusOnAppear, !didClaimFocus else { return }
             didClaimFocus = true
             try? await Task.sleep(for: .milliseconds(400))

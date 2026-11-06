@@ -41,12 +41,21 @@ private struct NowPlayingContent: View {
 
     private var artworkSize: CGFloat { isInTab ? 440 : 520 }
 
+    /// Lyrics take the page like the Music app's: the artwork's colour fills the screen,
+    /// the artwork with the title and artist under it sits on the left, and the lines run
+    /// large on the right.
+    private var showsLyrics: Bool {
+        panel == .lyrics && availablePanels.contains(.lyrics)
+    }
+
     var body: some View {
         ZStack {
-            NowPlayingBackground(item: item)
-            HStack(alignment: .top, spacing: 90) {
-                leftColumn
-                    .frame(width: 680, alignment: .leading)
+            NowPlayingBackground(item: item, isVivid: showsLyrics)
+            HStack(alignment: showsLyrics ? .center : .top, spacing: 90) {
+                Group {
+                    if showsLyrics { lyricsColumn } else { leftColumn }
+                }
+                .frame(width: showsLyrics ? 560 : 680, alignment: .leading)
                 rightPanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -73,6 +82,43 @@ private struct NowPlayingContent: View {
     }
 
     // MARK: Left column
+
+    /// The lyrics page's left column: artwork, then title and artist centred under it, and
+    /// the transport controls.
+    private var lyricsColumn: some View {
+        VStack(spacing: 0) {
+            CardArtwork(title: item.album.isEmpty ? item.title : item.album, paths: [item.artwork], cornerRadius: 14, maxPixelSize: 900)
+                .frame(width: 420, height: 420)
+                .shadow(color: .black.opacity(0.35), radius: 30, y: 18)
+            HStack(spacing: 10) {
+                if audio.isPlaying {
+                    Image(systemName: "waveform")
+                        .symbolEffect(.variableColor.iterative, isActive: true)
+                }
+                Text(verbatim: item.title)
+                    .lineLimit(1)
+            }
+            .font(.system(size: 28, weight: .semibold))
+            .foregroundStyle(Theme.Colors.label)
+            .padding(.top, 24)
+            Text(verbatim: item.artist)
+                .font(Theme.Typography.meta)
+                .foregroundStyle(Theme.Colors.label2)
+                .lineLimit(1)
+                .padding(.top, 4)
+            GlassGroup(spacing: 18) {
+                HStack(spacing: 18) {
+                    transportButton("Previous", "backward.fill") { audio.previous() }
+                    playPauseButton
+                    transportButton("Next", "forward.fill") { audio.next() }
+                        .disabled(audio.queue.nextIndex == nil)
+                }
+            }
+            .focusSection()
+            .padding(.top, 40)
+        }
+        .frame(maxWidth: .infinity)
+    }
 
     private var leftColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -113,7 +159,7 @@ private struct NowPlayingContent: View {
             )
             .padding(.top, 28)
 
-            controls
+            GlassGroup(spacing: 18) { controls }
                 .padding(.top, 28)
         }
     }
@@ -269,6 +315,7 @@ private struct NowPlayingContent: View {
                     if let track = audio.currentTrack {
                         LyricsPanel(track: track)
                             .id(track.id)
+                            .frame(maxHeight: .infinity)
                     }
                 case .chapters:
                     if let book = audio.book {
@@ -308,18 +355,21 @@ private struct SleepTimerLabel: View {
 /// Blurred artwork washed with the artwork's tint, fading to black.
 private struct NowPlayingBackground: View {
     let item: AudioPlayer.Item
+    /// The lyrics page keeps the artwork's colour bright instead of fading it to black.
+    var isVivid = false
 
     var body: some View {
         ZStack {
             HeroBackground(card: Card(id: 0, kind: .album, title: item.album.isEmpty ? item.title : item.album, poster: item.artwork))
             if !item.artwork.isEmpty {
                 RemoteImage(path: item.artwork, maxPixelSize: 300)
-                    .blur(radius: 90)
-                    .opacity(0.45)
-                    .scaleEffect(1.3)
+                    .blur(radius: isVivid ? 140 : 90)
+                    .opacity(isVivid ? 1 : 0.45)
+                    .scaleEffect(isVivid ? 1.8 : 1.3)
             }
-            LinearGradient(colors: [.black.opacity(0.25), .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: isVivid ? [.black.opacity(0.0), .black.opacity(0.3)] : [.black.opacity(0.25), .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
         }
+        .animation(Theme.Motion.slowEaseOut, value: isVivid)
         .ignoresSafeArea()
         .accessibilityHidden(true)
     }
@@ -554,12 +604,15 @@ private struct SyncedLyrics: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 40) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                        // Large like the Music app's lyrics: the current line bright, the
+                        // others translucent over the artwork colour.
                         Text(verbatim: line.text.isEmpty ? "♪" : line.text)
-                            .font(.system(size: 40, weight: .bold))
-                            .foregroundStyle(index == current ? Theme.Colors.label : Theme.Colors.label3)
-                            .scaleEffect(index == current ? 1 : 0.96, anchor: .leading)
+                            .font(.system(size: 64, weight: .bold))
+                            .foregroundStyle(.white.opacity(index == current ? 1 : 0.38))
+                            .blur(radius: index == current ? 0 : 0.6)
+                            .scaleEffect(index == current ? 1 : 0.97, anchor: .leading)
                             .animation(Theme.Motion.easeOut, value: current)
                             .id(index)
                     }
@@ -601,8 +654,8 @@ private struct LyricLineView: View {
 
     var body: some View {
         Text(verbatim: text.isEmpty ? " " : text)
-            .font(.system(size: 34, weight: .semibold))
-            .foregroundStyle(isFocused ? Theme.Colors.label : Theme.Colors.label2)
+            .font(.system(size: 52, weight: .bold))
+            .foregroundStyle(.white.opacity(isFocused ? 1 : 0.4))
             .frame(maxWidth: .infinity, alignment: .leading)
             .focusable()
             .focusEffectDisabled()

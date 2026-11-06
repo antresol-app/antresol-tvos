@@ -18,14 +18,7 @@ private struct SettingsRowBody: View {
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
             .padding(.horizontal, 36)
             .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                    .fill(isFocused ? Color.white : Theme.Colors.glassFill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                    .strokeBorder(isFocused ? .clear : Theme.Colors.glassBorder, lineWidth: 1.5)
-            )
+            .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous), highlighted: isFocused)
             .scaleEffect(configuration.isPressed ? 0.99 : (isFocused ? 1.02 : 1))
             .shadow(color: .black.opacity(isFocused ? 0.45 : 0), radius: 18, y: 10)
             .animation(Theme.Motion.easeOut, value: isFocused)

@@ -195,6 +195,7 @@ private struct ResumePromptView: View {
                             .foregroundStyle(Theme.Colors.label2)
                     }
                 }
+                GlassGroup(spacing: 28) {
                 HStack(spacing: 28) {
                     Button {
                         choose(true)
@@ -214,6 +215,7 @@ private struct ResumePromptView: View {
                     }
                     .buttonStyle(PillButtonStyle(kind: .glass))
                     .focused($focused, equals: false)
+                }
                 }
                 .padding(.top, 20)
                 .focusSection()

@@ -12,8 +12,10 @@ struct ActionRow<Content: View>: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: spacing) {
-                content()
+            GlassGroup(spacing: spacing) {
+                HStack(spacing: spacing) {
+                    content()
+                }
             }
             .padding(Self.focusRoom)
         }

@@ -2,9 +2,11 @@ import SwiftUI
 
 /// Pill-shaped action buttons from the design reference.
 ///
-/// - `.primary`: the white "Play" pill with black text.
-/// - `.glass`: the dark translucent pill ("Details", secondary actions). It turns white
+/// - `.primary`: the light "Play" pill with black text.
+/// - `.glass`: the clear glass pill ("Details", secondary actions). It lights up white
 ///   when focused so focus is obvious from across the room.
+///
+/// Both are Liquid Glass on tvOS 26 (`glassSurface`), flat fills before it.
 struct PillButtonStyle: ButtonStyle {
     enum Kind {
         case primary
@@ -32,8 +34,7 @@ private struct PillButtonBody: View {
             .foregroundStyle(foreground)
             .padding(.horizontal, 44)
             .frame(minHeight: 76)
-            .background(background, in: Capsule())
-            .overlay(Capsule().strokeBorder(border, lineWidth: 1.5))
+            .glassSurface(in: Capsule(), highlighted: isFocused, prominent: kind == .primary)
             .scaleEffect(scale)
             .shadow(color: .black.opacity(isFocused ? 0.55 : 0), radius: 22, y: 12)
             .opacity(isEnabled ? 1 : 0.45)
@@ -47,14 +48,6 @@ private struct PillButtonBody: View {
 
     private var foreground: Color {
         isHighlighted ? Theme.Colors.labelInverse : Theme.Colors.label
-    }
-
-    private var background: Color {
-        isHighlighted ? .white : Theme.Colors.glassFill
-    }
-
-    private var border: Color {
-        isHighlighted ? .clear : Theme.Colors.glassBorder
     }
 
     private var scale: CGFloat {
@@ -138,7 +131,9 @@ private struct ShelfTitleButtonBody: View {
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
             .padding(.horizontal, 24)
             .padding(.vertical, 8)
-            .background(isFocused ? Color.white : Color.clear, in: Capsule())
+            .background {
+                if isFocused { Color.clear.glassSurface(in: Capsule(), highlighted: true) }
+            }
             .scaleEffect(configuration.isPressed ? 0.97 : (isFocused ? Theme.Motion.focusScale : 1))
             .animation(Theme.Motion.easeOut, value: isFocused)
     }

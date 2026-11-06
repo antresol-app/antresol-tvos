@@ -19,67 +19,7 @@ struct MainShellView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        TabView(selection: $selection) {
-            TabNavigation {
-                SearchView { tab, pane in
-                    if let pane { booksPane = pane }
-                    selection = tab
-                }
-            }
-            .tabItem {
-                Image(systemName: "magnifyingglass")
-                    .accessibilityLabel(Text("Search"))
-            }
-            .tag(ShellTab.search)
-
-            TabNavigation(path: $homePath) { HomeView() }
-                .tabItem { Text("Home") }
-                .tag(ShellTab.home)
-
-            TabNavigation { LibraryView(kind: .movie, title: "Movies") }
-                .tabItem { Text("Movies") }
-                .tag(ShellTab.movies)
-
-            TabNavigation { LibraryView(kind: .series, title: "TV Shows") }
-                .tabItem { Text("TV Shows") }
-                .tag(ShellTab.shows)
-
-            TabNavigation { MusicView() }
-                .tabItem { Text("Music") }
-                .tag(ShellTab.music)
-
-            TabNavigation { BooksView(pane: $booksPane) }
-                .tabItem { Text("Books") }
-                .tag(ShellTab.books)
-
-            if audio.hasContent {
-                NowPlayingView(isInTab: true)
-                    .tabItem {
-                        // Icon only, like Search: with a text label the eighth tab
-                        // pushes the profile tab out of the bar.
-                        Image(systemName: audio.isPlaying ? "waveform" : "pause.fill")
-                            .accessibilityLabel(Text("Now Playing"))
-                    }
-                    .tag(ShellTab.nowPlaying)
-            }
-
-            SettingsView(user: user)
-                .tabItem {
-                    Label {
-                        Text(verbatim: user.name)
-                    } icon: {
-                        if let avatarImage {
-                            // Original rendering: a template image would turn into a plain disc.
-                            Image(uiImage: avatarImage)
-                                .renderingMode(.original)
-                        } else {
-                            Image(systemName: "person.crop.circle")
-                        }
-                    }
-                    .accessibilityLabel(Text(verbatim: String(localized: "\(user.name), Profile and Settings", bundle: .localized)))
-                }
-                .tag(ShellTab.account)
-        }
+        tabs
         .environment(playback)
         .environment(audio)
         .environment(playlists)
@@ -144,6 +84,149 @@ struct MainShellView: View {
             avatarImage = renderAvatar()
         }
         .onDisappear { audio.shutdown() }
+    }
+
+    /// tvOS 18 and later: the system sidebar (`sidebarAdaptable`), a glass panel on the left
+    /// that collapses to a chip naming the current section, as in the TV and Music apps.
+    /// Before it: the top tab bar.
+    @ViewBuilder
+    private var tabs: some View {
+        if #available(tvOS 18.0, *) {
+            sidebarTabs
+        } else {
+            topTabs
+        }
+    }
+
+    @available(tvOS 18.0, *)
+    private var sidebarTabs: some View {
+        TabView(selection: $selection) {
+            Tab("Search", systemImage: "magnifyingglass", value: ShellTab.search, role: .search) {
+                searchTab
+            }
+            Tab("Home", systemImage: "house", value: ShellTab.home) {
+                homeTab
+            }
+            Tab("Movies", systemImage: "film", value: ShellTab.movies) {
+                moviesTab
+            }
+            Tab("TV Shows", systemImage: "tv", value: ShellTab.shows) {
+                showsTab
+            }
+            Tab("Music", systemImage: "music.note", value: ShellTab.music) {
+                musicTab
+            }
+            Tab("Books", systemImage: "books.vertical", value: ShellTab.books) {
+                booksTab
+            }
+            if audio.hasContent {
+                Tab("Now Playing", systemImage: audio.isPlaying ? "waveform" : "pause.fill", value: ShellTab.nowPlaying) {
+                    NowPlayingView(isInTab: true)
+                }
+            }
+            Tab(value: ShellTab.account) {
+                accountTab
+            } label: {
+                profileLabel
+            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        .modifier(SidebarProfileHeader(user: user))
+    }
+
+    private var topTabs: some View {
+        TabView(selection: $selection) {
+            searchTab
+                .tabItem {
+                    Image(systemName: "magnifyingglass")
+                        .accessibilityLabel(Text("Search"))
+                }
+                .tag(ShellTab.search)
+
+            homeTab
+                .tabItem { Text("Home") }
+                .tag(ShellTab.home)
+
+            moviesTab
+                .tabItem { Text("Movies") }
+                .tag(ShellTab.movies)
+
+            showsTab
+                .tabItem { Text("TV Shows") }
+                .tag(ShellTab.shows)
+
+            musicTab
+                .tabItem { Text("Music") }
+                .tag(ShellTab.music)
+
+            booksTab
+                .tabItem { Text("Books") }
+                .tag(ShellTab.books)
+
+            if audio.hasContent {
+                NowPlayingView(isInTab: true)
+                    .tabItem {
+                        // Icon only, like Search: with a text label the eighth tab
+                        // pushes the profile tab out of the bar.
+                        Image(systemName: audio.isPlaying ? "waveform" : "pause.fill")
+                            .accessibilityLabel(Text("Now Playing"))
+                    }
+                    .tag(ShellTab.nowPlaying)
+            }
+
+            accountTab
+                .tabItem { profileLabel }
+                .tag(ShellTab.account)
+        }
+    }
+
+    private var searchTab: some View {
+        TabNavigation {
+            SearchView { tab, pane in
+                if let pane { booksPane = pane }
+                selection = tab
+            }
+        }
+    }
+
+    private var homeTab: some View {
+        TabNavigation(path: $homePath) { HomeView() }
+    }
+
+    private var moviesTab: some View {
+        TabNavigation { LibraryView(kind: .movie, title: "Movies") }
+    }
+
+    private var showsTab: some View {
+        TabNavigation { LibraryView(kind: .series, title: "TV Shows") }
+    }
+
+    private var musicTab: some View {
+        TabNavigation { MusicView() }
+    }
+
+    private var booksTab: some View {
+        TabNavigation { BooksView(pane: $booksPane) }
+    }
+
+    private var accountTab: some View {
+        SettingsView(user: user)
+    }
+
+    /// The profile's name and avatar: the account tab's label.
+    private var profileLabel: some View {
+        Label {
+            Text(verbatim: user.name)
+        } icon: {
+            if let avatarImage {
+                // Original rendering: a template image would turn into a plain disc.
+                Image(uiImage: avatarImage)
+                    .renderingMode(.original)
+            } else {
+                Image(systemName: "person.crop.circle")
+            }
+        }
+        .accessibilityLabel(Text(verbatim: String(localized: "\(user.name), Profile and Settings", bundle: .localized)))
     }
 
     /// Opens a Top Shelf / URL-scheme link: the item's page on the Home tab, or playback.
@@ -237,5 +320,34 @@ struct TabNavigation<Root: View>: View {
                 }
         }
         .environment(\.openRoute, OpenRouteAction { path.wrappedValue.append($0) })
+    }
+}
+
+/// The sidebar's header on tvOS 27 and later: the profile's avatar and name with the time,
+/// like the TV app. Earlier systems have no sidebar header; the account tab shows the
+/// profile there.
+private struct SidebarProfileHeader: ViewModifier {
+    let user: User
+
+    func body(content: Content) -> some View {
+        if #available(tvOS 27.0, *) {
+            content.tabViewSidebarHeader {
+                HStack(spacing: 16) {
+                    AvatarView(user: user, size: 52)
+                    Text(verbatim: user.name)
+                        .font(Theme.Typography.headline)
+                        .lineLimit(1)
+                    Spacer(minLength: 12)
+                    TimelineView(.everyMinute) { context in
+                        Text(context.date, style: .time)
+                            .font(Theme.Typography.cardMeta)
+                            .foregroundStyle(Theme.Colors.label2)
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+        } else {
+            content
+        }
     }
 }

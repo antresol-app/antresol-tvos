@@ -96,7 +96,7 @@ enum Theme {
         static let posterWidth: CGFloat = 240
         static let squareWidth: CGFloat = 300
         static let wideWidth: CGFloat = 500
-        static let heroHeight: CGFloat = 860
+        static let heroHeight: CGFloat = 1080
         /// Height of the artwork header on detail pages.
         static let detailHeaderHeight: CGFloat = 900
         /// Episode cards on a series page.

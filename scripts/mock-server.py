@@ -203,6 +203,35 @@ def subtitles():
     return "\n".join(lines).encode()
 
 
+# The recorded samples have no genres, ratings or descriptions and a single hero item. For
+# the screenshot gallery the mock adds them to the featured items, so the Home hero shows
+# its full layout (metadata line, description, page dots).
+HERO_EXTRAS = {
+    19: {"genres": ["Animation", "Comedy"], "rating": "PG",
+         "overview": "A gentle giant rabbit takes on three bullies in a sunny meadow."},
+    2: {"genres": ["Drama", "Mystery"], "rating": "12+",
+        "overview": "A small test crew follows a signal nobody else can hear."},
+    22: {"genres": ["Documentary"], "rating": "0+",
+         "overview": "Ten seconds of plain footage, shot for the player tests."},
+}
+
+
+def home_with_hero():
+    home = json.loads((SAMPLES / "home.json").read_text())
+    cards = {c["id"]: c for shelf in home["shelves"] for c in shelf["cards"]}
+    for card in json.loads((SAMPLES / "items-series.json").read_text()).get("items", []):
+        cards.setdefault(card["id"], card)
+    seen = {c["id"] for c in home["hero"]}
+    home["hero"] += [cards[i] for i in (2, 22) if i in cards and i not in seen]
+    return home
+
+
+def item_with_extras(item_id, sample):
+    item = json.loads((SAMPLES / sample).read_text())
+    item.update(HERO_EXTRAS.get(item_id, {}))
+    return item
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -268,6 +297,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, subtitles(), "text/vtt; charset=utf-8")
         if method in ("PUT", "DELETE") and path.startswith("/api/hls/"):
             return self.send(204, b"", "application/json")
+        if method == "GET" and path == "/api/home":
+            return self.send(200, json.dumps(home_with_hero()).encode(), "application/json")
+        if method == "GET" and re.fullmatch(r"/api/items/(19|22)", path):
+            item_id = int(path.rsplit("/", 1)[1])
+            return self.send(200, json.dumps(item_with_extras(item_id, "item-movie.json")).encode(), "application/json")
+        if method == "GET" and path == "/api/items/2":
+            return self.send(200, json.dumps(item_with_extras(2, "item-series.json")).encode(), "application/json")
         if method == "GET" and path == "/api/items" and "kind=series" in query:
             return self.send(200, (SAMPLES / "items-series.json").read_bytes(), "application/json")
         for (verb, pattern), sample in ROUTES.items():
