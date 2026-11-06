@@ -291,17 +291,20 @@ struct TabNavigation<Root: View>: View {
         NavigationStack(path: path) {
             root()
                 .navigationDestination(for: Route.self) { route in
-                    switch route {
-                    case .item(let card):
-                        ItemDetailView(card: card)
-                    case .linkedItem(let card):
-                        ItemDetailView(card: card)
-                            .environment(\.claimsFocusOnAppear, true)
-                    case .genre(let name):
-                        GenreView(name: name)
-                    case .shelf(let id, let title):
-                        ShelfGridView(shelfId: id, title: title)
+                    Group {
+                        switch route {
+                        case .item(let card):
+                            ItemDetailView(card: card)
+                        case .linkedItem(let card):
+                            ItemDetailView(card: card)
+                                .environment(\.claimsFocusOnAppear, true)
+                        case .genre(let name):
+                            GenreView(name: name)
+                        case .shelf(let id, let title):
+                            ShelfGridView(shelfId: id, title: title)
+                        }
                     }
+                    .modifier(FullScreenWidth())
                 }
         }
         .environment(\.openRoute, OpenRouteAction { path.wrappedValue.append($0) })
@@ -334,5 +337,22 @@ private struct SidebarProfileHeader: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Lays a pushed page out from the screen's left edge. On tvOS 27 the sidebar places
+/// pages pushed in the Movies and TV Shows tabs in a frame that starts 139 pt in (a black
+/// band down the left; Home's and Music's pushes are full width), and no safe-area
+/// setting reaches that frame. The page measures where it was put and takes the screen's
+/// width back; where it starts at the edge nothing changes.
+private struct FullScreenWidth: ViewModifier {
+    func body(content: Content) -> some View {
+        GeometryReader { geo in
+            let lead = max(0, geo.frame(in: .global).minX)
+            content
+                .frame(width: geo.size.width + lead, height: geo.size.height)
+                .position(x: (geo.size.width + lead) / 2 - lead, y: geo.size.height / 2)
+        }
+        .ignoresSafeArea()
     }
 }
