@@ -34,7 +34,7 @@ struct VideoPlayerView: View {
                         if model.isSwitching {
                             ProgressView()
                                 .padding(36)
-                                .background(.ultraThinMaterial, in: Circle())
+                                .glassSurface(in: Circle(), highlighted: false, interactive: false)
                         }
                     }
                     .overlay(alignment: .top) {
