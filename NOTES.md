@@ -60,12 +60,11 @@ Running log between milestones. Newest entry last.
 - Lyrics `404 No lyrics` is returned as `nil`, not an error.
 
 ### Known gaps (for later milestones)
-- The app UI is only the splash/status screen; onboarding (server entry, profile picker, password),
-  the shell and all content screens start in milestone 2. `AppState`'s connect/sign-in/sign-out API is
-  ready for them.
+- The app UI is only the splash/status screen. *(Done in milestone 2 and later: onboarding,
+  shell and every content screen.)*
 - SSE (`/api/events`) is not wrapped (spec says it is an optional refresh hint and emits nothing on 0.3.0);
-  `ServerURLs.events` exists if needed.
-- No image loader yet (milestone 2 should add one that sends `client.authorizationHeaders` and caches).
+  `ServerURLs.events` exists if needed. *(Still open.)*
+- No image loader yet. *(Done in milestone 2: `ImagePipeline`.)*
 
 ## Milestone 2 — Design system, onboarding, profiles, shell
 
@@ -121,9 +120,10 @@ Running log between milestones. Newest entry last.
   chevrons are omitted until the category pages exist.
 
 ### Known gaps
-- Search, Movies, TV Shows, Music and Books tabs show a "coming soon" placeholder
-  (`SectionPlaceholderView`) — milestones 3 and 5 replace them.
-- `ItemDetailView` is a stub: no seasons/episodes, cast, versions, watchlist or play actions (M3/M4).
+- Search, Movies, TV Shows, Music and Books tabs show a "coming soon" placeholder. *(Done in
+  milestones 3 and 5; `SectionPlaceholderView` is gone.)*
+- `ItemDetailView` is a stub. *(Done in milestones 3 and 4: seasons/episodes, cast, versions,
+  watchlist and play actions.)*
 - Hero is a single item, not a carousel. *(Done in the review fixes: carousel.)*
 
 ## Milestone 3 — Browse, details, search, watchlist
@@ -179,11 +179,10 @@ Running log between milestones. Newest entry last.
 - The media key is cached per signed-in token in `PlaybackCoordinator`.
 
 ### Known gaps
-- Player is the basic one: no audio/subtitle/quality menus, no side-loaded VTT, no up-next or
-  skip-intro; HLS seeks beyond the transcoded range rely on AVPlayer (milestone 4 adds
-  `replaceSession` seeking and track menus).
-- Music and Books tabs still show the "coming soon" placeholder; album/artist/book cards (including
-  search results) open `ItemSummaryView` (header only) until milestone 5.
+- Player is the basic one. *(Done in milestone 4: audio/subtitle/quality menus, side-loaded VTT,
+  Up Next and `replaceSession` seeking; skip-intro stays open, the API has no markers.)*
+- Music and Books tabs show the placeholder. *(Done in milestone 5: album, artist, book and comic
+  pages; `ItemSummaryView` is only the fallback for kinds without a page.)*
 - No "see all" pages for Home shelves *(done in the review fixes: `Route.shelf`)*; no filter by
   genre in the grids (the API has none).
 
@@ -324,6 +323,8 @@ Running log between milestones. Newest entry last.
 - Audio was checked on the simulator with the mock server's AAC fixtures; FLAC/transcoded music and
   multi-part MP3 audiobooks from the real server were verified only by the kit integration tests.
 - E-book reading is intentionally not available on TV.
+- *(Release 1.1: the music and audiobook screens were seen again on the tvOS 27.2 simulator by
+  `test06Music` / `test07Books`; real-server formats are still kit-tested only.)*
 
 ## Milestone 6 — Settings, Top Shelf, polish, docs
 
@@ -367,9 +368,10 @@ Running log between milestones. Newest entry last.
     shows.
 - **Shared session** (`Shared/`, compiled into both targets):
   - `SharedSessionStore` keeps the server URL, profile and language in the App Group defaults
-    (`group.app.antresol.tv`), and the token in the shared Keychain group
-    `<team prefix>app.antresol.shared`. The group name comes from the `AntresolKeychainGroup`
-    Info.plist key, so the build fills in the team prefix.
+    (`group.<bundle id>`, `AntresolAppGroup` Info.plist key), and the token in the shared Keychain
+    group `<team prefix><bundle id>.shared` (`AntresolKeychainGroup`). Both keys are expanded from
+    the `ANTRESOL_APP_GROUP` / `ANTRESOL_KEYCHAIN_GROUP` build settings (release 1.1; before it the
+    names were hard-coded to `group.app.antresol.tv` and `app.antresol.shared`).
   - `AppState` publishes the session whenever `phase` or `language` changes, clears it when
     leaving the signed-in state, and calls `TVTopShelfContentProvider.topShelfContentDidChange()`
     when something changed. The shell also calls it after each video session.
@@ -412,9 +414,9 @@ Running log between milestones. Newest entry last.
   Bearer header, and the server does not accept the media key on images.
 
 ### Known gaps
-- The dynamic Top Shelf has not been seen working.
-  - It needs a signed build with a team that has `group.app.antresol.tv` and the Keychain group
-    registered. CI builds unsigned.
+- The dynamic Top Shelf has not been seen working. *(Still open.)*
+  - It needs a signed build with a team that has the App Group (`group.<bundle id>`) and the
+    Keychain group registered. CI builds unsigned.
   - On the CI simulator, `45-top-shelf` shows the static brand image, and the mock server got no
     request from the extension. Either the extension is not run for UI-test installs, or the
     shared Keychain item cannot be read without a team prefix.
@@ -637,6 +639,7 @@ are listed below.
   and song rows have it).
 - Unchanged from before: dynamic Top Shelf unverified without a signed build; EVENT-playlist
   paths unexercised; text already on screen keeps the old language until it redraws.
+  *(All three still open at release 1.1.)*
 
 ## Release engineering and screenshot gallery
 
@@ -688,7 +691,8 @@ are listed below.
 
 ### Known gaps
 - Never signed or uploaded: App IDs, App Group, App Store Connect record, TestFlight and App
-  Privacy answers are the owner's steps (README).
+  Privacy answers are the owner's steps (README). *(Release 1.1: see below for what is now set
+  up and what still blocks the first upload.)*
 - The website's privacy policy and support page describe the iPhone/iPad/Mac app; they should
   mention Apple TV (Top Shelf artwork cached in the App Group container) before submission.
 - App Review needs a reachable demo server and profile credentials.
@@ -745,3 +749,43 @@ English); the logo stays the glass mark from `logo-mark.svg`.
 scheme, host and port; any other URL (for example external artwork) gets `Accept-Language` only.
 Every image, comic page, Now Playing artwork, Top Shelf artwork and header-authenticated HLS
 load uses it. The plain `authorizationHeaders` property is for requests the kit builds itself.
+
+## Release 1.1 (Xcode 27, universal purchase)
+
+### What changed
+- **Xcode 27 build**: Foundation in the tvOS 27 SDK has its own `ProgressReporter`, so the kit's
+  actor of that name became ambiguous in `AudioPlayer` and `VideoPlayerModel`. It is now
+  `PlaybackProgressReporter` everywhere (file, test, docs).
+- **Home focus on tvOS 27**: Down from the Home tab skipped the hero's pills (they sit left of
+  most tabs) and went to the second Continue Watching card, so `test04Player` / `test05UpNext`
+  reached the music shelf and played a song. CI (Xcode 16.4, tvOS 18) still took the old path.
+  The pills' focus section now spans the text column; Down from Home lands on Details, the next
+  Down on the first Continue Watching card. The tests were right and are unchanged.
+- **Identity from build settings**: `project.yml` stays neutral (`app.antresol.tv`, no team).
+  `ANTRESOL_BUNDLE_ID` drives the extension (`.topshelf`), UI tests (`.uitests`), App Group
+  (`ANTRESOL_APP_GROUP`, `group.<id>`) and Keychain group (`ANTRESOL_KEYCHAIN_GROUP`, `<id>.shared`);
+  the entitlements, `CFBundleURLName` and the `AntresolAppGroup` / `AntresolKeychainGroup`
+  Info.plist keys expand them. Every target's `Antresol.xcconfig` does `#include? "Local.xcconfig"`
+  (git-ignored; `Local.xcconfig.example` is committed), the same pattern as the iOS app.
+  `fastlane/Deliverfile` reads `ANTRESOL_BUNDLE_ID` from the environment.
+- `MARKETING_VERSION` is 1.1.0.
+
+### Decisions
+- Rename the kit type rather than qualify each use (`AntresolKit.ProgressReporter`): the name
+  would keep colliding wherever both modules are imported.
+- The default Keychain group moved from `app.antresol.shared` to `app.antresol.tv.shared` so it
+  follows the bundle id. A signed install from before 1.1 rewrites the shared session on its next
+  launch; the old item is left behind in the old group.
+- Simulator UI tests need signing (`CODE_SIGN_IDENTITY=-` or a team) because of the
+  `keychain-access-groups` entitlement; with `CODE_SIGNING_ALLOWED=NO` the Keychain write fails
+  and the tests stop at "Who's watching?". CI's UI test job signs to run locally, so it is fine.
+
+### Known gaps
+- CI still selects Xcode 16.4; the tvOS 27 focus behaviour and the Foundation name clash only
+  show with Xcode 27.
+- A tvOS App Store archive with automatic signing needs a tvOS development profile first, and
+  Apple makes one only when the team has an Apple TV registered. The owner's team has none yet.
+- Still open from earlier milestones: dynamic Top Shelf never seen on a device, SSE not wrapped,
+  EVENT-playlist paths unexercised, no skip-intro markers, no long-press "Add to Playlist" on
+  album/artist grid cards, text already on screen keeps the old language until it redraws.
+- Privacy policy, App Review demo server and store screenshots: see "Release engineering".

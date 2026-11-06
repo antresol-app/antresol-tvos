@@ -1,0 +1,15 @@
+// Copy to Local.xcconfig (git-ignored). Antresol.xcconfig includes it for every target, so
+// each value here overrides the default in project.yml, for Debug and Release.
+//
+// DEVELOPMENT_TEAM: your team id (developer.apple.com > Membership details). Empty: the
+// simulator signs to run locally; device builds and archives need a team.
+DEVELOPMENT_TEAM =
+//
+// The app's bundle id. It defaults to app.antresol.tv; register your own, and the rest
+// follows: the Top Shelf extension is <id>.topshelf, the UI tests <id>.uitests, the App
+// Group group.<id> and the shared Keychain group <team prefix><id>.shared.
+// ANTRESOL_BUNDLE_ID = com.example.antresol
+//
+// Override the groups only to reuse ones you already registered:
+// ANTRESOL_APP_GROUP = group.com.example.shared
+// ANTRESOL_KEYCHAIN_GROUP = com.example.shared

@@ -71,49 +71,69 @@ The app and the Top Shelf extension share their session through two entitlements
 `AntresolTV/AntresolTV.entitlements`, `TopShelf/TopShelf.entitlements` and
 `Shared/SharedSession.swift`:
 
-- the App Group `group.app.antresol.tv` (server, profile and language, plus downloaded Top
-  Shelf artwork);
-- the Keychain group `<Team ID>.app.antresol.shared` (the profile's token).
+- the App Group `group.<bundle id>`, `group.app.antresol.tv` by default (server, profile and
+  language, plus downloaded Top Shelf artwork);
+- the Keychain group `<Team ID>.<bundle id>.shared` (the profile's token).
 
 Without them the app still works; only the Top Shelf stays on the static brand image.
+
+### Your team and bundle id
+
+`project.yml` is neutral: bundle id `app.antresol.tv`, no team. Every target's config file,
+`Antresol.xcconfig`, includes a git-ignored `Local.xcconfig` when it exists, and its values
+override the defaults (for Debug and Release, and they survive `xcodegen generate`):
+
+```sh
+cp Local.xcconfig.example Local.xcconfig   # then set DEVELOPMENT_TEAM and ANTRESOL_BUNDLE_ID
+```
+
+Everything else follows `ANTRESOL_BUNDLE_ID`: the Top Shelf extension is `<id>.topshelf`, the UI
+tests `<id>.uitests`, the App Group `group.<id>` (`ANTRESOL_APP_GROUP`) and the shared Keychain
+group `<id>.shared` (`ANTRESOL_KEYCHAIN_GROUP`). The entitlements and the `AntresolAppGroup` /
+`AntresolKeychainGroup` Info.plist keys the code reads are expanded from these build settings.
+To ship in the same App Store record as an existing iOS app (universal purchase), use that
+app's bundle id and team.
 
 ## Run on an Apple TV
 
 1. Join the Apple Developer Program and note your Team ID (Membership details).
-2. In [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list):
+2. In [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list)
+   (shown for the default bundle id; use yours from `Local.xcconfig`):
    - **Identifiers > App Groups**: register `group.app.antresol.tv`.
    - **Identifiers > App IDs**: register `app.antresol.tv` and `app.antresol.tv.topshelf`, enable
      **App Groups** on both and assign `group.app.antresol.tv` to each.
    - The Keychain group needs no registration: Keychain Sharing groups are allowed for every
-     App ID of the team that lists them, and the entitlements already list
-     `$(AppIdentifierPrefix)app.antresol.shared` for both targets. Xcode's automatic signing
-     adds App Groups and Keychain Sharing to the provisioning profiles.
-   - With your own bundle ids, change `bundleIdPrefix`/`PRODUCT_BUNDLE_IDENTIFIER` in
-     `project.yml`, the group in both `.entitlements` files and `SharedSession.appGroup`.
+     App ID of the team that lists them. Xcode's automatic signing adds App Groups and
+     Keychain Sharing to the provisioning profiles.
+   - Automatic signing needs a development profile even for an App Store archive, and Apple
+     only makes a tvOS one when the team has at least one Apple TV registered (pairing it in
+     step 3 registers it).
 3. Pair the Apple TV: on the TV open Settings > Remotes and Devices > Remote App and Devices,
    then in Xcode Window > Devices and Simulators select it and enter the code.
-4. `xcodegen generate`, open `Antresol.xcodeproj`, and in Signing & Capabilities choose your
-   team with "Automatically manage signing" for **AntresolTV** and **TopShelf** (regenerating
-   the project resets this; pass `DEVELOPMENT_TEAM=<Team ID>` on the `xcodebuild` command line
-   instead to keep it scripted).
+4. Set `DEVELOPMENT_TEAM` in `Local.xcconfig` (see above), `xcodegen generate` and open
+   `Antresol.xcodeproj`; both targets sign automatically with that team.
 5. Pick the Apple TV as the run destination and Run. To check Top Shelf, sign in to a profile,
    move the app into the top row of the Home screen and focus it.
 
 ## Ship to TestFlight and the App Store
 
-The version is `MARKETING_VERSION` in `project.yml` (1.0.0). The build number,
+The version is `MARKETING_VERSION` in `project.yml` (1.1.0). The build number,
 `CURRENT_PROJECT_VERSION`, is 1 in `project.yml` and must grow with every upload: pass it on the
 command line (CI uses the run number, `github.run_number`).
 
 1. In [App Store Connect](https://appstoreconnect.apple.com) > Apps > New App: platform tvOS,
-   name Antresol, primary language English (U.S.), bundle id `app.antresol.tv`, any SKU.
-2. Archive and upload (an App Store Connect role of App Manager or higher, signed in to Xcode):
+   name Antresol, primary language English (U.S.), your bundle id, any SKU. To add Apple TV to an
+   existing iOS app with the same bundle id instead (universal purchase), open that app and use
+   the "+" next to the platform list in the sidebar to add tvOS.
+2. Archive and upload (an App Store Connect role of App Manager or higher, signed in to Xcode;
+   without an Xcode account, add `-authenticationKeyPath <AuthKey.p8> -authenticationKeyID <key>
+   -authenticationKeyIssuerID <issuer>` of an App Store Connect API team key to both commands):
 
    ```sh
    xcodegen generate
    xcodebuild archive -project Antresol.xcodeproj -scheme AntresolTV \
      -destination 'generic/platform=tvOS' -archivePath build/Antresol.xcarchive \
-     DEVELOPMENT_TEAM=<Team ID> CURRENT_PROJECT_VERSION=<build> -allowProvisioningUpdates
+     CURRENT_PROJECT_VERSION=<build> -allowProvisioningUpdates
    xcodebuild -exportArchive -archivePath build/Antresol.xcarchive \
      -exportOptionsPlist scripts/ExportOptions-AppStore.plist -exportPath build/export \
      -allowProvisioningUpdates

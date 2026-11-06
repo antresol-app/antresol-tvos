@@ -13,26 +13,27 @@ struct SharedSession: Codable, Equatable {
 }
 
 enum SharedSessionStore {
-    /// App Group shared by the app and the Top Shelf extension.
-    static let appGroup = "group.app.antresol.tv"
+    /// App Group shared by the app and the Top Shelf extension, from the `AntresolAppGroup`
+    /// Info.plist key (`ANTRESOL_APP_GROUP` in the build settings, `group.<bundle id>`).
+    static let appGroup = Bundle.main.object(forInfoDictionaryKey: "AntresolAppGroup") as? String ?? ""
 
     private static let sessionKey = "shared.session"
     private static let tokenAccount = "session-token"
 
-    /// The Keychain group, `<team prefix>app.antresol.shared`, from the `AntresolKeychainGroup`
-    /// Info.plist key (the build expands the team prefix).
+    /// The Keychain group, `<team prefix><bundle id>.shared`, from the `AntresolKeychainGroup`
+    /// Info.plist key (the build expands the team prefix and `ANTRESOL_KEYCHAIN_GROUP`).
     private static var keychain: Keychain {
         let group = Bundle.main.object(forInfoDictionaryKey: "AntresolKeychainGroup") as? String
         return Keychain(service: "app.antresol.shared", accessGroup: group.flatMap { $0.isEmpty ? nil : $0 })
     }
 
     private static var defaults: UserDefaults? {
-        UserDefaults(suiteName: appGroup)
+        appGroup.isEmpty ? nil : UserDefaults(suiteName: appGroup)
     }
 
     /// Shared container for files both processes read (Top Shelf artwork).
     static var containerURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
+        appGroup.isEmpty ? nil : FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
     }
 
     static func load() -> (session: SharedSession, token: String)? {

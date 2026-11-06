@@ -11,11 +11,21 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.0.0"
+    # Identity defaults. Each target's config file, Antresol.xcconfig, includes the
+    # git-ignored Local.xcconfig when it exists (copy Local.xcconfig.example), and target
+    # xcconfigs rank above these project-level settings, so it overrides any of them. The extension, UI tests, App Group
+    # and shared Keychain group all derive from the app's bundle id.
+    ANTRESOL_BUNDLE_ID: app.antresol.tv
+    ANTRESOL_APP_GROUP: group.$(ANTRESOL_BUNDLE_ID)
+    ANTRESOL_KEYCHAIN_GROUP: $(ANTRESOL_BUNDLE_ID).shared
+    MARKETING_VERSION: "1.1.0"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   AntresolTV:
     type: application
+    configFiles:
+      Debug: Antresol.xcconfig
+      Release: Antresol.xcconfig
     platform: tvOS
     deploymentTarget: "17.0"
     sources:
@@ -26,7 +36,7 @@ targets:
       - target: TopShelf
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.antresol.tv
+        PRODUCT_BUNDLE_IDENTIFIER: $(ANTRESOL_BUNDLE_ID)
         INFOPLIST_FILE: AntresolTV/Info.plist
         CODE_SIGN_ENTITLEMENTS: AntresolTV/AntresolTV.entitlements
         GENERATE_INFOPLIST_FILE: NO
@@ -37,6 +47,9 @@ targets:
         LOCALIZATION_PREFERS_STRING_CATALOGS: NO
   TopShelf:
     type: tv-app-extension
+    configFiles:
+      Debug: Antresol.xcconfig
+      Release: Antresol.xcconfig
     platform: tvOS
     deploymentTarget: "17.0"
     sources:
@@ -47,7 +60,7 @@ targets:
       - sdk: TVServices.framework
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.antresol.tv.topshelf
+        PRODUCT_BUNDLE_IDENTIFIER: $(ANTRESOL_BUNDLE_ID).topshelf
         PRODUCT_NAME: TopShelf
         INFOPLIST_FILE: TopShelf/Info.plist
         GENERATE_INFOPLIST_FILE: NO
@@ -57,6 +70,9 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: YES
   AntresolTVUITests:
     type: bundle.ui-testing
+    configFiles:
+      Debug: Antresol.xcconfig
+      Release: Antresol.xcconfig
     platform: tvOS
     deploymentTarget: "17.0"
     sources:
@@ -65,7 +81,7 @@ targets:
       - target: AntresolTV
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.antresol.tv.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: $(ANTRESOL_BUNDLE_ID).uitests
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "3"
         TEST_TARGET_NAME: AntresolTV

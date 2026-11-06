@@ -1,0 +1,4 @@
+// Target-level config for every target in project.yml. It only pulls in your local
+// overrides: copy Local.xcconfig.example to Local.xcconfig (git-ignored) to sign with your
+// team and bundle id. Without it the project.yml defaults apply.
+#include? "Local.xcconfig"

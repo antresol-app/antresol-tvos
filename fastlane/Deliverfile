@@ -1,6 +1,6 @@
 # App Store metadata for `fastlane deliver` (text only; the build goes up through Xcode or
-# altool, see README.md).
-app_identifier "app.antresol.tv"
+# altool, see README.md). Set ANTRESOL_BUNDLE_ID when your bundle id is not the default.
+app_identifier(ENV["ANTRESOL_BUNDLE_ID"] || "app.antresol.tv")
 platform "appletvos"
 skip_binary_upload true
 skip_screenshots true
