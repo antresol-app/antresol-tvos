@@ -100,6 +100,9 @@ private struct MusicHomeSection: View {
                 }
             }
             .padding(.horizontal, Theme.Layout.margin)
+            // Full width, so Down from the section pill (top right) reaches Shuffle All
+            // instead of finding nothing below it.
+            .frame(maxWidth: .infinity, alignment: .leading)
             .focusSection()
 
             switch loader.state {
