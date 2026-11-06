@@ -2,7 +2,7 @@ import AntresolKit
 import Foundation
 import Observation
 
-/// What the Home tab shows, derived from `GET /api/home`.
+/// What the Home tab shows, derived from `GET /api/home` without its books.
 struct HomeContent {
     struct Feature: Hashable {
         let card: Card
@@ -62,7 +62,7 @@ final class HomeModel {
         if case .failed = state { state = .loading }
         do {
             let home = try await client.home()
-            state = .loaded(HomeContent(home))
+            state = .loaded(HomeContent(home.withoutBooks))
         } catch {
             guard !Task.isCancelled else { return }
             let message = appState.message(for: error)

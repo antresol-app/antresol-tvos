@@ -2,10 +2,10 @@ import AntresolKit
 import SwiftUI
 
 /// The Search tab: the native tvOS search field and keyboard, Browse tiles while nothing
-/// is typed, and results grouped by kind (movies, shows, music, books) as they arrive.
+/// is typed, and results grouped by kind (movies, shows, music) as they arrive.
 struct SearchView: View {
-    /// Switches the shell to a library tab (Browse tiles), and the Books tab to a section.
-    let onBrowse: (ShellTab, BooksView.Pane?) -> Void
+    /// Switches the shell to a library tab (Browse tiles).
+    let onBrowse: (ShellTab) -> Void
 
     @Environment(AppState.self) private var appState
     @State private var query = ""
@@ -19,7 +19,7 @@ struct SearchView: View {
         .scrollClipDisabled()
         .ignoresSafeArea(edges: .horizontal)
         .background(Theme.Colors.background.ignoresSafeArea())
-        .searchable(text: $query, prompt: Text("Movies, music and books"))
+        .searchable(text: $query, prompt: Text("Movies, shows and music"))
         .task(id: query) { await model.search(query, using: appState) }
     }
 
@@ -45,7 +45,7 @@ struct SearchView: View {
                     Text(verbatim: String(localized: "No results for “\(query)”", bundle: .localized))
                         .font(Theme.Typography.headline)
                         .foregroundStyle(Theme.Colors.label)
-                    Text("Try another title, artist or author.")
+                    Text("Try another title or artist.")
                         .font(Theme.Typography.body)
                         .foregroundStyle(Theme.Colors.label2)
                 }
@@ -81,7 +81,7 @@ struct SearchView: View {
             HStack(spacing: 32) {
                 ForEach(BrowseTile.all) { tile in
                     Button {
-                        onBrowse(tile.tab, tile.booksPane)
+                        onBrowse(tile.tab)
                     } label: {
                         BrowseTileView(tile: tile)
                     }
@@ -89,7 +89,7 @@ struct SearchView: View {
                 }
             }
             .focusSection()
-            Text("Search for movies, music and books in your library.")
+            Text("Search for movies, shows and music in your library.")
                 .font(Theme.Typography.body)
                 .foregroundStyle(Theme.Colors.label2)
                 .padding(.top, 24)
@@ -106,15 +106,11 @@ private struct BrowseTile: Identifiable {
     let systemImage: String
     let colors: (UInt32, UInt32)
     let tab: ShellTab
-    var booksPane: BooksView.Pane?
 
     static let all: [BrowseTile] = [
         BrowseTile(id: "movies", title: "Movies", systemImage: "film", colors: (0xFF375F, 0xFF9F0A), tab: .movies),
         BrowseTile(id: "shows", title: "TV Shows", systemImage: "tv", colors: (0x5E5CE6, 0xBF5AF2), tab: .shows),
         BrowseTile(id: "music", title: "Music", systemImage: "music.note", colors: (0xBF5AF2, 0xFF375F), tab: .music),
-        BrowseTile(id: "books", title: "Books", systemImage: "book", colors: (0xFF9F0A, 0xFFD60A), tab: .books, booksPane: .books),
-        BrowseTile(id: "audiobooks", title: "Audiobooks", systemImage: "headphones", colors: (0x30D158, 0x00C7BE), tab: .books, booksPane: .audiobooks),
-        BrowseTile(id: "comics", title: "Manga & Comics", systemImage: "books.vertical", colors: (0x00C7BE, 0x0A84FF), tab: .books, booksPane: .comics),
     ]
 }
 

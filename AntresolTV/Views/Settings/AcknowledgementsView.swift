@@ -15,7 +15,7 @@ struct AcknowledgementsView: View {
                 )
                 entry(
                     "Your library",
-                    "Films, shows, music, books, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else."
+                    "Films, shows, music, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else."
                 )
                 entry(
                     "Apple",

@@ -5,7 +5,6 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
-    @Environment(AudioPlayer.self) private var audio
     @Environment(\.openRoute) private var openRoute
     @State private var model = HomeModel()
 
@@ -24,7 +23,7 @@ struct HomeView: View {
                     EmptyStateView(
                         systemImage: "sparkles.tv",
                         title: "Your library is empty",
-                        message: "Add movies, shows, music or books to the server's media folders and they will appear here."
+                        message: "Add movies, shows or music to the server's media folders and they will appear here."
                     )
                 } else {
                     shelves(content)
@@ -38,9 +37,6 @@ struct HomeView: View {
         }
         .onChange(of: appState.libraryRevision) {
             // Want to Watch follows watchlist changes made from the hero or a page.
-            Task { await model.load(using: appState) }
-        }
-        .onChange(of: audio.progressRevision) {
             Task { await model.load(using: appState) }
         }
     }

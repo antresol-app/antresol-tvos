@@ -11,10 +11,6 @@ struct ItemDetailView: View {
         case .album: AlbumDetailView(card: card)
         case .artist: ArtistDetailView(card: card)
         case .playlist: PlaylistDetailView(card: card)
-        case .audiobook: AudiobookDetailView(card: card)
-        case .comic: ComicSeriesView(card: card)
-        case .comicVolume: ComicVolumeView(card: card)
-        case .book: EbookDetailView(card: card)
         default: ItemSummaryView(card: card)
         }
     }

@@ -161,6 +161,18 @@ public struct HomeResponse: Decodable, Sendable {
     public func shelf(_ id: String) -> Shelf? {
         shelves.first { $0.id == id }
     }
+
+    /// Home without books, audiobooks and comics, which the TV app does not offer: their
+    /// cards leave the hero and every shelf, and shelves left empty are dropped.
+    public var withoutBooks: HomeResponse {
+        HomeResponse(
+            hero: hero.filter { !$0.kind.isBook },
+            shelves: shelves.compactMap { shelf in
+                let cards = shelf.cards.filter { !$0.kind.isBook }
+                return cards.isEmpty ? nil : Shelf(id: shelf.id, title: shelf.title, cards: cards)
+            }
+        )
+    }
 }
 
 /// `{shelves: [...]}` responses of `/api/music/home` and `/api/books/home`.

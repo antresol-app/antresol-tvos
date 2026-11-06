@@ -49,7 +49,7 @@ struct ShelfGridView: View {
             return try await client.albums(sort: .recent, limit: limit, offset: offset)
         default:
             guard offset == 0 else { return Page(items: [], total: 0) }
-            let cards = try await client.home().shelf(id)?.cards ?? []
+            let cards = try await client.home().withoutBooks.shelf(id)?.cards ?? []
             return Page(items: cards, total: cards.count)
         }
     }

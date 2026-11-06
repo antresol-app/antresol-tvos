@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A full-width list row (track lists, queue, chapters): transparent at rest, a soft
+/// A full-width list row (track lists, queue): transparent at rest, a soft
 /// white glass plate when focused with the text turning black on white, like the design's pills.
 struct ListRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {

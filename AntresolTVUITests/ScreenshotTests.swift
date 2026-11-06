@@ -237,47 +237,6 @@ final class ScreenshotTests: XCTestCase {
         snapshot(app, "30-music-albums")
     }
 
-    func test07Books() {
-        let app = signInAsKid()
-
-        XCTAssertTrue(openSection(app, "Books", showing: app.buttons["Reading Now"]))
-        pause(3)
-        snapshot(app, "31-books-home")
-
-        // Down to Currently Reading, then left to the comic volume.
-        // Focus starts on the section pill; down lands on the shelf's nearest card.
-        remote.press(.down)
-        pause(1)
-        XCTAssertTrue(moveFocus(.left, to: card(app, "Hero Tales"), limit: 3))
-        remote.press(.select)
-        let read = app.buttons.matching(NSPredicate(format: "label IN %@", ["Read", "Continue Reading"])).firstMatch
-        XCTAssertTrue(read.waitForExistence(timeout: 20))
-        pause(3)
-        snapshot(app, "32-comic-volume")
-        remote.press(.select)
-        pause(5)
-        snapshot(app, "33-comic-reader")
-        // A right-to-left volume: left turns the page forward.
-        remote.press(.left)
-        pause(3)
-        snapshot(app, "34-comic-spread")
-        remote.press(.menu)
-        pause(3)
-        remote.press(.menu)
-        pause(2)
-
-        // The audiobook at the end of the shelf.
-        XCTAssertTrue(moveFocus(.right, to: card(app, "Chapter Book"), limit: 4))
-        remote.press(.select)
-        XCTAssertTrue(app.buttons["Want to Read"].waitForExistence(timeout: 20))
-        pause(3)
-        XCTAssertTrue(app.buttons["Play"].hasFocus, "The audiobook page should start on Play")
-        snapshot(app, "35-audiobook-detail")
-        remote.press(.select)
-        pause(5)
-        snapshot(app, "36-audiobook-now-playing")
-    }
-
     func test08Settings() {
         let app = signInAsKid()
 

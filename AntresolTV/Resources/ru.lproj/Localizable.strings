@@ -30,7 +30,6 @@
 "Movies" = "Фильмы";
 "TV Shows" = "Сериалы";
 "Music" = "Музыка";
-"Books" = "Книги";
 
 /* Profile tab */
 "Administrator" = "Администратор";
@@ -49,7 +48,7 @@
 "Resume" = "Продолжить";
 "Details" = "Подробнее";
 "Your library is empty" = "Медиатека пуста";
-"Add movies, shows, music or books to the server's media folders and they will appear here." = "Добавьте фильмы, сериалы, музыку или книги в папки медиатеки на сервере, и они появятся здесь.";
+"Add movies, shows or music to the server's media folders and they will appear here." = "Добавьте фильмы, сериалы или музыку в папки медиатеки на сервере, и они появятся здесь.";
 "%lld min" = "%lld мин";
 
 /* Item kinds */
@@ -60,10 +59,6 @@
 "Artist" = "Исполнитель";
 "Album" = "Альбом";
 "Playlist" = "Плейлист";
-"Audiobook" = "Аудиокнига";
-"Book" = "Книга";
-"Comic" = "Комикс";
-"Comic Volume" = "Том комикса";
 
 /* Library */
 "Recently Added" = "Недавно добавленные";
@@ -106,17 +101,14 @@
 "There is no playable file for this item." = "Для этого элемента нет файла для воспроизведения.";
 
 /* Search */
-"Movies, music and books" = "Фильмы, музыка и книги";
+"Movies, shows and music" = "Фильмы, сериалы и музыка";
 "No results for “%@”" = "Ничего не найдено по запросу «%@»";
-"Try another title, artist or author." = "Попробуйте другое название, исполнителя или автора.";
+"Try another title or artist." = "Попробуйте другое название или исполнителя.";
 "Browse" = "Обзор";
-"Search for movies, music and books in your library." = "Ищите фильмы, музыку и книги в своей библиотеке.";
+"Search for movies, shows and music in your library." = "Ищите фильмы, сериалы и музыку в своей библиотеке.";
 "Artists" = "Исполнители";
 "Albums" = "Альбомы";
 "Songs" = "Песни";
-"Audiobooks" = "Аудиокниги";
-"Comics" = "Комиксы";
-"Manga & Comics" = "Манга и комиксы";
 
 /* Player */
 "Resume from %@" = "Продолжить с %@";
@@ -138,7 +130,7 @@
 "This profile is already watching on another device. Stop playback there and try again." = "Этот профиль уже смотрит на другом устройстве. Остановите воспроизведение там и попробуйте снова.";
 "The video stopped playing. Check the connection to the server and try again." = "Воспроизведение прервалось. Проверьте подключение к серверу и попробуйте снова.";
 
-/* Music, audiobooks and comics */
+/* Music */
 "Listen Now" = "Слушать";
 "Playlists" = "Плейлисты";
 "Genre" = "Жанр";
@@ -152,7 +144,6 @@
 "Next" = "Далее";
 "Pause" = "Пауза";
 "By Artist" = "По исполнителю";
-"By Author" = "По автору";
 "Recently Played" = "Недавно прослушанные";
 "All Songs" = "Все песни";
 "Favorites" = "Избранное";
@@ -185,48 +176,14 @@
 "No playlists yet" = "Плейлистов пока нет";
 "Now Playing" = "Сейчас играет";
 "Nothing is playing" = "Ничего не играет";
-"Play an album, a playlist or an audiobook and it shows up here." = "Включите альбом, плейлист или аудиокнигу — они появятся здесь.";
+"Play an album or a playlist and it shows up here." = "Включите альбом или плейлист — они появятся здесь.";
 "Up Next" = "Далее в очереди";
 "Lyrics" = "Текст песни";
-"Chapters" = "Главы";
 "Nothing up next." = "В очереди ничего нет.";
 "The queue starts over after this song." = "После этой песни очередь начнётся сначала.";
 "No lyrics for this song." = "Для этой песни нет текста.";
 "Playback Position" = "Позиция воспроизведения";
-"Playback Speed" = "Скорость воспроизведения";
-"Sleep Timer" = "Таймер сна";
-"End of Chapter" = "Конец главы";
-"Turn Off Timer" = "Выключить таймер";
-"Back 15 Seconds" = "Назад на 15 секунд";
-"Forward 30 Seconds" = "Вперёд на 30 секунд";
-"Previous Chapter" = "Предыдущая глава";
-"Next Chapter" = "Следующая глава";
 "Couldn’t play “%@”." = "Не удалось воспроизвести «%@».";
-"Part %lld of %lld" = "Часть %1$lld из %2$lld";
-"Reading Now" = "Читаю сейчас";
-"Want to Read" = "Хочу прочитать";
-"Narrated by %@" = "Читает %@";
-"Finished" = "Прочитано";
-"Chapter %lld" = "Глава %lld";
-"No books yet" = "Книг пока нет";
-"Add audiobooks, comics and books to the server's media folders and scan the library." = "Добавьте аудиокниги, комиксы и книги в медиапапки сервера и просканируйте медиатеку.";
-"No comics yet" = "Комиксов пока нет";
-"Continue Reading" = "Продолжить чтение";
-"Read" = "Читать";
-"Volumes" = "Тома";
-"Next Volume" = "Следующий том";
-"Go to Series" = "Перейти к серии";
-"Right to left" = "Справа налево";
-"Page %lld" = "Страница %lld";
-"Page %@ of %lld" = "Страница %1$@ из %2$lld";
-"Page %lld couldn’t be loaded." = "Не удалось загрузить страницу %lld.";
-"This volume has no pages." = "В этом томе нет страниц.";
-"End of Volume" = "Конец тома";
-"Press Menu to close, or go back to the last page." = "Нажмите Menu, чтобы закрыть, или вернитесь к последней странице.";
-"Play/Pause: show one page" = "Play/Pause: одна страница";
-"Play/Pause: show two pages" = "Play/Pause: две страницы";
-"Reading books isn’t available on Apple TV" = "Чтение книг недоступно на Apple TV";
-"Open this book in Antresol on your phone, tablet or computer. Your place is saved on the server." = "Откройте эту книгу в Antresol на телефоне, планшете или компьютере. Место, где вы остановились, сохраняется на сервере.";
 
 /* Settings */
 "Playback" = "Воспроизведение";
@@ -249,12 +206,12 @@
 "This Apple TV is removed from the profile's devices. You can sign in again from the profile picker." = "Этот Apple TV будет удалён из устройств профиля. Войти снова можно на экране выбора профиля.";
 "The Apple TV app for the Antresol home media server. It is built only on Apple's system frameworks (SwiftUI, AVKit, MediaPlayer, TVServices) and contains no third-party code." = "Приложение для Apple TV к домашнему медиасерверу Antresol. Оно построено только на системных фреймворках Apple (SwiftUI, AVKit, MediaPlayer, TVServices) и не содержит стороннего кода.";
 "Your library" = "Ваша медиатека";
-"Films, shows, music, books, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else." = "Фильмы, сериалы, музыка, книги, обложки и описания приходят с вашего собственного сервера Antresol. Никуда больше ничего не отправляется.";
+"Films, shows, music, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else." = "Фильмы, сериалы, музыка, обложки и описания приходят с вашего собственного сервера Antresol. Никуда больше ничего не отправляется.";
 "Apple" = "Apple";
 "The system font and SF Symbols are provided by Apple and used under Apple's licence terms." = "Системный шрифт и SF Symbols предоставлены Apple и используются на условиях лицензии Apple.";
 "About This App" = "О приложении";
 
-/* Errors, version picker, carousel, shelves, comics (review fixes) */
+/* Errors, version picker, carousel, shelves (review fixes) */
 "Couldn't reach the server. Check that it is running and on the same network." = "Не удалось связаться с сервером. Проверьте, что он запущен и находится в той же сети.";
 "Sign in again to continue." = "Чтобы продолжить, войдите снова.";
 "Something went wrong. Try again." = "Что-то пошло не так. Попробуйте ещё раз.";
@@ -265,7 +222,6 @@
 "Playback stopped because the server isn’t sending audio. Try again later." = "Воспроизведение остановлено: сервер не передаёт звук. Попробуйте позже.";
 "Play Version" = "Выберите версию";
 "Featured %lld of %lld" = "Подборка: %1$lld из %2$lld";
-"Press Select to read the next volume, or Menu to close." = "Нажмите на сенсорную панель, чтобы читать следующий том, или Menu, чтобы закрыть.";
 "Nothing here yet" = "Здесь пока пусто";
 
 /* Playlist editing, devices */

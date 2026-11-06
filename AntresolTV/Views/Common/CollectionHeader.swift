@@ -1,17 +1,15 @@
 import AntresolKit
 import SwiftUI
 
-/// The header of an album, playlist, artist, audiobook or comic page: the cover on the
-/// left over the artwork-tinted background, and the eyebrow, huge title, context and
-/// meta lines, actions and an optional description on the right.
+/// The header of an album, playlist or artist page: the cover on the left over the
+/// artwork-tinted background, and the eyebrow, huge title, context and meta lines,
+/// actions and an optional description on the right.
 struct CollectionHeader<Actions: View>: View {
     let card: Card
     let eyebrow: String
     var subtitle: String = ""
     var meta: String = ""
     var description: String = ""
-    var progress: Double? = nil
-    var progressLabel: String = ""
     /// A failed action, shown in red under the buttons.
     var error: String? = nil
     @ViewBuilder let actions: () -> Actions
@@ -73,17 +71,6 @@ struct CollectionHeader<Actions: View>: View {
                             .lineLimit(3)
                             .frame(maxWidth: 1000, alignment: .leading)
                     }
-                    if let progress, progress > 0 {
-                        HStack(spacing: 20) {
-                            ProgressBar(value: progress, height: 8)
-                                .frame(width: 360)
-                            if !progressLabel.isEmpty {
-                                Text(verbatim: progressLabel)
-                                    .font(Theme.Typography.meta)
-                                    .foregroundStyle(Theme.Colors.label2)
-                            }
-                        }
-                    }
                     ActionRow(content: actions)
                         .padding(.top, 18)
                     if let error {
@@ -107,7 +94,7 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Marks the main button of a `CollectionHeader` (Play, Read) as the page's initial focus.
+    /// Marks the main button of a `CollectionHeader` (Play) as the page's initial focus.
     func primaryDetailAction() -> some View {
         modifier(PrimaryDetailAction())
     }

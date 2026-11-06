@@ -14,7 +14,6 @@ enum Theme {
         static let label3 = Color(hex: 0xEBEBF5).opacity(0.45)
         static let labelInverse = Color.black
         static let accent = Color(hex: 0x0A84FF)
-        static let green = Color(hex: 0x30D158)
         static let orange = Color(hex: 0xFF9F0A)
         static let red = Color(hex: 0xFF453A)
         static let fill = Color(hex: 0x787880).opacity(0.36)
@@ -135,7 +134,7 @@ enum Theme {
         /// Square cover grid cell; five columns fill the content width.
         static let gridSquareWidth: CGFloat = 316
         static let gridSquareSpacing: CGFloat = 45
-        /// Inner padding of list rows (tracks, chapters, queue); lists are outdented by it
+        /// Inner padding of list rows (tracks, queue); lists are outdented by it
         /// so the row text lines up with the page's headings.
         static let listRowInset: CGFloat = 28
     }

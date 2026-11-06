@@ -63,8 +63,8 @@ struct SearchGroup: Identifiable {
         self.entries = entries
     }
 
-    /// Movies, TV shows, artists, albums, songs, audiobooks, books and comics, in that
-    /// order; empty groups are left out.
+    /// Movies, TV shows, artists, albums and songs, in that order; empty groups are left
+    /// out. The server's book results are not shown: the app has no books.
     static func groups(from results: SearchResults) -> [SearchGroup] {
         let movies = results.library.filter { $0.kind == .movie }
         let shows = results.library.filter { $0.kind != .movie }
@@ -74,9 +74,6 @@ struct SearchGroup: Identifiable {
             SearchGroup(id: "artists", title: String(localized: "Artists", bundle: .localized), cards: results.artists),
             SearchGroup(id: "albums", title: String(localized: "Albums", bundle: .localized), cards: results.albums),
             SearchGroup(id: "songs", title: String(localized: "Songs", bundle: .localized), entries: results.songs.map(Self.entry(for:))),
-            SearchGroup(id: "audiobooks", title: String(localized: "Audiobooks", bundle: .localized), cards: results.audiobooks),
-            SearchGroup(id: "books", title: String(localized: "Books", bundle: .localized), cards: results.books),
-            SearchGroup(id: "comics", title: String(localized: "Comics", bundle: .localized), cards: results.comics),
         ]
         return groups.filter { !$0.entries.isEmpty }
     }

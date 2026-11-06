@@ -1,15 +1,15 @@
 # Antresol for Apple TV
 
 A native tvOS app for [Antresol](https://github.com/sidun-av/antresol), the self-hosted home
-media server: films, TV shows, music, audiobooks and comics on the big screen. It talks to
+media server: films, TV shows and music on the big screen. It talks to
 your own server only. SwiftUI, tvOS 17+, English and Russian.
 
 ## Features
 
 - **Look**: Liquid Glass on tvOS 26 and later (the app's own pills, round controls, segmented
   pills and settings rows use the system glass, lit white when focused), and the system
-  sidebar on tvOS 18 and later: profile and time at the top, Search, Home, Movies, TV Shows,
-  Music and Books, collapsing to a chip naming the section. Earlier systems keep the top tab
+  sidebar on tvOS 18 and later: profile and time at the top, Search, Home, Movies, TV Shows
+  and Music, collapsing to a chip naming the section. Earlier systems keep the top tab
   bar and flat dark-glass fills.
 - **Onboarding**: enter the server as a host, `host:port` or URL (port 8420 by default). Then
   "Who's watching?" profile picker with avatar gradients, password entry for protected profiles,
@@ -17,7 +17,9 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   restored at launch.
 - **Home**: a full-screen hero carousel like the TV app's (title, kind and genres with the age
   rating, a one-line description, Play and round watchlist, info and next buttons, page dots),
-  Continue Watching rising into it (plays at once), and the server's shelves: recently added, new episodes, Want to Watch, reading, recently played.
+  Continue Watching rising into it (plays at once), and the server's shelves: recently added,
+  new episodes, Want to Watch, recently played. The server's books, audiobooks and comics are
+  left out: the TV app does not offer them.
 - **Movies and TV Shows**: poster grids with sort pills (recent, title, year) and paging.
 - **Details**: movie, show and episode pages offer Play, Resume and Restart, plus watchlist and
   watched toggles. Show pages have seasons and episodes; all of them list cast, versions,
@@ -37,11 +39,7 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Now Playing with synced lyrics: the lyrics page takes the artwork's colour, with the
     artwork, title and artist on the left and large lines on the right, the current one bright.
   - Background audio, with Control Center and remote controls.
-- **Books**: Reading Now, audiobooks, and manga and comics.
-  - Audiobooks play as one book across parts, with chapters, speed, a sleep timer and
-    position sync.
-  - The comic reader shows single pages or spreads and supports right-to-left.
-- **Search**: across every library, with browse tiles.
+- **Search**: across movies, shows and music, with browse tiles.
 - **Settings** (the profile tab):
   - Switch profile, or sign out (which revokes the device token on the server).
   - Default video quality, audio and subtitle languages, and autoplay of the next episode.
@@ -52,6 +50,7 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 - **Top Shelf**: when the app is in the top row, the Home screen shows the profile's Continue
   Watching and Recently Added. Selecting a tile opens its page; Play starts it.
 - **Deep links**: `antresol://item/{id}` opens an item's page, and `antresol://play/{id}` plays it.
+  A link to a book opens Home.
 
 ## Requirements
 
@@ -195,7 +194,7 @@ AntresolTV/           The tvOS app
   Services/           ImagePipeline (authenticated, cached artwork), Keychain token store,
                       AppSettings, AppLanguage, DeviceIdentity
   Views/              Onboarding, Shell (sidebar; top tab bar before tvOS 18), Home, Library, Detail, Search, Music,
-                      Books, Settings
+                      Settings
   Playback/           PlaybackCoordinator, VideoPlayerModel/View, menus, subtitles, Up Next
   Audio/              AudioPlayer (app-wide AVQueuePlayer), Now Playing screen and system controls
 TopShelf/             TVTopShelfContentProvider extension and artwork downloader
@@ -211,8 +210,8 @@ AntresolTVUITests/    Screenshot tests against scripts/mock-server.py
   request sends `Authorization: Bearer` and `Accept-Language`, and so do image requests. Player
   URLs carry a short-lived media key (`?mk=`) instead, so AVPlayer needs no headers.
 - **State.** `AppState` (`@Observable`) owns the server connection and the session phase.
-  The signed-in shell has one `PlaybackCoordinator` for video and one `AudioPlayer` for music
-  and audiobooks. Each tab has its own `NavigationStack`.
+  The signed-in shell has one `PlaybackCoordinator` for video and one `AudioPlayer` for music.
+  Each tab has its own `NavigationStack`.
 - **Top Shelf.** While a profile is signed in, the app writes the server, profile and language
   to the App Group defaults, and the token to the shared Keychain group. The extension reads
   them and fetches `/api/home`. It downloads the artwork with the Bearer header into the shared

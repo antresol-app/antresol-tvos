@@ -16,7 +16,6 @@ struct MainShellView: View {
     @State private var homePath = NavigationPath()
     /// The profile's avatar, drawn once for the profile tab.
     @State private var avatarImage: UIImage?
-    @AppStorage("books.section") private var booksPane: BooksView.Pane = .home
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -79,9 +78,6 @@ struct MainShellView: View {
             if let client = appState.client {
                 audio.attach(to: appState, mediaKeys: playback.mediaKeyStore(for: client))
             }
-            appState.prepareToLeaveProfile = { [audio] in
-                await audio.stopAndFlush()
-            }
             avatarImage = renderAvatar()
         }
         .onDisappear { audio.shutdown() }
@@ -116,9 +112,6 @@ struct MainShellView: View {
             }
             Tab("Music", systemImage: "music.note", value: ShellTab.music) {
                 musicTab
-            }
-            Tab("Books", systemImage: "books.vertical", value: ShellTab.books) {
-                booksTab
             }
             if audio.hasContent {
                 Tab("Now Playing", systemImage: audio.isPlaying ? "waveform" : "pause.fill", value: ShellTab.nowPlaying) {
@@ -160,15 +153,11 @@ struct MainShellView: View {
                 .tabItem { Text("Music") }
                 .tag(ShellTab.music)
 
-            booksTab
-                .tabItem { Text("Books") }
-                .tag(ShellTab.books)
-
             if audio.hasContent {
                 NowPlayingView(isInTab: true)
                     .tabItem {
-                        // Icon only, like Search: with a text label the eighth tab
-                        // pushes the profile tab out of the bar.
+                        // Icon only, like Search, so the bar keeps room for the
+                        // profile tab.
                         Image(systemName: audio.isPlaying ? "waveform" : "pause.fill")
                             .accessibilityLabel(Text("Now Playing"))
                     }
@@ -183,10 +172,7 @@ struct MainShellView: View {
 
     private var searchTab: some View {
         TabNavigation {
-            SearchView { tab, pane in
-                if let pane { booksPane = pane }
-                selection = tab
-            }
+            SearchView { selection = $0 }
         }
     }
 
@@ -204,10 +190,6 @@ struct MainShellView: View {
 
     private var musicTab: some View {
         TabNavigation { MusicView() }
-    }
-
-    private var booksTab: some View {
-        TabNavigation { BooksView(pane: $booksPane) }
     }
 
     private var accountTab: some View {
@@ -230,7 +212,8 @@ struct MainShellView: View {
         .accessibilityLabel(Text(verbatim: String(localized: "\(user.name), Profile and Settings", bundle: .localized)))
     }
 
-    /// Opens a Top Shelf / URL-scheme link: the item's page on the Home tab, or playback.
+    /// Opens a Top Shelf / URL-scheme link: the item's page on the Home tab, or playback
+    /// (Home alone for a book).
     private func openPendingDeepLink() async {
         guard let link = appState.pendingDeepLink, let client = appState.client else { return }
         // Cleared only once handled: clearing it earlier would cancel this task.
@@ -250,7 +233,8 @@ struct MainShellView: View {
         }
         selection = .home
         var path = NavigationPath()
-        path.append(Route.linkedItem(card))
+        // The app has no pages for books: a link to one just opens Home.
+        if !card.kind.isBook { path.append(Route.linkedItem(card)) }
         homePath = path
     }
 
@@ -284,7 +268,7 @@ struct MainShellView: View {
 }
 
 enum ShellTab: Hashable {
-    case search, home, movies, shows, music, books, nowPlaying, account
+    case search, home, movies, shows, music, nowPlaying, account
 }
 
 /// A tab's navigation stack with the app's routes registered. The stack's path is its

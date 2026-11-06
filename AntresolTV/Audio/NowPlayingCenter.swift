@@ -32,28 +32,14 @@ final class NowPlayingCenter {
             MPNowPlayingInfoPropertyPlaybackRate: player.isPlaying ? Double(player.player.rate) : 0,
             MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
         ]
-        if let book = player.book {
-            info[MPMediaItemPropertyTitle] = book.card.title
-            info[MPMediaItemPropertyArtist] = item.artist
-            if let chapter = player.currentChapter, !chapter.title.isEmpty {
-                info[MPMediaItemPropertyAlbumTitle] = chapter.title
-            }
-            info[MPMediaItemPropertyPlaybackDuration] = Double(book.durationMs) / 1000
-            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = Double(player.bookPositionMs) / 1000
-            if let chapter = player.currentChapter, let index = book.chapters.firstIndex(of: chapter) {
-                info[MPNowPlayingInfoPropertyChapterNumber] = index
-                info[MPNowPlayingInfoPropertyChapterCount] = book.chapters.count
-            }
-        } else {
-            info[MPMediaItemPropertyTitle] = item.title
-            info[MPMediaItemPropertyArtist] = item.artist
-            info[MPMediaItemPropertyAlbumTitle] = item.album
-            info[MPMediaItemPropertyPlaybackDuration] = player.durationSec
-            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = player.position
-            if let index = player.queue.currentIndex {
-                info[MPNowPlayingInfoPropertyPlaybackQueueIndex] = index
-                info[MPNowPlayingInfoPropertyPlaybackQueueCount] = player.queue.count
-            }
+        info[MPMediaItemPropertyTitle] = item.title
+        info[MPMediaItemPropertyArtist] = item.artist
+        info[MPMediaItemPropertyAlbumTitle] = item.album
+        info[MPMediaItemPropertyPlaybackDuration] = player.durationSec
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = player.position
+        if let index = player.queue.currentIndex {
+            info[MPNowPlayingInfoPropertyPlaybackQueueIndex] = index
+            info[MPNowPlayingInfoPropertyPlaybackQueueCount] = player.queue.count
         }
         if artworkPath == item.artwork, let artwork {
             info[MPMediaItemPropertyArtwork] = artwork
@@ -105,22 +91,9 @@ final class NowPlayingCenter {
         add(center.togglePlayPauseCommand) { player, _ in player.togglePlayPause() }
         add(center.nextTrackCommand) { player, _ in player.next() }
         add(center.previousTrackCommand) { player, _ in player.previous() }
-        center.skipForwardCommand.preferredIntervals = [30]
-        add(center.skipForwardCommand) { player, _ in player.skip(by: 30) }
-        center.skipBackwardCommand.preferredIntervals = [15]
-        add(center.skipBackwardCommand) { player, _ in player.skip(by: -15) }
         add(center.changePlaybackPositionCommand) { player, event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else { return }
-            if player.book != nil {
-                player.seek(toBookMs: Int(event.positionTime * 1000))
-            } else {
-                player.seek(to: event.positionTime)
-            }
-        }
-        center.changePlaybackRateCommand.supportedPlaybackRates = AudioPlayer.speeds.map { NSNumber(value: $0) }
-        add(center.changePlaybackRateCommand) { player, event in
-            guard let event = event as? MPChangePlaybackRateCommandEvent else { return }
-            player.setSpeed(event.playbackRate)
+            player.seek(to: event.positionTime)
         }
     }
 
@@ -128,14 +101,13 @@ final class NowPlayingCenter {
         commandTargets.append((command, command.addTarget(handler: target(action))))
     }
 
-    /// Music uses next/previous song; audiobooks use 15/30 s skips and chapter jumps.
+    /// Next/previous song; no skip intervals or speed for music.
     private func configureCommands() {
         let center = MPRemoteCommandCenter.shared()
-        let isBook = player.book != nil
-        center.skipForwardCommand.isEnabled = isBook
-        center.skipBackwardCommand.isEnabled = isBook
-        center.changePlaybackRateCommand.isEnabled = isBook
-        center.nextTrackCommand.isEnabled = isBook ? !(player.book?.chapters.isEmpty ?? true) : player.queue.nextIndex != nil
+        center.skipForwardCommand.isEnabled = false
+        center.skipBackwardCommand.isEnabled = false
+        center.changePlaybackRateCommand.isEnabled = false
+        center.nextTrackCommand.isEnabled = player.queue.nextIndex != nil
         center.previousTrackCommand.isEnabled = true
     }
 

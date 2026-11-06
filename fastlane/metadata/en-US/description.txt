@@ -1,4 +1,4 @@
-Antresol brings your home media library to Apple TV. The films, TV shows, music, audiobooks and comics you keep on your own computer or NAS, in one clean, native library on the big screen.
+Antresol brings your home media library to Apple TV. The films, TV shows and music you keep on your own computer or NAS, in one clean, native library on the big screen.
 
 Antresol is a player for the Antresol home media server, which you run yourself. No content is provided: the app shows only the files you put on your server.
 
@@ -12,10 +12,6 @@ MUSIC
 • Albums, artists, songs, genres and playlists.
 • Favourites and synced lyrics.
 • Background playback with the Siri Remote and Control Center.
-
-AUDIOBOOKS AND COMICS
-• Audiobooks with chapters, speed and a sleep timer; your position syncs across devices.
-• Manga and comics, with page spreads and right-to-left reading.
 
 FAMILY
 • Profiles with passwords and kid profiles with age limits.

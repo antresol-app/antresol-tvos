@@ -1,9 +1,8 @@
 import AntresolKit
 import SwiftUI
 
-/// The Now Playing screen for music and audiobooks: large artwork over a blurred, tinted
-/// backdrop; title, scrubber and transport controls on the left; Up Next, Lyrics or
-/// Chapters on the right. Shown full screen when playback starts and as the Now Playing tab.
+/// The Now Playing screen: large artwork over a blurred, tinted backdrop; title, scrubber
+/// and transport controls on the left; Up Next or Lyrics on the right. Shown full screen when playback starts and as the Now Playing tab.
 struct NowPlayingView: View {
     /// In the tab the top tab bar overlaps the page, so content starts lower.
     var isInTab = false
@@ -14,7 +13,7 @@ struct NowPlayingView: View {
         if let item = audio.current {
             NowPlayingContent(item: item, isInTab: isInTab)
         } else {
-            EmptyStateView(systemImage: "waveform", title: "Nothing is playing", message: "Play an album, a playlist or an audiobook and it shows up here.")
+            EmptyStateView(systemImage: "waveform", title: "Nothing is playing", message: "Play an album or a playlist and it shows up here.")
                 .background(Theme.Colors.background.ignoresSafeArea())
         }
     }
@@ -25,13 +24,11 @@ private struct NowPlayingContent: View {
     let isInTab: Bool
 
     enum Panel: Hashable {
-        case upNext, lyrics, chapters
+        case upNext, lyrics
     }
 
     @Environment(AudioPlayer.self) private var audio
     @State private var panel: Panel = .upNext
-    @State private var showsSpeed = false
-    @State private var showsSleep = false
     /// Playback controls start out focused, not the scrubber above them.
     @FocusState private var focusedControl: FocusedControl?
 
@@ -129,14 +126,6 @@ private struct NowPlayingContent: View {
                 .animation(Theme.Motion.slowEaseOut, value: audio.isPlaying)
 
             VStack(alignment: .leading, spacing: 6) {
-                if let chapter = audio.currentChapter, !chapter.title.isEmpty {
-                    Text(verbatim: chapter.title)
-                        .font(Theme.Typography.eyebrow)
-                        .tracking(2)
-                        .textCase(.uppercase)
-                        .foregroundStyle(Theme.Colors.label2)
-                        .lineLimit(1)
-                }
                 Text(verbatim: item.title)
                     .font(.system(size: 44, weight: .bold))
                     .foregroundStyle(Theme.Colors.label)
@@ -150,11 +139,11 @@ private struct NowPlayingContent: View {
             .padding(.top, 36)
 
             ScrubBar(
-                position: scrubPosition,
-                duration: scrubDuration,
-                step: audio.book != nil ? 30 : 10,
+                position: audio.position,
+                duration: audio.durationSec,
+                step: 10,
                 isBuffering: audio.isBuffering,
-                seek: seek,
+                seek: audio.seek(to:),
                 select: audio.togglePlayPause
             )
             .padding(.top, 28)
@@ -164,109 +153,40 @@ private struct NowPlayingContent: View {
         }
     }
 
-    private var scrubPosition: Double {
-        audio.book != nil ? Double(audio.bookPositionMs) / 1000 : audio.position
-    }
-
-    private var scrubDuration: Double {
-        if let book = audio.book { return Double(book.durationMs) / 1000 }
-        return audio.durationSec
-    }
-
-    private func seek(_ seconds: Double) {
-        if audio.book != nil {
-            audio.seek(toBookMs: Int(seconds * 1000))
-        } else {
-            audio.seek(to: seconds)
-        }
-    }
-
-    @ViewBuilder
     private var controls: some View {
-        if audio.book != nil {
-            VStack(alignment: .leading, spacing: 24) {
-                HStack(spacing: 20) {
-                    transportButton("Back 15 Seconds", "gobackward.15") { audio.skip(by: -15) }
-                    transportButton("Previous Chapter", "backward.end.fill") { audio.previous() }
-                    playPauseButton
-                    transportButton("Next Chapter", "forward.end.fill") { audio.next() }
-                    transportButton("Forward 30 Seconds", "goforward.30") { audio.skip(by: 30) }
-                }
-                HStack(spacing: 20) {
-                    Button {
-                        showsSpeed = true
-                    } label: {
-                        Label {
-                            Text(verbatim: AudioFormat.speed(audio.speed))
-                        } icon: {
-                            Image(systemName: "gauge.with.dots.needle.33percent")
-                        }
-                    }
-                    .buttonStyle(PillButtonStyle(kind: .glass))
-                    .accessibilityLabel(Text("Playback Speed"))
+        HStack(spacing: 18) {
+            Button {
+                audio.setShuffle(!audio.queue.isShuffled)
+            } label: {
+                Label("Shuffle", systemImage: "shuffle")
+            }
+            .buttonStyle(CircleButtonStyle(diameter: 80, isActive: audio.queue.isShuffled))
+            .accessibilityValue(Text(audio.queue.isShuffled ? LocalizedStringKey("On") : LocalizedStringKey("Off")))
 
-                    Button {
-                        showsSleep = true
-                    } label: {
-                        Label {
-                            SleepTimerLabel()
-                        } icon: {
-                            Image(systemName: "moon.zzz")
-                        }
-                    }
-                    .buttonStyle(PillButtonStyle(kind: .glass))
-                    .accessibilityLabel(Text("Sleep Timer"))
-                }
+            transportButton("Previous", "backward.fill") { audio.previous() }
+            playPauseButton
+            transportButton("Next", "forward.fill") { audio.next() }
+                .disabled(audio.queue.nextIndex == nil)
+
+            Button {
+                audio.cycleRepeat()
+            } label: {
+                Label("Repeat", systemImage: audio.queue.repeatMode == .one ? "repeat.1" : "repeat")
             }
-            .focusSection()
-            .confirmationDialog("Playback Speed", isPresented: $showsSpeed) {
-                ForEach(AudioPlayer.speeds, id: \.self) { speed in
-                    Button(AudioFormat.speed(speed) + (speed == audio.speed ? " ✓" : "")) { audio.setSpeed(speed) }
-                }
-            }
-            .confirmationDialog("Sleep Timer", isPresented: $showsSleep) {
-                ForEach(AudioPlayer.SleepTimer.choices, id: \.self) { timer in
-                    Button(AudioFormat.sleepTimer(timer)) { audio.setSleepTimer(timer) }
-                }
-                if audio.sleepTimer != nil {
-                    Button("Turn Off Timer", role: .destructive) { audio.setSleepTimer(nil) }
-                }
-            }
-        } else {
-            HStack(spacing: 18) {
+            .buttonStyle(CircleButtonStyle(diameter: 80, isActive: audio.queue.repeatMode != .off))
+            .accessibilityValue(Text(verbatim: AudioFormat.repeatMode(audio.queue.repeatMode)))
+
+            if let track = audio.currentTrack {
+                let starred = audio.isStarred(track)
                 Button {
-                    audio.setShuffle(!audio.queue.isShuffled)
+                    audio.toggleStar(track)
                 } label: {
-                    Label("Shuffle", systemImage: "shuffle")
+                    Label(starred ? "Remove from Favorites" : "Add to Favorites", systemImage: starred ? "star.fill" : "star")
                 }
-                .buttonStyle(CircleButtonStyle(diameter: 80, isActive: audio.queue.isShuffled))
-                .accessibilityValue(Text(audio.queue.isShuffled ? LocalizedStringKey("On") : LocalizedStringKey("Off")))
-
-                transportButton("Previous", "backward.fill") { audio.previous() }
-                playPauseButton
-                transportButton("Next", "forward.fill") { audio.next() }
-                    .disabled(audio.queue.nextIndex == nil)
-
-                Button {
-                    audio.cycleRepeat()
-                } label: {
-                    Label("Repeat", systemImage: audio.queue.repeatMode == .one ? "repeat.1" : "repeat")
-                }
-                .buttonStyle(CircleButtonStyle(diameter: 80, isActive: audio.queue.repeatMode != .off))
-                .accessibilityValue(Text(verbatim: AudioFormat.repeatMode(audio.queue.repeatMode)))
-
-                if let track = audio.currentTrack {
-                    let starred = audio.isStarred(track)
-                    Button {
-                        audio.toggleStar(track)
-                    } label: {
-                        Label(starred ? "Remove from Favorites" : "Add to Favorites", systemImage: starred ? "star.fill" : "star")
-                    }
-                    .buttonStyle(CircleButtonStyle(diameter: 80, isActive: starred))
-                }
+                .buttonStyle(CircleButtonStyle(diameter: 80, isActive: starred))
             }
-            .focusSection()
         }
+        .focusSection()
     }
 
     private var playPauseButton: some View {
@@ -289,10 +209,7 @@ private struct NowPlayingContent: View {
     // MARK: Right panel
 
     private var availablePanels: [Panel] {
-        if audio.book != nil {
-            return (audio.book?.chapters.count ?? 0) > 1 ? [.chapters] : []
-        }
-        return (audio.currentTrack?.hasLyrics ?? false) ? [.upNext, .lyrics] : [.upNext]
+        (audio.currentTrack?.hasLyrics ?? false) ? [.upNext, .lyrics] : [.upNext]
     }
 
     @ViewBuilder
@@ -317,10 +234,6 @@ private struct NowPlayingContent: View {
                             .id(track.id)
                             .frame(maxHeight: .infinity)
                     }
-                case .chapters:
-                    if let book = audio.book {
-                        ChaptersPanel(book: book)
-                    }
                 }
             }
             .focusSection()
@@ -331,23 +244,6 @@ private struct NowPlayingContent: View {
         switch panel {
         case .upNext: return String(localized: "Up Next", bundle: .localized)
         case .lyrics: return String(localized: "Lyrics", bundle: .localized)
-        case .chapters: return String(localized: "Chapters", bundle: .localized)
-        }
-    }
-}
-
-/// "Sleep Timer", or what it is set to with a live countdown.
-private struct SleepTimerLabel: View {
-    @Environment(AudioPlayer.self) private var audio
-
-    var body: some View {
-        if let deadline = audio.sleepDeadline {
-            Text(timerInterval: Date()...max(Date(), deadline), countsDown: true)
-                .monospacedDigit()
-        } else if audio.sleepTimer == .endOfChapter {
-            Text("End of Chapter")
-        } else {
-            Text("Sleep Timer")
         }
     }
 }
@@ -529,36 +425,6 @@ private struct QueueRowLabel: View {
     }
 }
 
-private struct ChaptersPanel: View {
-    let book: BookDetail
-    @Environment(AudioPlayer.self) private var audio
-
-    var body: some View {
-        let current = audio.currentChapter
-        ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(book.chapters.enumerated()), id: \.element.id) { index, chapter in
-                        Button {
-                            audio.seek(toBookMs: chapter.startMs)
-                        } label: {
-                            ChapterRowLabel(chapter: chapter, number: index + 1, isCurrent: chapter == current)
-                        }
-                        .buttonStyle(ListRowButtonStyle())
-                        .id(chapter.id)
-                    }
-                }
-                .padding(.vertical, 12)
-                .listRowOutdent()
-            }
-            .scrollClipDisabled()
-            .onAppear {
-                if let current { proxy.scrollTo(current.id, anchor: .center) }
-            }
-        }
-    }
-}
-
 /// Lyrics of the current song: synced lines follow the music with the current line
 /// highlighted; plain lyrics scroll line by line.
 private struct LyricsPanel: View {
@@ -665,19 +531,6 @@ private struct LyricLineView: View {
 
 /// Display strings for the audio player.
 enum AudioFormat {
-    /// "1×", "1.25×".
-    static func speed(_ value: Float) -> String {
-        let number = value == value.rounded() ? String(Int(value)) : String(format: "%g", value)
-        return number + "×"
-    }
-
-    static func sleepTimer(_ timer: AudioPlayer.SleepTimer) -> String {
-        switch timer {
-        case .minutes(let minutes): return String(localized: "\(minutes) min", bundle: .localized)
-        case .endOfChapter: return String(localized: "End of Chapter", bundle: .localized)
-        }
-    }
-
     static func repeatMode(_ mode: RepeatMode) -> String {
         switch mode {
         case .off: return String(localized: "Off", bundle: .localized)

@@ -2,9 +2,8 @@ import AVFoundation
 import AntresolKit
 import Foundation
 import Observation
-import UIKit
 
-/// The app-wide audio player for music and audiobooks.
+/// The app-wide music player.
 ///
 /// One `AVQueuePlayer` plays the current item with the next one queued behind it, so
 /// songs follow each other without a gap. Stream URLs carry the media key, so the player
@@ -12,72 +11,24 @@ import UIKit
 /// ALAC, FLAC); anything else is transcoded by the server, and such a stream is seeked by
 /// reloading it with `t=` (§7.3).
 ///
-/// Music scrobbles each song once (`POST /api/music/plays`). Audiobooks play their parts as
-/// one continuous book and save the whole-book position every 10 s, on pause and when the
-/// app goes to the background. The lock-screen style Now Playing info and the remote
-/// commands are kept in sync by `NowPlayingCenter`.
+/// Each song is scrobbled once (`POST /api/music/plays`). The lock-screen style Now
+/// Playing info and the remote commands are kept in sync by `NowPlayingCenter`.
 @MainActor
 @Observable
 final class AudioPlayer {
-    /// What is loaded.
-    enum Content: Equatable {
-        case music
-        case audiobook(BookDetail)
-    }
-
-    /// Something the queue plays: a song, or one part of an audiobook.
+    /// A song in the queue.
     struct Item: Hashable, Sendable {
-        enum Source: Hashable, Sendable {
-            case track(Track)
-            case audiobookPart(fileId: Int, index: Int)
-        }
+        let track: Track
 
-        let source: Source
-        let title: String
-        let artist: String
-        let album: String
-        let artwork: String
-        let durationMs: Int
-
-        var track: Track? {
-            if case .track(let track) = source { return track }
-            return nil
-        }
-
-        init(track: Track) {
-            source = .track(track)
-            title = track.title
-            artist = track.artist
-            album = track.album
-            artwork = track.cover
-            durationMs = track.durationMs
-        }
-
-        init(book: BookDetail, partIndex: Int) {
-            let file = book.files[partIndex]
-            source = .audiobookPart(fileId: file.id, index: partIndex)
-            title = book.card.title
-            artist = book.authors.joined(separator: ", ")
-            album = book.files.count > 1 ? String(localized: "Part \(partIndex + 1) of \(book.files.count)", bundle: .localized) : ""
-            artwork = book.card.poster
-            durationMs = file.durationMs
-        }
+        var title: String { track.title }
+        var artist: String { track.artist }
+        var album: String { track.album }
+        var artwork: String { track.cover }
+        var durationMs: Int { track.durationMs }
     }
-
-    /// Sleep timer choices for audiobooks.
-    enum SleepTimer: Hashable {
-        case minutes(Int)
-        case endOfChapter
-
-        static let choices: [SleepTimer] = [.minutes(5), .minutes(15), .minutes(30), .minutes(45), .minutes(60), .endOfChapter]
-    }
-
-    /// Playback speeds offered for audiobooks (0.75–3.0 in steps of 0.25, like the web app).
-    static let speeds: [Float] = stride(from: 0.75, through: 3.0, by: 0.25).map { Float($0) }
 
     // MARK: Observable state
 
-    private(set) var content: Content?
     private(set) var queue = PlayQueue<Item>()
     /// Playing, or waiting for data in order to play.
     private(set) var isPlaying = false
@@ -88,40 +39,15 @@ final class AudioPlayer {
     private(set) var notice: String?
     /// Stars changed in this session, by track id (the queue keeps the tracks as loaded).
     private(set) var starredTracks: [Int: Bool] = [:]
-    /// Audiobook speed.
-    private(set) var speed: Float
-    private(set) var sleepTimer: SleepTimer?
-    /// When a timed sleep timer pauses playback.
-    private(set) var sleepDeadline: Date?
-    /// Whole-book position where an "end of chapter" timer pauses playback.
-    private var sleepAtBookMs: Int?
     /// Incremented when Now Playing should come up (a new queue was started).
     private(set) var presentationRequests = 0
-    /// Incremented when an audiobook's saved position changed, so pages can refresh.
-    private(set) var progressRevision = 0
 
-    var hasContent: Bool { content != nil && !queue.isEmpty }
+    var hasContent: Bool { !queue.isEmpty }
     var current: Item? { queue.current?.element }
     var currentTrack: Track? { current?.track }
 
-    var book: BookDetail? {
-        if case .audiobook(let book) = content { return book }
-        return nil
-    }
-
     var durationSec: Double {
         Double(current?.durationMs ?? 0) / 1000
-    }
-
-    /// For audiobooks: the position on the whole-book timeline.
-    var bookPositionMs: Int {
-        guard let book, let index = currentPartIndex else { return 0 }
-        return book.audiobookTimeline.bookMs(partIndex: index, offsetMs: Int(position * 1000))
-    }
-
-    var currentChapter: Chapter? {
-        guard let book else { return nil }
-        return AudiobookTimeline.chapter(at: bookPositionMs, in: book.chapters)
     }
 
     /// The signed-in profile's API client.
@@ -140,29 +66,20 @@ final class AudioPlayer {
     /// The AVPlayerItems in the player, with what they play.
     @ObservationIgnored private var loaded: [ObjectIdentifier: LoadedItem] = [:]
     /// Whether a track id's stream is transcoded (learned from the response headers).
-    @ObservationIgnored private var transcodedStreams: [String: Bool] = [:]
+    @ObservationIgnored private var transcodedStreams: [Int: Bool] = [:]
     @ObservationIgnored private var scrobble: ScrobbleTracker?
-    @ObservationIgnored private var reporter: PlaybackProgressReporter?
     @ObservationIgnored private var pendingSeek: Double?
     @ObservationIgnored private var timeObserver: Any?
     @ObservationIgnored private var observers: [NSKeyValueObservation] = []
-    @ObservationIgnored private var notificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var itemObservers: [ObjectIdentifier: [NSKeyValueObservation]] = [:]
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     /// Queues the rest of a paged song list behind the current queue (`play(tracks:startAt:continuing:)`).
     @ObservationIgnored private var queueFill: Task<Void, Never>?
     @ObservationIgnored private var nowPlaying: NowPlayingCenter!
-    @ObservationIgnored private let defaults = UserDefaults.standard
-    /// Bumped by every start and stop, so a start that is still saving the previous
-    /// position gives up when another one (or a stop) came after it.
-    @ObservationIgnored private var startGeneration = 0
     /// Items that failed in a row; playback stops instead of cycling a failing queue.
     @ObservationIgnored private var consecutiveFailures = 0
 
-    private static let speedKey = "audio.audiobookSpeed"
     private static let maxConsecutiveFailures = 3
-    /// Audiobook part formats AVPlayer plays as sent (`BookFile.format`).
-    private static let nativeFormats: Set<String> = ["MP3", "M4A", "M4B", "AAC", "ALAC", "FLAC", "WAV", "AIFF", "AIF"]
 
     /// A player item and what it plays.
     private struct LoadedItem {
@@ -176,8 +93,6 @@ final class AudioPlayer {
     }
 
     init() {
-        let saved = defaults.float(forKey: Self.speedKey)
-        speed = Self.speeds.contains(saved) ? saved : 1
         player.actionAtItemEnd = .advance
         observers = [
             player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
@@ -190,22 +105,6 @@ final class AudioPlayer {
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
-        let center = NotificationCenter.default
-        notificationTokens = [
-            center.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: nil, queue: .main) { [weak self] note in
-                let item = note.object as? AVPlayerItem
-                MainActor.assumeIsolated { self?.itemEnded(item) }
-            },
-            center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.saveProgress() }
-            },
-            center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
-                let type = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap(AVAudioSession.InterruptionType.init(rawValue:))
-                MainActor.assumeIsolated {
-                    if type == .began { self?.saveProgress() }
-                }
-            },
-        ]
         nowPlaying = NowPlayingCenter(player: self)
     }
 
@@ -232,7 +131,7 @@ final class AudioPlayer {
             await starting.value
             do {
                 try await rest.run { batch in
-                    guard let self, !Task.isCancelled, self.content == .music else { return false }
+                    guard let self, !Task.isCancelled, self.hasContent else { return false }
                     self.queue.extend(with: batch.map(Item.init(track:)))
                     self.refreshUpcoming()
                     return true
@@ -255,23 +154,12 @@ final class AudioPlayer {
         var newQueue = PlayQueue(items, startAt: index ?? Int.random(in: 0..<items.count))
         newQueue.repeatMode = queue.repeatMode
         if shuffled { newQueue.setShuffle(true) }
-        return Task { await start(.music, queue: newQueue, at: 0) }
-    }
-
-    /// Plays an audiobook from its saved position (or `bookMs` when given).
-    func play(book: BookDetail, fromBookMs bookMs: Int? = nil) {
-        guard !book.files.isEmpty else { return }
-        let startMs = bookMs ?? ResumePolicy.audiobookStartMs(book)
-        let location = book.audiobookTimeline.locate(bookMs: startMs)
-        let items = book.files.indices.map { Item(book: book, partIndex: $0) }
-        queueFill?.cancel()
-        let newQueue = PlayQueue(items, startAt: location?.partIndex ?? 0)
-        Task { await start(.audiobook(book), queue: newQueue, at: Double(location?.offsetMs ?? 0) / 1000) }
+        return Task { await start(newQueue) }
     }
 
     /// Adds songs right after the current one, or plays them when nothing is playing.
     func playNext(_ tracks: [Track]) {
-        guard content == .music, !queue.isEmpty else { return play(tracks: tracks) }
+        guard hasContent else { return play(tracks: tracks) }
         queue.insertNext(tracks.map(Item.init(track:)))
         refreshUpcoming()
         showNotice(String(localized: "Playing next", bundle: .localized))
@@ -279,16 +167,10 @@ final class AudioPlayer {
 
     /// Adds songs to the end of the queue, or plays them when nothing is playing.
     func addToQueue(_ tracks: [Track]) {
-        guard content == .music, !queue.isEmpty else { return play(tracks: tracks) }
+        guard hasContent else { return play(tracks: tracks) }
         queue.append(contentsOf: tracks.map(Item.init(track:)))
         refreshUpcoming()
         showNotice(String(localized: "Added to queue", bundle: .localized))
-    }
-
-    /// Asks the shell to show Now Playing.
-    func requestPresentation() {
-        guard hasContent else { return }
-        presentationRequests += 1
     }
 
     /// Removes an upcoming song from the queue.
@@ -312,24 +194,25 @@ final class AudioPlayer {
             Task { await load(index: index, at: 0) }
             return
         }
-        player.playImmediately(atRate: playbackRate)
+        player.playImmediately(atRate: 1)
     }
 
     func pause() {
         player.pause()
-        saveProgress()
     }
 
-    /// Stops playback and empties the player; the audiobook position is saved in the background.
+    /// Stops playback and empties the player.
     func stop() {
-        let save = halt()
-        Task { await save() }
-    }
-
-    /// Stops playback and waits until the audiobook position is written, e.g. before the
-    /// profile's token is revoked.
-    func stopAndFlush() async {
-        await halt()()
+        queueFill?.cancel()
+        player.pause()
+        player.removeAllItems()
+        loaded = [:]
+        itemObservers = [:]
+        queue = PlayQueue()
+        position = 0
+        scrobble = nil
+        nowPlaying.clear()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     /// Stops playback and releases the player's observers and remote-command handlers.
@@ -342,57 +225,17 @@ final class AudioPlayer {
         }
         observers.forEach { $0.invalidate() }
         observers = []
-        notificationTokens.forEach(NotificationCenter.default.removeObserver)
-        notificationTokens = []
         noticeTask?.cancel()
         nowPlaying.invalidate()
     }
 
-    /// Empties the player and returns the write of the final audiobook position.
-    private func halt() -> @MainActor () async -> Void {
-        startGeneration += 1
-        queueFill?.cancel()
-        let reporter = reporter
-        let bookMs = bookPositionMs
-        let durationMs = book?.durationMs ?? 0
-        player.pause()
-        player.removeAllItems()
-        loaded = [:]
-        itemObservers = [:]
-        content = nil
-        queue = PlayQueue()
-        position = 0
-        scrobble = nil
-        cancelSleepTimer()
-        self.reporter = nil
-        nowPlaying.clear()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        return { [weak self] in
-            guard let reporter else { return }
-            await reporter.update(positionMs: bookMs, durationMs: durationMs)
-            await reporter.stop()
-            self?.progressRevision += 1
-        }
-    }
-
-    /// Next song, or next chapter of an audiobook.
     func next() {
-        if let book {
-            if let start = AudiobookTimeline.nextChapterStart(from: bookPositionMs, in: book.chapters) {
-                seek(toBookMs: start)
-            }
-            return
-        }
         guard let index = queue.nextIndex else { return }
         Task { await load(index: index, at: 0) }
     }
 
-    /// Previous song (or the start of this one after 3 s), or previous chapter.
+    /// Previous song, or the start of this one after 3 s.
     func previous() {
-        if let book {
-            seek(toBookMs: AudiobookTimeline.previousChapterStart(from: bookPositionMs, in: book.chapters))
-            return
-        }
         if position > 3 || queue.previousIndex == nil {
             seek(to: 0)
         } else if let index = queue.previousIndex {
@@ -406,16 +249,7 @@ final class AudioPlayer {
         Task { await load(index: index, at: 0) }
     }
 
-    func skip(by seconds: Double) {
-        if book != nil {
-            seek(toBookMs: max(0, bookPositionMs + Int(seconds * 1000)))
-        } else {
-            seek(to: min(max(0, position + seconds), max(0, durationSec - 1)))
-        }
-    }
-
     func setShuffle(_ on: Bool) {
-        guard content == .music else { return }
         queue.setShuffle(on)
         refreshUpcoming()
     }
@@ -436,41 +270,6 @@ final class AudioPlayer {
                 starredTracks[track.id] = !starred
                 if let message = appState?.message(for: error) { showNotice(message) }
             }
-        }
-    }
-
-    // MARK: - Audiobook controls
-
-    func setSpeed(_ value: Float) {
-        speed = value
-        defaults.set(value, forKey: Self.speedKey)
-        player.defaultRate = playbackRate
-        if isPlaying { player.rate = playbackRate }
-        nowPlaying.update()
-    }
-
-    func setSleepTimer(_ timer: SleepTimer?) {
-        sleepTimer = timer
-        switch timer {
-        case .minutes(let minutes):
-            sleepDeadline = Date().addingTimeInterval(TimeInterval(minutes * 60))
-            sleepAtBookMs = nil
-        case .endOfChapter:
-            sleepDeadline = nil
-            if let book {
-                sleepAtBookMs = AudiobookTimeline.chapterEnd(at: bookPositionMs, in: book.chapters, totalMs: book.durationMs)
-            }
-        case nil:
-            cancelSleepTimer()
-        }
-    }
-
-    func seek(toBookMs bookMs: Int) {
-        guard let book, let location = book.audiobookTimeline.locate(bookMs: bookMs) else { return }
-        if location.partIndex == queue.currentIndex {
-            seek(to: Double(location.offsetMs) / 1000)
-        } else {
-            Task { await load(index: location.partIndex, at: Double(location.offsetMs) / 1000) }
         }
     }
 
@@ -500,37 +299,13 @@ final class AudioPlayer {
 
     // MARK: - Loading
 
-    private func start(_ newContent: Content, queue newQueue: PlayQueue<Item>, at offset: Double) async {
-        startGeneration += 1
-        let generation = startGeneration
+    private func start(_ newQueue: PlayQueue<Item>) async {
         consecutiveFailures = 0
-        if let reporter {
-            // Taken first, so a start that runs meanwhile does not save it again.
-            self.reporter = nil
-            let bookMs = bookPositionMs
-            let durationMs = book?.durationMs ?? 0
-            await reporter.update(positionMs: bookMs, durationMs: durationMs)
-            await reporter.stop()
-            guard generation == startGeneration else { return }
-        }
-        if content != newContent {
-            cancelSleepTimer()
-        }
-        content = newContent
         queue = newQueue
         notice = nil
-        if case .audiobook(let book) = newContent, let client = appState?.client {
-            let reporter = PlaybackProgressReporter(client: client, itemId: book.id, interval: 10, minimumChangeMs: 1000)
-            self.reporter = reporter
-            await reporter.start()
-            guard generation == startGeneration else {
-                await reporter.stop()
-                return
-            }
-        }
         presentationRequests += 1
         guard let index = queue.currentIndex else { return }
-        await load(index: index, at: offset)
+        await load(index: index, at: 0)
     }
 
     /// Makes the queue entry at `index` the current item, starting at `offset` seconds.
@@ -550,7 +325,7 @@ final class AudioPlayer {
         position = offset
         startedItem(entry)
         activateSession()
-        player.playImmediately(atRate: playbackRate)
+        player.playImmediately(atRate: 1)
         refreshUpcoming()
     }
 
@@ -582,9 +357,7 @@ final class AudioPlayer {
 
     private func makePlayerItem(for entry: PlayQueue<Item>.Entry, offset: Double, transcoded: Bool, forceTranscode: Bool = false) -> AVPlayerItem? {
         guard let url = streamURL(for: entry.element, offset: transcoded ? offset : 0, forceTranscode: forceTranscode) else { return nil }
-        let item = AVPlayerItem(url: url)
-        item.audioTimePitchAlgorithm = book != nil ? .timeDomain : .spectral
-        return item
+        return AVPlayerItem(url: url)
     }
 
     private func streamURL(for item: Item, offset: Double, forceTranscode: Bool) -> URL? {
@@ -592,21 +365,16 @@ final class AudioPlayer {
         let accept = forceTranscode ? AudioCodec.apple.filter { $0 != .flac } : AudioCodec.apple
         let format: AudioTranscodeFormat? = forceTranscode ? .aac : nil
         let start = offset > 0 ? offset : nil
-        switch item.source {
-        case .track(let track):
-            return urls.trackStream(trackId: track.id, accept: accept, format: format, startSec: start, mediaKey: mediaKey)
-        case .audiobookPart(let fileId, _):
-            return urls.audio(fileId: fileId, accept: accept, format: format, startSec: start, mediaKey: mediaKey)
-        }
+        return urls.trackStream(trackId: item.track.id, accept: accept, format: format, startSec: start, mediaKey: mediaKey)
     }
 
-    /// Whether the server transcodes this item for our `accept` list: from the part's
-    /// format for audiobooks, otherwise from the stream's response headers (a transcode
-    /// has `X-Vault-Transcode: 1` and `Accept-Ranges: none`). Cached per stream.
+    /// Whether the server transcodes this song for our `accept` list, from the stream's
+    /// response headers (a transcode has `X-Vault-Transcode: 1` and `Accept-Ranges: none`).
+    /// Cached per song.
     private func transcoding(_ item: Item) async -> Bool {
         if let known = knownTranscoding(item) { return known }
         guard let url = streamURL(for: item, offset: 0, forceTranscode: false) else { return false }
-        let key = Self.streamKey(item)
+        let key = item.track.id
         var request = URLRequest(url: url)
         request.setValue("bytes=0-1", forHTTPHeaderField: "Range")
         do {
@@ -623,19 +391,7 @@ final class AudioPlayer {
     }
 
     private func knownTranscoding(_ item: Item) -> Bool? {
-        if let known = transcodedStreams[Self.streamKey(item)] { return known }
-        if case .audiobookPart(_, let index) = item.source, let book, book.files.indices.contains(index) {
-            let format = book.files[index].format.uppercased()
-            if !format.isEmpty { return !Self.nativeFormats.contains(format) }
-        }
-        return nil
-    }
-
-    private static func streamKey(_ item: Item) -> String {
-        switch item.source {
-        case .track(let track): return "track-\(track.id)"
-        case .audiobookPart(let fileId, _): return "audio-\(fileId)"
-        }
+        transcodedStreams[item.track.id]
     }
 
     private func register(_ playerItem: AVPlayerItem, entry: PlayQueue<Item>.Entry, offset: Double, transcoded: Bool, acceptsFLAC: Bool) {
@@ -720,13 +476,13 @@ final class AudioPlayer {
         guard let entry = queue.items.first(where: { $0.id == info.entryId }) else { return }
         let isCurrent = playerItem === player.currentItem
         if info.acceptsFLAC, let retry = makePlayerItem(for: entry, offset: isCurrent ? position : 0, transcoded: true, forceTranscode: true) {
-            transcodedStreams[Self.streamKey(entry.element)] = true
+            transcodedStreams[entry.element.track.id] = true
             let offset = isCurrent ? position : 0
             register(retry, entry: entry, offset: offset, transcoded: true, acceptsFLAC: false)
             player.insert(retry, after: playerItem)
             player.remove(playerItem)
             forget(playerItem)
-            if isCurrent { player.playImmediately(atRate: playbackRate) }
+            if isCurrent { player.playImmediately(atRate: 1) }
             return
         }
         player.remove(playerItem)
@@ -735,7 +491,6 @@ final class AudioPlayer {
         consecutiveFailures += 1
         if consecutiveFailures >= min(queue.count, Self.maxConsecutiveFailures) {
             player.pause()
-            saveProgress()
             showNotice(String(localized: "Playback stopped because the server isn’t sending audio. Try again later.", bundle: .localized))
             return
         }
@@ -745,18 +500,9 @@ final class AudioPlayer {
         }
     }
 
-    private func itemEnded(_ playerItem: AVPlayerItem?) {
-        guard let playerItem, loaded[ObjectIdentifier(playerItem)] != nil else { return }
-        if book != nil, queue.indexAfterCurrentEnds == nil {
-            // The last part ended: the book is finished.
-            saveProgress(atEnd: true)
-        }
-    }
-
     private func finishedQueue() {
         isPlaying = false
         position = durationSec
-        saveProgress(atEnd: book != nil)
         nowPlaying.update()
     }
 
@@ -780,20 +526,12 @@ final class AudioPlayer {
             }
             scrobble = tracker
         }
-        if let reporter, let book {
-            let bookMs = bookPositionMs
-            Task { await reporter.update(positionMs: bookMs, durationMs: book.durationMs) }
-        }
-        checkSleepTimer()
     }
 
     /// Bookkeeping when an item becomes current.
     private func startedItem(_ entry: PlayQueue<Item>.Entry) {
-        if let track = entry.element.track {
-            scrobble = ScrobbleTracker(trackId: track.id, durationMs: track.durationMs)
-        } else {
-            scrobble = nil
-        }
+        let track = entry.element.track
+        scrobble = ScrobbleTracker(trackId: track.id, durationMs: track.durationMs)
         nowPlaying.update()
     }
 
@@ -802,52 +540,12 @@ final class AudioPlayer {
         Task { try? await client.recordPlay(trackId: trackId, at: Date()) }
     }
 
-    /// Writes the audiobook position now (pause, background, stop).
-    private func saveProgress(atEnd: Bool = false) {
-        guard let reporter, let book else { return }
-        let bookMs = atEnd ? book.durationMs : bookPositionMs
-        Task {
-            await reporter.update(positionMs: bookMs, durationMs: book.durationMs)
-            await reporter.flush()
-            progressRevision += 1
-        }
-    }
-
-    // MARK: - Sleep timer
-
-    private func checkSleepTimer() {
-        guard isPlaying else { return }
-        if let deadline = sleepDeadline, Date() >= deadline {
-            cancelSleepTimer()
-            pause()
-        } else if let end = sleepAtBookMs, bookPositionMs >= end {
-            cancelSleepTimer()
-            pause()
-        }
-    }
-
-    private func cancelSleepTimer() {
-        sleepTimer = nil
-        sleepDeadline = nil
-        sleepAtBookMs = nil
-    }
-
     // MARK: - Helpers
-
-    private var currentPartIndex: Int? {
-        if case .audiobookPart(_, let index) = current?.source { return index }
-        return nil
-    }
-
-    private var playbackRate: Float {
-        book != nil ? speed : 1
-    }
 
     private func activateSession() {
         let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: book != nil ? .spokenAudio : .default)
+        try? session.setCategory(.playback, mode: .default)
         try? session.setActive(true)
-        player.defaultRate = playbackRate
     }
 
     private func showNotice(_ message: String) {

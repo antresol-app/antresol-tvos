@@ -3,16 +3,16 @@ import SwiftUI
 
 /// Artwork proportions used by cards.
 enum ArtworkShape {
-    /// 2:3 movie, series, book and comic posters.
+    /// 2:3 movie and series posters.
     case poster
-    /// 1:1 album, playlist and audiobook covers.
+    /// 1:1 album and playlist covers.
     case square
     /// Round artist portraits.
     case circle
 
     init(kind: ItemKind) {
         switch kind {
-        case .album, .playlist, .audiobook: self = .square
+        case .album, .playlist: self = .square
         case .artist: self = .circle
         default: self = .poster
         }
@@ -97,8 +97,8 @@ struct PosterCard: View {
 }
 
 extension Collection where Element == Card {
-    /// The shared artwork height for a row whose cards have different proportions (a
-    /// Currently Reading row of comics and audiobooks), or nil when they all match.
+    /// The shared artwork height for a row whose cards have different proportions (e.g.
+    /// movies and albums), or nil when they all match.
     var mixedShapeArtworkHeight: CGFloat? {
         let ratios = Set(map { ArtworkShape(kind: $0.kind).aspectRatio })
         return ratios.count > 1 ? Theme.Layout.posterWidth * ArtworkShape.poster.aspectRatio : nil

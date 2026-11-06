@@ -98,53 +98,5 @@
             <string>%lld albums</string>
         </dict>
     </dict>
-    <key>%lld audiobooks</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@audiobooks@</string>
-        <key>audiobooks</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>lld</string>
-            <key>one</key>
-            <string>%lld audiobook</string>
-            <key>other</key>
-            <string>%lld audiobooks</string>
-        </dict>
-    </dict>
-    <key>%lld books</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@books@</string>
-        <key>books</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>lld</string>
-            <key>one</key>
-            <string>%lld book</string>
-            <key>other</key>
-            <string>%lld books</string>
-        </dict>
-    </dict>
-    <key>%lld series</key>
-    <dict>
-        <key>NSStringLocalizedFormatKey</key>
-        <string>%#@series@</string>
-        <key>series</key>
-        <dict>
-            <key>NSStringFormatSpecTypeKey</key>
-            <string>NSStringPluralRuleType</string>
-            <key>NSStringFormatValueTypeKey</key>
-            <string>lld</string>
-            <key>one</key>
-            <string>%lld series</string>
-            <key>other</key>
-            <string>%lld series</string>
-        </dict>
-    </dict>
 </dict>
 </plist>

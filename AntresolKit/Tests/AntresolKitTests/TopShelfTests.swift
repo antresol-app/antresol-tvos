@@ -20,6 +20,25 @@ final class DeepLinkTests: XCTestCase {
     }
 }
 
+final class HomeFilterTests: XCTestCase {
+    func testWithoutBooksDropsBookCardsAndEmptiedShelves() throws {
+        let home = try Samples.decode(HomeResponse.self, "home.json")
+        XCTAssertNotNil(home.shelf(ShelfID.reading))
+        let filtered = home.withoutBooks
+        XCTAssertNil(filtered.shelf(ShelfID.reading))
+        XCTAssertEqual(filtered.shelves.map(\.id), home.shelves.map(\.id).filter { $0 != ShelfID.reading })
+        XCTAssertEqual(filtered.shelf(ShelfID.continueWatching)?.cards, home.shelf(ShelfID.continueWatching)?.cards)
+
+        let movie = Card(id: 1, kind: .movie, title: "Movie")
+        let mixed = HomeResponse(
+            hero: [Card(id: 2, kind: .book, title: "Book"), movie],
+            shelves: [Shelf(id: "want", title: "Want To", cards: [Card(id: 3, kind: .comicVolume, title: "Vol"), movie, Card(id: 4, kind: .audiobook, title: "Audio")])]
+        ).withoutBooks
+        XCTAssertEqual(mixed.hero, [movie])
+        XCTAssertEqual(mixed.shelf("want")?.cards, [movie])
+    }
+}
+
 final class TopShelfPlanTests: XCTestCase {
     func testSectionsFromHome() throws {
         let home = try Samples.decode(HomeResponse.self, "home.json")

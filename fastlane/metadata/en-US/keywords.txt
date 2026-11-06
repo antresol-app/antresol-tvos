@@ -1,1 +1,1 @@
-media server,home media,movies,tv shows,music,audiobooks,comics,manga,self-hosted,nas,library
+media server,home media,movies,tv shows,music,self-hosted,nas,library,player,streaming,family

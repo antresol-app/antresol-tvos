@@ -174,11 +174,5 @@ final class StoreScreenshotTests: XCTestCase {
         sleep(4)
         shot("7-now-playing")
         dump("now-playing")
-        remote.press(.menu)
-        sleep(2)
-
-        section("Books")
-        remote.press(.right)
-        shot("8-books", delay: 4)
     }
 }

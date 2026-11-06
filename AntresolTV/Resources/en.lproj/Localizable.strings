@@ -30,7 +30,6 @@
 "Movies" = "Movies";
 "TV Shows" = "TV Shows";
 "Music" = "Music";
-"Books" = "Books";
 
 /* Profile tab */
 "Administrator" = "Administrator";
@@ -49,7 +48,7 @@
 "Resume" = "Resume";
 "Details" = "Details";
 "Your library is empty" = "Your library is empty";
-"Add movies, shows, music or books to the server's media folders and they will appear here." = "Add movies, shows, music or books to the server's media folders and they will appear here.";
+"Add movies, shows or music to the server's media folders and they will appear here." = "Add movies, shows or music to the server's media folders and they will appear here.";
 "%lld min" = "%lld min";
 
 /* Item kinds */
@@ -60,10 +59,6 @@
 "Artist" = "Artist";
 "Album" = "Album";
 "Playlist" = "Playlist";
-"Audiobook" = "Audiobook";
-"Book" = "Book";
-"Comic" = "Comic";
-"Comic Volume" = "Comic Volume";
 
 /* Library */
 "Recently Added" = "Recently Added";
@@ -106,17 +101,14 @@
 "There is no playable file for this item." = "There is no playable file for this item.";
 
 /* Search */
-"Movies, music and books" = "Movies, music and books";
+"Movies, shows and music" = "Movies, shows and music";
 "No results for “%@”" = "No results for “%@”";
-"Try another title, artist or author." = "Try another title, artist or author.";
+"Try another title or artist." = "Try another title or artist.";
 "Browse" = "Browse";
-"Search for movies, music and books in your library." = "Search for movies, music and books in your library.";
+"Search for movies, shows and music in your library." = "Search for movies, shows and music in your library.";
 "Artists" = "Artists";
 "Albums" = "Albums";
 "Songs" = "Songs";
-"Audiobooks" = "Audiobooks";
-"Comics" = "Comics";
-"Manga & Comics" = "Manga & Comics";
 
 /* Player */
 "Resume from %@" = "Resume from %@";
@@ -138,7 +130,7 @@
 "This profile is already watching on another device. Stop playback there and try again." = "This profile is already watching on another device. Stop playback there and try again.";
 "The video stopped playing. Check the connection to the server and try again." = "The video stopped playing. Check the connection to the server and try again.";
 
-/* Music, audiobooks and comics */
+/* Music */
 "Listen Now" = "Listen Now";
 "Playlists" = "Playlists";
 "Genre" = "Genre";
@@ -152,7 +144,6 @@
 "Next" = "Next";
 "Pause" = "Pause";
 "By Artist" = "By Artist";
-"By Author" = "By Author";
 "Recently Played" = "Recently Played";
 "All Songs" = "All Songs";
 "Favorites" = "Favorites";
@@ -185,48 +176,14 @@
 "No playlists yet" = "No playlists yet";
 "Now Playing" = "Now Playing";
 "Nothing is playing" = "Nothing is playing";
-"Play an album, a playlist or an audiobook and it shows up here." = "Play an album, a playlist or an audiobook and it shows up here.";
+"Play an album or a playlist and it shows up here." = "Play an album or a playlist and it shows up here.";
 "Up Next" = "Up Next";
 "Lyrics" = "Lyrics";
-"Chapters" = "Chapters";
 "Nothing up next." = "Nothing up next.";
 "The queue starts over after this song." = "The queue starts over after this song.";
 "No lyrics for this song." = "No lyrics for this song.";
 "Playback Position" = "Playback Position";
-"Playback Speed" = "Playback Speed";
-"Sleep Timer" = "Sleep Timer";
-"End of Chapter" = "End of Chapter";
-"Turn Off Timer" = "Turn Off Timer";
-"Back 15 Seconds" = "Back 15 Seconds";
-"Forward 30 Seconds" = "Forward 30 Seconds";
-"Previous Chapter" = "Previous Chapter";
-"Next Chapter" = "Next Chapter";
 "Couldn’t play “%@”." = "Couldn’t play “%@”.";
-"Part %lld of %lld" = "Part %1$lld of %2$lld";
-"Reading Now" = "Reading Now";
-"Want to Read" = "Want to Read";
-"Narrated by %@" = "Narrated by %@";
-"Finished" = "Finished";
-"Chapter %lld" = "Chapter %lld";
-"No books yet" = "No books yet";
-"Add audiobooks, comics and books to the server's media folders and scan the library." = "Add audiobooks, comics and books to the server's media folders and scan the library.";
-"No comics yet" = "No comics yet";
-"Continue Reading" = "Continue Reading";
-"Read" = "Read";
-"Volumes" = "Volumes";
-"Next Volume" = "Next Volume";
-"Go to Series" = "Go to Series";
-"Right to left" = "Right to left";
-"Page %lld" = "Page %lld";
-"Page %@ of %lld" = "Page %1$@ of %2$lld";
-"Page %lld couldn’t be loaded." = "Page %lld couldn’t be loaded.";
-"This volume has no pages." = "This volume has no pages.";
-"End of Volume" = "End of Volume";
-"Press Menu to close, or go back to the last page." = "Press Menu to close, or go back to the last page.";
-"Play/Pause: show one page" = "Play/Pause: show one page";
-"Play/Pause: show two pages" = "Play/Pause: show two pages";
-"Reading books isn’t available on Apple TV" = "Reading books isn’t available on Apple TV";
-"Open this book in Antresol on your phone, tablet or computer. Your place is saved on the server." = "Open this book in Antresol on your phone, tablet or computer. Your place is saved on the server.";
 
 /* Settings */
 "Playback" = "Playback";
@@ -249,12 +206,12 @@
 "This Apple TV is removed from the profile's devices. You can sign in again from the profile picker." = "This Apple TV is removed from the profile's devices. You can sign in again from the profile picker.";
 "The Apple TV app for the Antresol home media server. It is built only on Apple's system frameworks (SwiftUI, AVKit, MediaPlayer, TVServices) and contains no third-party code." = "The Apple TV app for the Antresol home media server. It is built only on Apple's system frameworks (SwiftUI, AVKit, MediaPlayer, TVServices) and contains no third-party code.";
 "Your library" = "Your library";
-"Films, shows, music, books, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else." = "Films, shows, music, books, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else.";
+"Films, shows, music, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else." = "Films, shows, music, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else.";
 "Apple" = "Apple";
 "The system font and SF Symbols are provided by Apple and used under Apple's licence terms." = "The system font and SF Symbols are provided by Apple and used under Apple's licence terms.";
 "About This App" = "About This App";
 
-/* Errors, version picker, carousel, shelves, comics (review fixes) */
+/* Errors, version picker, carousel, shelves (review fixes) */
 "Couldn't reach the server. Check that it is running and on the same network." = "Couldn't reach the server. Check that it is running and on the same network.";
 "Sign in again to continue." = "Sign in again to continue.";
 "Something went wrong. Try again." = "Something went wrong. Try again.";
@@ -265,7 +222,6 @@
 "Playback stopped because the server isn’t sending audio. Try again later." = "Playback stopped because the server isn’t sending audio. Try again later.";
 "Play Version" = "Play Version";
 "Featured %lld of %lld" = "Featured %1$lld of %2$lld";
-"Press Select to read the next volume, or Menu to close." = "Press Select to read the next volume, or Menu to close.";
 "Nothing here yet" = "Nothing here yet";
 
 /* Playlist editing, devices */

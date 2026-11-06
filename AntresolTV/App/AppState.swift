@@ -56,9 +56,6 @@ final class AppState {
     /// so requests still in flight when the profile changes (final progress writes,
     /// scrobbles) finish with the token they started with and never leak into the next one.
     private var profileClient: APIClient?
-    /// Runs before the current token is revoked (sign out), so playback can write its
-    /// final position while the token is still valid. Set by the signed-in shell.
-    var prepareToLeaveProfile: (@MainActor () async -> Void)?
     /// Where "Cancel" on the server screen returns to.
     private var phaseBeforeServerChange: Phase?
 
@@ -179,11 +176,9 @@ final class AppState {
         leaveProfile()
     }
 
-    /// Writes the final playback position, then revokes the current token on the server
-    /// and forgets it.
+    /// Revokes the current token on the server and forgets it.
     func signOut() async {
         guard let server, let user = currentUser, let profileClient else { return }
-        await prepareToLeaveProfile?()
         try? await profileClient.signOut()
         try? tokens.removeToken(for: CredentialKey(serverId: server.serverId, userId: user.id))
         leaveProfile()
@@ -198,7 +193,6 @@ final class AppState {
 
     private func leaveProfile() {
         profileClient = nil
-        prepareToLeaveProfile = nil
         settings.lastUserId = nil
         phase = .needsProfile
     }
