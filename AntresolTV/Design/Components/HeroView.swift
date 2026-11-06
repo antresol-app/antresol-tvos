@@ -18,6 +18,9 @@ struct HeroView: View {
     /// Each featured item's page (genres, rating, description, watchlist state), loaded
     /// once per item: the carousel comes back to the same few items every 8 seconds.
     @State private var details: [String: ItemDetail] = [:]
+    /// The `AppState.libraryRevision` each page was loaded at: a watchlist change (here or
+    /// on a page) makes it stale, and it is reloaded while the old one stays on screen.
+    @State private var loadedRevisions: [String: Int] = [:]
     @FocusState private var focusedButton: Control?
 
     private enum Control: Hashable {
@@ -93,10 +96,6 @@ struct HeroView: View {
             }
         }
         .task(id: "\(card.uniqueKey) \(appState.libraryRevision)") { await loadDetail() }
-        .onChange(of: appState.libraryRevision) {
-            // A watchlist change (here or on a page) makes the cached pages stale.
-            details = [:]
-        }
         .onChange(of: features) {
             if index >= features.count { index = 0 }
         }
@@ -196,10 +195,13 @@ struct HeroView: View {
     private func loadDetail() async {
         let key = card.uniqueKey
         // `GET /api/items/{id}` serves films and shows only.
-        guard card.kind.isVideo, details[key] == nil, let client = appState.client,
+        let revision = appState.libraryRevision
+        guard card.kind.isVideo, details[key] == nil || loadedRevisions[key] != revision,
+              let client = appState.client,
               let loaded = try? await client.item(id: card.id), !Task.isCancelled
         else { return }
         details[key] = loaded
+        loadedRevisions[key] = revision
     }
 
     private func toggleWatchlist() async {

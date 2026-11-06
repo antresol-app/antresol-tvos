@@ -812,7 +812,8 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   line of description (from `GET /api/items/{id}`, loaded per featured item), the light Play pill
   and round glass buttons for watchlist (toggles via the API), details and the next item, page
   dots; Continue Watching rises 260 pt into it (`Theme.Layout.heroOverlap`). Item pages are
-  cached per featured item and dropped when `AppState.libraryRevision` changes.
+  cached per featured item and reloaded (old one kept on screen) after `AppState.libraryRevision`
+  changes.
 - **Lyrics page**: choosing Lyrics in Now Playing switches the layout: artwork colour fills the
   screen (blurred artwork at full opacity), artwork with title and artist centred under it and
   previous/play/next on the left, 64 pt synced lines on the right (current white, others 38 %).

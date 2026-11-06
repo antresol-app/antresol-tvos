@@ -187,10 +187,12 @@ final class ScreenshotTests: XCTestCase {
         pause(3)
         snapshot(app, "25-music-listen-now")
 
-        // Shuffle All, then the first album of the first shelf.
-        XCTAssertTrue(moveFocus(.down, to: app.buttons["Shuffle All"], limit: 2))
-        remote.press(.down)
-        pause(1)
+        // The first album of the first shelf (it has the song with lyrics). Down from the
+        // section pill lands on the shelf's nearest card; Left walks back to the first.
+        let album = card(app, "Sample Record")
+        if !moveFocus(.down, to: album, limit: 2) {
+            XCTAssertTrue(moveFocus(.left, to: album, limit: 4), "focus: \(focusedLabel(app))")
+        }
         remote.press(.select)
         let play = app.buttons["Play"]
         XCTAssertTrue(play.waitForExistence(timeout: 20))
@@ -213,7 +215,11 @@ final class ScreenshotTests: XCTestCase {
             remote.press(.right)
             pause(1)
         }
-        XCTAssertTrue(moveFocus(.up, to: app.buttons["Up Next"], limit: 3))
+        // Up reaches the Up Next / Lyrics pill (on either option), then Lyrics.
+        for _ in 0..<3 where !(app.buttons["Up Next"].hasFocus || app.buttons["Lyrics"].hasFocus) {
+            remote.press(.up)
+            pause(1)
+        }
         XCTAssertTrue(moveFocus(.right, to: app.buttons["Lyrics"], limit: 2))
         remote.press(.select)
         pause(3)
@@ -527,6 +533,12 @@ final class ScreenshotTests: XCTestCase {
         guard marker.waitForExistence(timeout: 15) else { return false }
         pause(2)
         return true
+    }
+
+    /// The focused element's label, for failure messages.
+    private func focusedLabel(_ app: XCUIApplication) -> String {
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        return focused.exists ? "\(focused.label) \(focused.frame)" : "none"
     }
 
     /// Menu until the player is gone (it may first close a panel or the transport bar).
