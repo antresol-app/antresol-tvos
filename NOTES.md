@@ -799,7 +799,9 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   the segmented pill, settings rows, list-row focus plates, shelf-title focus, the notice banner
   and the comic reader panel use it, so every control the app draws (detail actions, hero
   buttons, Now Playing and audiobook transport, the resume prompt and Up Next over the video)
-  is glass with a lift and shadow when focused. `GlassGroup` wraps rows in a
+  is glass with a lift and shadow when focused. Banners and the comic panel use
+  non-interactive glass; settings rows are clear at rest with glass on the focus plate; the
+  segmented pill is one glass capsule with plain white plates inside. `GlassGroup` wraps rows in a
   `GlassEffectContainer` (merge distance 0, so a lifting pill does not grow a bridge to its
   neighbour). AVKit's transport bar stays native.
 - **Sidebar** (`MainShellView`): on tvOS 18+ a `Tab`-based `TabView` with `.sidebarAdaptable`:
@@ -809,7 +811,8 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
 - **Home hero**: full-screen (1080 pt) with title, kind · genres + outlined age-rating badge, one
   line of description (from `GET /api/items/{id}`, loaded per featured item), the light Play pill
   and round glass buttons for watchlist (toggles via the API), details and the next item, page
-  dots; Continue Watching rises 300 pt into it (`HeroView.overlap`).
+  dots; Continue Watching rises 260 pt into it (`Theme.Layout.heroOverlap`). Item pages are
+  cached per featured item and dropped when `AppState.libraryRevision` changes.
 - **Lyrics page**: choosing Lyrics in Now Playing switches the layout: artwork colour fills the
   screen (blurred artwork at full opacity), artwork with title and artist centred under it and
   previous/play/next on the left, 64 pt synced lines on the right (current white, others 38 %).
@@ -826,13 +829,16 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   TV app's; the detail pages keep labelled pills.
 
 ### Known gaps
-- At launch the system sidebar is open and holds focus for a few seconds before it collapses
-  onto the hero. A deep link opened at launch (Top Shelf) therefore shows the page with focus
-  still in the sidebar: Right enters it. Moving focus out programmatically failed with a
-  `FocusState` assignment after a delay and with `focusScope` + `prefersDefaultFocus` +
-  `resetFocus`. On tvOS 17 the old path (focus moves to Play) still applies.
+- At launch the system sidebar is open and holds focus until the system collapses it, about
+  8 s on the simulator; focus then lands on the page's default focus (Play on the hero or on
+  a Top Shelf-linked page, `defaultFocus(..., priority: .userInitiated)`). Moving focus out
+  sooner failed with a delayed `FocusState` assignment and with `focusScope` +
+  `prefersDefaultFocus` + `resetFocus`. The timed assignment remains for tvOS 17 only.
 - Compared with Apple's references, the mock has no real artwork (gradient placeholders, the
   series has no backdrop), so the hero and lyrics screens look emptier; the lyrics have two lines.
 - The lyrics page keeps a small transport row and the Up Next / Lyrics pill visible; the Music
   app hides its controls until the remote is touched.
 - Glass was checked on the tvOS 27.2 simulator only, not on a device or on tvOS 26.
+- tvOS 17 coverage: the fallbacks (top tab bar, flat fills, the timed deep-link focus) were
+  only compiled, never run. Only the tvOS 27.2 simulator runtime is installed here, and the UI
+  tests now navigate through the sidebar, so they would not run there unchanged.

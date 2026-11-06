@@ -55,7 +55,7 @@ private struct NowPlayingContent: View {
                 Group {
                     if showsLyrics { lyricsColumn } else { leftColumn }
                 }
-                .frame(width: showsLyrics ? 560 : 680, alignment: .leading)
+                .frame(width: showsLyrics ? Theme.Layout.lyricsColumnWidth : 680, alignment: .leading)
                 rightPanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -87,8 +87,8 @@ private struct NowPlayingContent: View {
     /// the transport controls.
     private var lyricsColumn: some View {
         VStack(spacing: 0) {
-            CardArtwork(title: item.album.isEmpty ? item.title : item.album, paths: [item.artwork], cornerRadius: 14, maxPixelSize: 900)
-                .frame(width: 420, height: 420)
+            CardArtwork(title: item.album.isEmpty ? item.title : item.album, paths: [item.artwork], cornerRadius: 14, maxPixelSize: Theme.Layout.lyricsArtwork * 2)
+                .frame(width: Theme.Layout.lyricsArtwork, height: Theme.Layout.lyricsArtwork)
                 .shadow(color: .black.opacity(0.35), radius: 30, y: 18)
             HStack(spacing: 10) {
                 if audio.isPlaying {
@@ -98,7 +98,7 @@ private struct NowPlayingContent: View {
                 Text(verbatim: item.title)
                     .lineLimit(1)
             }
-            .font(.system(size: 28, weight: .semibold))
+            .font(Theme.Typography.lyricsTrackTitle)
             .foregroundStyle(Theme.Colors.label)
             .padding(.top, 24)
             Text(verbatim: item.artist)
@@ -604,13 +604,13 @@ private struct SyncedLyrics: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 40) {
+                VStack(alignment: .leading, spacing: Theme.Layout.lyricLineSpacing) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
                         // Large like the Music app's lyrics: the current line bright, the
                         // others translucent over the artwork colour.
                         Text(verbatim: line.text.isEmpty ? "♪" : line.text)
-                            .font(.system(size: 64, weight: .bold))
-                            .foregroundStyle(.white.opacity(index == current ? 1 : 0.38))
+                            .font(Theme.Typography.lyricLine)
+                            .foregroundStyle(index == current ? Color.white : Theme.Colors.lyricInactive)
                             .blur(radius: index == current ? 0 : 0.6)
                             .scaleEffect(index == current ? 1 : 0.97, anchor: .leading)
                             .animation(Theme.Motion.easeOut, value: current)
@@ -654,8 +654,8 @@ private struct LyricLineView: View {
 
     var body: some View {
         Text(verbatim: text.isEmpty ? " " : text)
-            .font(.system(size: 52, weight: .bold))
-            .foregroundStyle(.white.opacity(isFocused ? 1 : 0.4))
+            .font(Theme.Typography.lyricPlainLine)
+            .foregroundStyle(isFocused ? Color.white : Theme.Colors.lyricInactive)
             .frame(maxWidth: .infinity, alignment: .leading)
             .focusable()
             .focusEffectDisabled()

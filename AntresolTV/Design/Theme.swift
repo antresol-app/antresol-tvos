@@ -22,6 +22,12 @@ enum Theme {
         static let hairline = Color.white.opacity(0.12)
         static let glassFill = Color(hex: 0x1C1C20).opacity(0.92)
         static let glassBorder = Color.white.opacity(0.08)
+        /// Glass tint of the primary pill (Play) at rest: near-white, like the TV app's.
+        static let glassProminentTint = Color.white.opacity(0.94)
+        /// A focused but unselected option of a segmented pill.
+        static let segmentFocusTint = Color.white.opacity(0.78)
+        /// Lyric lines other than the current one, over the artwork colour.
+        static let lyricInactive = Color.white.opacity(0.4)
     }
 
     enum Gradients {
@@ -74,6 +80,13 @@ enum Theme {
         static let badge = Font.system(size: 17, weight: .semibold)
         static let button = Font.system(size: 28, weight: .semibold)
         static let segment = Font.system(size: 26, weight: .semibold)
+        /// The outlined age rating on the Home hero.
+        static let ratingBadge = Font.system(size: 18, weight: .bold)
+        /// Synced lyric lines; plain (unsynced) lyrics are a step smaller.
+        static let lyricLine = Font.system(size: 64, weight: .bold)
+        static let lyricPlainLine = Font.system(size: 52, weight: .bold)
+        /// The song title under the artwork on the lyrics page.
+        static let lyricsTrackTitle = Font.system(size: 28, weight: .semibold)
 
         static func avatarInitial(size: CGFloat) -> Font {
             .system(size: size * 0.44, weight: .semibold, design: .rounded)
@@ -86,6 +99,7 @@ enum Theme {
         static let control: CGFloat = 12
         static let sheet: CGFloat = 20
         static let badge: CGFloat = 6
+        static let ratingBadge: CGFloat = 4
     }
 
     enum Layout {
@@ -97,6 +111,17 @@ enum Theme {
         static let squareWidth: CGFloat = 300
         static let wideWidth: CGFloat = 500
         static let heroHeight: CGFloat = 1080
+        /// How far the row under the Home hero rises into it.
+        static let heroOverlap: CGFloat = 260
+        /// Distance from the hero's bottom edge to its buttons, and to its page dots.
+        static let heroContentInset: CGFloat = 285
+        static let heroDotsInset: CGFloat = 225
+        /// The hero's round icon buttons (watchlist, details, next).
+        static let heroCircleButton: CGFloat = 76
+        /// Lyrics page: the left column, its artwork and the space between lyric lines.
+        static let lyricsColumnWidth: CGFloat = 560
+        static let lyricsArtwork: CGFloat = 420
+        static let lyricLineSpacing: CGFloat = 40
         /// Height of the artwork header on detail pages.
         static let detailHeaderHeight: CGFloat = 900
         /// Episode cards on a series page.

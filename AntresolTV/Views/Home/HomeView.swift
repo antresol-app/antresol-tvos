@@ -53,7 +53,7 @@ struct HomeView: View {
                 if !content.features.isEmpty {
                     HeroView(features: content.features)
                         // The next row rises into the hero's bottom edge, as in the TV app.
-                        .padding(.bottom, -HeroView.overlap)
+                        .padding(.bottom, -Theme.Layout.heroOverlap)
                 } else {
                     Color.clear.frame(height: 140)
                 }

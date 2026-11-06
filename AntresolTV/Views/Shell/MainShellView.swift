@@ -2,8 +2,9 @@ import AntresolKit
 import SwiftUI
 import TVServices
 
-/// The signed-in app: native tvOS top tab bar with Search, the library sections and the
-/// profile tab. Each tab keeps its own navigation stack.
+/// The signed-in app: the system sidebar on tvOS 18 and later (the top tab bar before it)
+/// with Search, the library sections, Now Playing and the profile. Each tab keeps its own
+/// navigation stack.
 struct MainShellView: View {
     let user: User
 

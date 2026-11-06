@@ -5,15 +5,12 @@ import SwiftUI
 /// artwork fills the screen, then a huge title, a metadata line (kind, genres, rating
 /// badge), a one-line description, the light Play pill and round glass buttons for the
 /// watchlist, the details page and the next featured item. Page dots show the position.
-/// The first shelf below overlaps the hero's bottom edge (`HeroView.overlap`).
+/// The first shelf below overlaps the hero's bottom edge (`Theme.Layout.heroOverlap`).
 ///
 /// With several featured items it advances every 8 seconds while its buttons are not
 /// focused; Left on Play goes back by hand. The backgrounds cross-fade.
 struct HeroView: View {
     let features: [HomeContent.Feature]
-
-    /// How far the next row on the page rises into the hero.
-    static let overlap: CGFloat = 300
 
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
@@ -76,13 +73,13 @@ struct HeroView: View {
             }
             .frame(maxWidth: 1100, alignment: .leading)
             .padding(.horizontal, Theme.Layout.margin)
-            .padding(.bottom, Self.overlap + 70)
+            .padding(.bottom, Theme.Layout.heroContentInset)
             .animation(Theme.Motion.easeOut, value: index)
 
             if features.count > 1 {
                 pageDots
                     .frame(maxWidth: .infinity)
-                    .padding(.bottom, Self.overlap + 24)
+                    .padding(.bottom, Theme.Layout.heroDotsInset)
             }
         }
         .frame(maxWidth: .infinity, minHeight: Theme.Layout.heroHeight, maxHeight: Theme.Layout.heroHeight, alignment: .bottomLeading)
@@ -128,7 +125,7 @@ struct HeroView: View {
                     } label: {
                         Label("Watchlist", systemImage: inWatchlist ? "checkmark" : "plus")
                     }
-                    .buttonStyle(CircleButtonStyle(diameter: 76))
+                    .buttonStyle(CircleButtonStyle(diameter: Theme.Layout.heroCircleButton))
                     .focused($focusedButton, equals: .watchlist)
                     .disabled(detail == nil)
                     .accessibilityValue(Text(inWatchlist ? LocalizedStringKey("In Watchlist") : LocalizedStringKey("Not in Watchlist")))
@@ -137,7 +134,7 @@ struct HeroView: View {
                 NavigationLink(value: Route.item(card)) {
                     Label("Details", systemImage: "info.circle")
                 }
-                .buttonStyle(CircleButtonStyle(diameter: 76))
+                .buttonStyle(CircleButtonStyle(diameter: Theme.Layout.heroCircleButton))
                 .focused($focusedButton, equals: .details)
 
                 if features.count > 1 {
@@ -146,7 +143,7 @@ struct HeroView: View {
                     } label: {
                         Label("Next", systemImage: "chevron.right")
                     }
-                    .buttonStyle(CircleButtonStyle(diameter: 76))
+                    .buttonStyle(CircleButtonStyle(diameter: Theme.Layout.heroCircleButton))
                     .focused($focusedButton, equals: .next)
                 }
             }
@@ -166,11 +163,11 @@ struct HeroView: View {
                 .lineLimit(1)
             if let rating = detail?.rating, !rating.isEmpty {
                 Text(verbatim: rating)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(Theme.Typography.ratingBadge)
                     .foregroundStyle(Theme.Colors.label)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
-                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.Colors.label, lineWidth: 1.5))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.ratingBadge).strokeBorder(Theme.Colors.label, lineWidth: 1.5))
             }
         }
     }
