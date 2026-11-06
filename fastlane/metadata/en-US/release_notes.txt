@@ -1,1 +1,1 @@
-First release for Apple TV: films and TV shows, music, audiobooks and comics from your own Antresol server, with profiles, Top Shelf and English and Russian.
+First release for Apple TV: films, TV shows and music from your own Antresol server, with profiles, Top Shelf and English and Russian.
