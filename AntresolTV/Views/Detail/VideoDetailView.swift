@@ -42,11 +42,13 @@ struct VideoDetailView: View {
         }
         .ignoresSafeArea(edges: [.top, .horizontal])
         .background(Theme.Colors.background.ignoresSafeArea())
-        .defaultFocus($focusedButton, .play)
+        // userInitiated: also when focus comes in from the sidebar (a Top Shelf link
+        // opened at launch), not only when the page first takes focus.
+        .defaultFocus($focusedButton, .play, priority: .userInitiated)
         .task {
-            // Opened from outside (Top Shelf): focus is still on the tab bar, where Menu
-            // would leave the app, so move it to Play once the page is on screen. (Before
-            // tvOS 18 only: the system sidebar keeps the focus at launch, see NOTES.md.)
+            // tvOS 17 (top tab bar): a linked page opens with focus on the tab bar, where
+            // Menu would leave the app, so move it to Play once the page is on screen.
+            if #available(tvOS 18.0, *) { return }
             guard claimsFocusOnAppear, !didClaimFocus else { return }
             didClaimFocus = true
             try? await Task.sleep(for: .milliseconds(400))

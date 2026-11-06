@@ -315,12 +315,12 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select)
         pause(6)
         snapshot(app, "42-deep-link-detail-ru")
-        // The linked page is on top of Home. At launch the system sidebar keeps the focus
-        // (it cannot be moved out programmatically); Right enters the page, Menu goes back.
-        XCTAssertTrue(app.buttons["Продолжить"].exists, "The linked page should be open")
-        remote.press(.right)
-        pause(2)
-        XCTAssertTrue(app.buttons["Продолжить"].hasFocus, "Right from the sidebar lands on Resume")
+        // The linked page takes the focus from the sidebar, so Menu goes back to Home.
+        let resume = app.buttons["Продолжить"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 10))
+        let focused = expectation(for: NSPredicate(format: "hasFocus == true"), evaluatedWith: resume)
+        wait(for: [focused], timeout: 15)
+        XCTAssertTrue(resume.hasFocus, "The linked page should start on Resume")
         remote.press(.menu)
         pause(3)
         snapshot(app, "43-home-ru")
