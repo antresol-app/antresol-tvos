@@ -96,7 +96,7 @@ The server accepts three ways to authenticate:
 Token details:
 
 - Device tokens are opaque 43-character base64url strings, for example
-  `gb88S043ePfI6trN-7SE892XdFd3UqW1A7rzrKqMSAA`.
+  `sample-device-token-docs-example-xxxxxxxxxx`.
 - Tokens do not expire on their own. They are invalidated by logout, by device revocation, by
   re-registering the same `device.id`, or by deleting the user.
 - A request with a missing, invalid or revoked token gets `401 {"error":"Sign in required"}`.
@@ -198,7 +198,7 @@ Response `200`:
 
 ```json
 {
-  "token": "gb88S043ePfI6trN-7SE892XdFd3UqW1A7rzrKqMSAA",
+  "token": "sample-device-token-docs-example-xxxxxxxxxx",
   "user": { "id": 1, "name": "Admin", "avatar": "grad-1", "hasPassword": true, "isAdmin": true,
             "isKid": false, "maxRating": null, "remote": false, "libraryOnly": true }
 }
