@@ -20,6 +20,8 @@ final class SampleDecodingTests: XCTestCase {
             "books-audiobooks.json": d(Page<Card>.self),
             "books-comics.json": d(Page<Card>.self),
             "books-home.json": d(ShelvesResponse.self),
+            "channel-guide.json": d(ChannelGuide.self),
+            "channels.json": d(ChannelList.self),
             "comic-pages.json": d(ComicPages.self),
             "error-401.json": d(ErrorBody.self),
             "health.json": d(ServerHealth.self),

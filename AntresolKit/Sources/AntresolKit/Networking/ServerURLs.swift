@@ -55,6 +55,12 @@ public struct ServerURLs: Hashable, Sendable {
         url(path: "/api/stream/\(fileId)", query: Self.mediaKeyQuery(mediaKey))
     }
 
+    /// A channel's live HLS playlist. With a media key the server signs every segment
+    /// line too, so the player needs no headers.
+    public func liveChannel(id: Int, mediaKey: String?) -> URL? {
+        url(path: "/api/channels/live/\(id)/index.m3u8", query: Self.mediaKeyQuery(mediaKey))
+    }
+
     /// `/api/download/{fileId}` (Bearer only).
     public func download(fileId: Int) -> URL? {
         url(path: "/api/download/\(fileId)")

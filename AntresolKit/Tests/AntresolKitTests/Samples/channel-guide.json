@@ -1,0 +1,51 @@
+{
+  "channel": {
+    "id": 6,
+    "number": 100,
+    "name": "Тестовый сериал",
+    "category": "Сериалы нон-стоп",
+    "personal": false,
+    "auto": true,
+    "enabled": true,
+    "canEdit": true,
+    "logo": 6,
+    "rules": {
+      "titles": [
+        7
+      ],
+      "order": "ordered"
+    }
+  },
+  "programs": [
+    {
+      "itemId": 11,
+      "title": "Тестовый сериал",
+      "subtitle": "S1 E3 · Серия 3",
+      "year": 2010,
+      "start": "2026-11-10T23:11:07.504Z",
+      "end": "2026-11-10T23:12:07.527Z",
+      "poster": "/api/images/local/7/poster",
+      "backdrop": "/api/images/local/7/backdrop"
+    },
+    {
+      "itemId": 12,
+      "title": "Тестовый сериал",
+      "subtitle": "S1 E4 · Серия 4",
+      "year": 2010,
+      "start": "2026-11-10T23:12:07.527Z",
+      "end": "2026-11-10T23:13:07.55Z",
+      "poster": "/api/images/local/7/poster",
+      "backdrop": "/api/images/local/7/backdrop"
+    },
+    {
+      "itemId": 13,
+      "title": "Тестовый сериал",
+      "subtitle": "S1 E5 · Серия 5",
+      "year": 2010,
+      "start": "2026-11-10T23:13:07.55Z",
+      "end": "2026-11-10T23:14:07.573Z",
+      "poster": "/api/images/local/7/poster",
+      "backdrop": "/api/images/local/7/backdrop"
+    }
+  ]
+}

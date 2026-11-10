@@ -35,6 +35,7 @@ Conventions:
 9. [Server-sent events](#9-events-sse)
 10. [Admin and other endpoints (brief)](#10-other-endpoints)
 11. [Client implementation notes](#11-client-implementation-notes)
+12. [Live channels («ТВ»)](#12-live-channels)
 
 ---
 
@@ -223,7 +224,7 @@ Sample: `auth-token.json`.
 No body. Returns:
 
 ```json
-{ "expiresAt": "2026-11-05T07:58:37Z", "key": "v1.2.1.1793865517.s7nHqQNy7rzmMnPou772dH" }
+{ "expiresAt": "2026-11-05T07:58:37Z", "key": "v1.2.1.1793865517.<mac>" }
 ```
 
 | Field | Type | Notes |
@@ -996,7 +997,7 @@ These are admin, settings and management endpoints, documented briefly. Most are
 5. Validate on launch with `GET /api/me`. On `401` anywhere, return to the profile picker.
 6. Switching profile: you may keep one token per profile. Sign-out is `POST /api/logout`.
 7. For players that cannot add headers (AVPlayer), call `POST /api/auth/media-key` and append
-   `?mk=<key>` to `/api/stream`, `/api/hls`, `/api/audio` and `/api/tracks` URLs. Refresh the key when it
+   `?mk=<key>` to `/api/stream`, `/api/hls`, `/api/audio`, `/api/tracks` and `/api/channels/live` URLs. Refresh the key when it
    has less than about 1 h of its 12 h left.
 
 ### Image URLs
@@ -1103,3 +1104,77 @@ These are admin, settings and management endpoints, documented briefly. Most are
 - "Remote" clients (outside the LAN, as determined by the server) get quality capped to
   `settings.remoteQuality` (default 1080). `quality.remote` in play responses reflects this.
   Passwordless profiles cannot sign in remotely.
+
+---
+
+## 12. Live channels
+
+*(Newer than 0.3.0.)* The server can run live channels made of the library («ТВ»): each channel
+plays movies or episodes back to back on a schedule, grouped into sections. Native apps list
+the channels, show what is on and play the live stream. Channels are created and edited in
+the web app only; the apps never offer IPTV links. Kid profiles only get channels within their
+age limit (the server filters).
+
+### 12.1 `GET /api/channels`
+
+```json
+{
+  "channels": [
+    {
+      "id": 2, "number": 10, "name": "Комедии", "category": "Кино по жанрам",
+      "personal": false, "auto": true, "enabled": true, "canEdit": true, "logo": 2,
+      "rules": { "kinds": ["movie"], "genres": ["комедия"], "order": "shuffle" },
+      "now":  { "itemId": 1, "title": "Весёлый день", "overview": "…", "year": 1991,
+                "start": "2026-11-10T23:10:37.453Z", "end": "2026-11-10T23:12:07.476Z",
+                "poster": "/api/images/local/1/poster", "backdrop": "/api/images/local/1/backdrop" },
+      "next": { "…": "the same shape" }
+    }
+  ],
+  "canManage": true,
+  "canCreate": true
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| number | int | The channel number: list order and channel up / down. |
+| category | string | The section on the TV tab. |
+| logo | int | The logo's gradient, 0…6: the avatar gradients `grad-1` … `grad-7` (§2.3) at 145°, with the channel name in bold white. `GET /api/channels/{id}/logo.png` (Bearer) is a 480×270 PNG of the same. |
+| rules | object *(opt)* | Only when `canEdit`; what the channel plays. Apps ignore it. |
+| now, next | Program *(opt)* | What is on and what follows. Absent when nothing is scheduled. |
+| canManage, canCreate | bool | Web-only management. |
+
+Program: `itemId`, `title`, `subtitle` *(opt, episodes: "S1 E5 · Серия 5")*, `overview` *(opt)*,
+`year` *(opt)*, `start`, `end` (timestamps), `poster`, `backdrop` (image paths, §3.2).
+
+- **Sections**: the distinct `category` values, ordered by their lowest channel `number`; the
+  channels inside by `number`.
+- **Progress** of a programme: `(now − start) / (end − start)`, clamped to 0…1.
+- The list changes as programmes end: refresh it about every 30 s while it is on screen. Between
+  refreshes a client can move on to `next` once `now` has ended.
+
+Sample: `channels.json`.
+
+### 12.2 `GET /api/channels/{id}/guide?hours=6`
+
+`{ "channel": {…as above…}, "programs": [Program, …] }`: the programmes from the one on air
+onwards, for the given number of hours. The live player uses it for "on now" and "next", and
+refreshes it about every 30 s. `404` when the channel is gone or not visible to the profile.
+
+Sample: `channel-guide.json`.
+
+### 12.3 `GET /api/channels/live/{id}/index.m3u8`
+
+The channel's live HLS stream: a sliding window of 10 segments of 6 s (MPEG-TS, H.264 1920×1080
+and AAC stereo), with `EXT-X-DISCONTINUITY` at programme boundaries. Fetched with `?mk=` (§2.5)
+the server appends the key to every segment line, so AVPlayer and ExoPlayer need no headers.
+
+- It is live: start at the live edge; there is no seeking, progress saving or resume.
+- The first request starts the channel's encoder. The server may hold the request for up to
+  about 20 s, or answer **`503` with `Retry-After: 2`** and
+  `{"error":"Канал запускается — повторите через пару секунд"}`: retry and show that the channel
+  is starting.
+- Other errors carry a message to show: `403` (a kid's screen time is over), `404` (the channel is
+  gone or not visible), `503` with `Retry-After: 30` (too many channels are on at once),
+  `503` without `Retry-After` (nothing to show on the channel now).
+
