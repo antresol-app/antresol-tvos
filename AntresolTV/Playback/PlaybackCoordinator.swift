@@ -27,8 +27,18 @@ final class PlaybackCoordinator {
         var fileId: Int?
     }
 
+    /// A live channel to watch, with the channels it can zap to.
+    struct LiveRequest: Identifiable, Hashable {
+        let id = UUID()
+        let channel: Channel
+        let channels: [Channel]
+    }
+
     /// The request the player is showing, if any.
     var presented: Request?
+
+    /// The live channel the live player is showing, if any.
+    var presentedChannel: LiveRequest?
 
     /// Incremented each time the player closes; pages observe it to reload progress.
     private(set) var completedSessions = 0
@@ -38,6 +48,15 @@ final class PlaybackCoordinator {
 
     func play(_ card: Card, from start: StartPoint = .resume, fileId: Int? = nil) {
         presented = Request(card: card, start: start, fileId: fileId)
+    }
+
+    /// Opens the live player on `channel`; channel up / down moves through `channels`.
+    func watch(_ channel: Channel, channels: [Channel]) {
+        presentedChannel = LiveRequest(channel: channel, channels: channels)
+    }
+
+    func liveChannelDidClose() {
+        presentedChannel = nil
     }
 
     func playerDidClose() {

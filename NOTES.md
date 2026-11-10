@@ -843,3 +843,49 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
 - tvOS 17 coverage: the fallbacks (top tab bar, flat fills, the timed deep-link focus) were
   only compiled, never run. Only the tvOS 27.2 simulator runtime is installed here, and the UI
   tests now navigate through the sidebar, so they would not run there unchanged.
+
+## Live channels («ТВ»)
+
+### What exists
+- `AntresolKit/Models/Channels.swift`: `Channel`, `ChannelProgram`, `ChannelList`,
+  `ChannelGuide` (tolerant decoding, `rules` not decoded) and the pure logic: sections by
+  category in the order of their lowest number (`ChannelSection.group`), programme progress,
+  what is on at a time (`Channel.program(at:)` moves on to `next`, `ChannelGuide.onAir(at:)`),
+  channel up / down by number with wrap-around (`Channel.neighbour`) and the logo gradient.
+- `APIClient+Channels.swift`: `channels()`, `channelGuide(id:hours:)` and
+  `startLiveChannel(id:mediaKey:)`, which fetches the live playlist first and retries the
+  server's `503` "starting" answers (short `Retry-After`) before handing the URL to AVPlayer;
+  other errors (busy, screen time, gone) are thrown with the server's message.
+  `ServerURLs.liveChannel(id:mediaKey:)`. Unit tests in `ChannelTests` and the two samples.
+- The TV tab (`Views/TV`), between TV Shows and Music: the page title and a section pill (All,
+  then the sections; it moves under the title when it does not fit), All as a row of channel
+  cards per section, one section as a three-column grid. `ChannelCard` is a 16:9 lockup: the
+  programme's backdrop (else the logo tile) with the logo in the corner and a live progress
+  bar, then "10 · Name" and the programme. The list is fetched every 30 s while the tab shows.
+- The live player (`LivePlayerView` / `LivePlayerModel`), presented by the shell like the video
+  player (`PlaybackCoordinator.watch`): an `AVPlayerLayer` with no transport bar, so nothing can
+  be scrubbed. A UIKit controller takes the remote: Up / Down (click or swipe) and channel
+  buttons (`pageUp` / `pageDown`) zap by number with wrap-around, Select toggles the panel,
+  Play/Pause pauses and rejoins at the live edge, Menu leaves. The bottom panel (logo,
+  "10 · Name", Live, title, episode line, time range with progress, "At 23:30 — next") shows
+  on every change and hides after 6 s. While the stream starts: the programme's backdrop and a
+  spinner ("Starting the channel…" after a `503`). Errors: "The channel can't be shown" with
+  the server's message, Try Again and Close; Up / Down still zap from there. The guide and
+  the channel list are refreshed every 30 s.
+- `ChannelScreenshotTests` drives the tab and the player against a real server with channels;
+  it is skipped unless `CHANNELS_SERVER`, `CHANNELS_PROFILE` (and `CHANNELS_PASSWORD`) are set
+  (`TEST_RUNNER_…`). The mock server serves the channel samples with their times moved to now,
+  but has no live stream.
+
+### Decisions
+- The player is not `AVPlayerViewController`: its transport bar offers scrubbing in the live
+  window and takes Up / Down for its own panels, and zapping needs both.
+- Section and channel order come from the kit (as the web's `byCategory`), so Android and
+  tvOS agree.
+- A `503` with a long `Retry-After` (too many channels on) is shown, not retried.
+
+### Known gaps
+- Swipes and the channel buttons were not exercised: the simulator's UI tests send clicks
+  (`upArrow` / `downArrow`) only.
+- The "starting" state with its text was not captured (the test server mostly holds the first
+  request until the stream is ready instead of answering `503`).

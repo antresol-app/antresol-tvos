@@ -9,6 +9,7 @@ screen without a real library.
     python3 scripts/mock-server.py --port 8421
 """
 import argparse
+import datetime
 import hashlib
 import json
 import re
@@ -232,6 +233,21 @@ def item_with_extras(item_id, sample):
     return item
 
 
+def on_air_now(sample):
+    """A channels sample with its programmes moved so the first one started 30 s ago."""
+    data = json.loads((SAMPLES / sample).read_text())
+    channels = data["channels"] if "channels" in data else [data["channel"]]
+    programs = [p for c in channels for p in (c.get("now"), c.get("next")) if p] + data.get("programs", [])
+    parse = lambda t: datetime.datetime.fromisoformat(t.replace("Z", "+00:00"))
+    if programs:
+        first = min(parse(p["start"]) for p in programs)
+        shift = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=30) - first
+        for p in programs:
+            for key in ("start", "end"):
+                p[key] = (parse(p[key]) + shift).isoformat().replace("+00:00", "Z")
+    return data
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -299,6 +315,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(204, b"", "application/json")
         if method == "GET" and path == "/api/home":
             return self.send(200, json.dumps(home_with_hero()).encode(), "application/json")
+        # Live channels: the list and guides, on air now (the mock has no live streams).
+        if method == "GET" and path == "/api/channels":
+            return self.send(200, json.dumps(on_air_now("channels.json")).encode(), "application/json")
+        if method == "GET" and re.fullmatch(r"/api/channels/\d+/guide", path):
+            return self.send(200, json.dumps(on_air_now("channel-guide.json")).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/items/(19|22)", path):
             item_id = int(path.rsplit("/", 1)[1])
             return self.send(200, json.dumps(item_with_extras(item_id, "item-movie.json")).encode(), "application/json")

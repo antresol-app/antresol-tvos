@@ -8,8 +8,8 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 
 - **Look**: Liquid Glass on tvOS 26 and later (the app's own pills, round controls, segmented
   pills and settings rows use the system glass, lit white when focused), and the system
-  sidebar on tvOS 18 and later: profile and time at the top, Search, Home, Movies, TV Shows
-  and Music, collapsing to a chip naming the section. Earlier systems keep the top tab
+  sidebar on tvOS 18 and later: profile and time at the top, Search, Home, Movies, TV Shows,
+  TV and Music, collapsing to a chip naming the section. Earlier systems keep the top tab
   bar and flat dark-glass fills.
 - **Onboarding**: enter the server as a host, `host:port` or URL (port 8420 by default). Then
   "Who's watching?" profile picker with avatar gradients, password entry for protected profiles,
@@ -39,6 +39,9 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Now Playing with synced lyrics: the lyrics page takes the artwork's colour, with the
     artwork, title and artist on the left and large lines on the right, the current one bright.
   - Background audio, with Control Center and remote controls.
+- **TV**: the server's live channels made of the library. A section pill (All or one section),
+  channel cards with what is on and its progress, and a full-screen live player with the
+  channel panel (on now, next); Up and Down on the remote switch channels.
 - **Search**: across movies, shows and music, with browse tiles.
 - **Settings** (the profile tab):
   - Switch profile, or sign out (which revokes the device token on the server).
@@ -193,9 +196,9 @@ AntresolTV/           The tvOS app
   Design/             Theme tokens, button styles, cards, shelves, hero, settings rows
   Services/           ImagePipeline (authenticated, cached artwork), Keychain token store,
                       AppSettings, AppLanguage, DeviceIdentity
-  Views/              Onboarding, Shell (sidebar; top tab bar before tvOS 18), Home, Library, Detail, Search, Music,
-                      Settings
-  Playback/           PlaybackCoordinator, VideoPlayerModel/View, menus, subtitles, Up Next
+  Views/              Onboarding, Shell (sidebar; top tab bar before tvOS 18), Home, Library, Detail, Search, TV,
+                      Music, Settings
+  Playback/           PlaybackCoordinator, VideoPlayerModel/View, LivePlayerModel/View, menus, subtitles, Up Next
   Audio/              AudioPlayer (app-wide AVQueuePlayer), Now Playing screen and system controls
 TopShelf/             TVTopShelfContentProvider extension and artwork downloader
 Shared/               Code compiled into both the app and the extension (Keychain, shared session)

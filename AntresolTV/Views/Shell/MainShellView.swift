@@ -3,7 +3,7 @@ import SwiftUI
 import TVServices
 
 /// The signed-in app: the system sidebar on tvOS 18 and later (the top tab bar before it)
-/// with Search, the library sections, Now Playing and the profile. Each tab keeps its own
+/// with Search, the library sections, live TV, Now Playing and the profile. Each tab keeps its own
 /// navigation stack.
 struct MainShellView: View {
     let user: User
@@ -51,6 +51,14 @@ struct MainShellView: View {
                         .environment(audio)
                 }
         }
+        .background {
+            Color.clear
+                .fullScreenCover(item: presentedChannel) { request in
+                    LivePlayerView(request: request)
+                        .environment(appState)
+                        .environment(playback)
+                }
+        }
         .onChange(of: audio.presentationRequests) {
             if selection != .nowPlaying { showsNowPlaying = true }
         }
@@ -62,6 +70,9 @@ struct MainShellView: View {
         }
         .onChange(of: playback.presented) { _, request in
             // Video takes over the audio session.
+            if request != nil { audio.pause() }
+        }
+        .onChange(of: playback.presentedChannel) { _, request in
             if request != nil { audio.pause() }
         }
         .onChange(of: playback.completedSessions) {
@@ -110,6 +121,9 @@ struct MainShellView: View {
             Tab("TV Shows", systemImage: "tv", value: ShellTab.shows) {
                 showsTab
             }
+            Tab("TV", systemImage: "antenna.radiowaves.left.and.right", value: ShellTab.tv) {
+                tvTab
+            }
             Tab("Music", systemImage: "music.note", value: ShellTab.music) {
                 musicTab
             }
@@ -149,6 +163,10 @@ struct MainShellView: View {
                 .tabItem { Text("TV Shows") }
                 .tag(ShellTab.shows)
 
+            tvTab
+                .tabItem { Text("TV") }
+                .tag(ShellTab.tv)
+
             musicTab
                 .tabItem { Text("Music") }
                 .tag(ShellTab.music)
@@ -186,6 +204,10 @@ struct MainShellView: View {
 
     private var showsTab: some View {
         TabNavigation { LibraryView(kind: .series, title: "TV Shows") }
+    }
+
+    private var tvTab: some View {
+        TabNavigation { TVView() }
     }
 
     private var musicTab: some View {
@@ -259,6 +281,13 @@ struct MainShellView: View {
         )
     }
 
+    private var presentedChannel: Binding<PlaybackCoordinator.LiveRequest?> {
+        Binding(
+            get: { playback.presentedChannel },
+            set: { playback.presentedChannel = $0 }
+        )
+    }
+
     private var presentedPlayback: Binding<PlaybackCoordinator.Request?> {
         Binding(
             get: { playback.presented },
@@ -268,7 +297,7 @@ struct MainShellView: View {
 }
 
 enum ShellTab: Hashable {
-    case search, home, movies, shows, music, nowPlaying, account
+    case search, home, movies, shows, tv, music, nowPlaying, account
 }
 
 /// A tab's navigation stack with the app's routes registered. The stack's path is its

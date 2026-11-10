@@ -256,3 +256,16 @@
 "Signs this device out" = "Signs this device out";
 "Last seen %@" = "Last seen %@";
 "Unnamed device" = "Unnamed device";
+
+/* TV (live channels) */
+"TV" = "TV";
+"All" = "All";
+"Nothing on now" = "Nothing on now";
+"No channels yet" = "No channels yet";
+"Channels appear by themselves once the library has at least six movies of a genre or a series with eight episodes." = "Channels appear by themselves once the library has at least six movies of a genre or a series with eight episodes.";
+"Live" = "Live";
+"At %@ — %@" = "At %1$@ — %2$@";
+"Next Channel" = "Next Channel";
+"Previous Channel" = "Previous Channel";
+"Starting the channel…" = "Starting the channel…";
+"The channel can’t be shown" = "The channel can’t be shown";
