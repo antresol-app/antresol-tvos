@@ -26,13 +26,15 @@ struct ChannelLogo: View {
 }
 
 /// A 16:9 channel lockup: the programme's backdrop (else the logo filling the card) with
-/// the logo in the corner and a live progress bar, then "10 · Comedies" and what is on.
-/// Use it as the label of a button with `CardButtonStyle`, like `WideCard`.
+/// the logo in the corner and a live progress bar, then "10 · Comedies", what is on and
+/// "Next at 23:30 — …". Use it as the label of a button with `CardButtonStyle`, like
+/// `WideCard`.
 struct ChannelCard: View {
     let channel: Channel
     var width: CGFloat = Theme.Layout.wideWidth
 
     @Environment(\.isCardFocused) private var isFocused
+    @Environment(\.locale) private var locale
 
     var body: some View {
         // The progress and the programme itself move on between list refreshes.
@@ -51,6 +53,11 @@ struct ChannelCard: View {
                     Text(verbatim: program?.fullTitle ?? String(localized: "Nothing on now", bundle: .localized))
                         .font(Theme.Typography.cardMeta)
                         .foregroundStyle(Theme.Colors.label2)
+                        .lineLimit(1)
+                    // Always laid out, so the captions of a row line up.
+                    Text(verbatim: channel.upNext(at: context.date).map { $0.nextLine(locale) } ?? " ")
+                        .font(Theme.Typography.cardMeta)
+                        .foregroundStyle(Theme.Colors.label3)
                         .lineLimit(1)
                 }
                 .padding(.top, 20)
@@ -97,5 +104,43 @@ extension Channel {
     /// "10 · Comedies".
     var label: String {
         "\(number) · \(name)"
+    }
+}
+
+extension ChannelProgram {
+    /// "Next at 23:30 — Title · S1 E5".
+    func nextLine(_ locale: Locale) -> String {
+        String(localized: "Next at \(start.clock(locale)) — \(fullTitle)", bundle: .localized)
+    }
+
+    /// "23:00–23:30".
+    func timeRange(_ locale: Locale) -> String {
+        "\(start.clock(locale))–\(end.clock(locale))"
+    }
+}
+
+extension Date {
+    /// The time of day in the app's locale ("23:30", "11:30 PM").
+    func clock(_ locale: Locale) -> String {
+        formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale))
+    }
+}
+
+/// "LIVE" with a red dot on a glass capsule.
+struct LiveBadge: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(Theme.Colors.red)
+                .frame(width: 14, height: 14)
+            Text("Live")
+                .font(Theme.Typography.eyebrow)
+                .tracking(2)
+                .textCase(.uppercase)
+                .foregroundStyle(Theme.Colors.label)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
+        .glassSurface(in: Capsule(), highlighted: false, interactive: false)
     }
 }

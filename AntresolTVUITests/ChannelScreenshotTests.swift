@@ -72,7 +72,127 @@ final class ChannelScreenshotTests: XCTestCase {
         shot("11-back-to-section", delay: 1)
     }
 
+    /// The second round: «Продолжить» after watching, the next programme on the cards, the
+    /// banner on a zap with the old picture held, the mini-guide, and the Top Shelf.
+    func testContinueZapAndMiniGuide() {
+        // The sidebar sometimes takes a moment to settle: one more try.
+        let opened = openSection("ТВ", showing: app.buttons["Все"]) || openSection("ТВ", showing: app.buttons["Все"])
+        XCTAssertTrue(opened, "no TV tab: \(focusedLabel)")
+        // Focus may stay in the sidebar after choosing the tab: into the page first.
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        for _ in 0..<3 where focused.exists && focused.frame.minX < 1 && focused.frame.width < 600 {
+            remote.press(.right)
+            sleep(2)
+        }
+        // Up from the Continue card lands on the pill's option nearest it; Left to All.
+        remote.press(.up)
+        sleep(1)
+        XCTAssertTrue(moveFocus(.left, to: app.buttons["Все"], limit: 6), "pill not focused: \(focusedLabel)")
+        remote.press(.select)
+        sleep(2)
+
+        // Watch a channel (the first card under the pill), then come back.
+        remote.press(.down)
+        sleep(1)
+        remote.press(.select)
+        shot("r2-01-player-starting", delay: 1)
+        shot("r2-02-player-playing", delay: 10)
+        remote.press(.menu)
+        XCTAssertTrue(app.staticTexts["Продолжить"].waitForExistence(timeout: 15), "no Continue card")
+        shot("r2-03-tv-continue", delay: 3)
+
+        // The Continue card, then a channel card of the first row.
+        XCTAssertTrue(moveFocusToWide(limit: 4), "Continue card not focused: \(focusedLabel)")
+        shot("r2-04-continue-focused", delay: 2)
+        remote.press(.down)
+        shot("r2-05-card-focused", delay: 2)
+
+        // Continue resumes the channel.
+        XCTAssertTrue(moveFocusToWide(limit: 4))
+        remote.press(.select)
+        shot("r2-06-continue-playing", delay: 12)
+
+        // Channel up: the old picture holds, dimmed, under the banner until the new one.
+        remote.press(.up)
+        shot("r2-07-zap-held", delay: 0)
+        shot("r2-08-zap-banner", delay: 1)
+        shot("r2-09-zapped", delay: 9)
+        shot("r2-10-banner-faded", delay: 7)
+        // Select brings the banner back over the moving picture.
+        remote.press(.select)
+        shot("r2-10b-banner-select", delay: 2)
+        remote.press(.select)
+        sleep(2)
+
+        // Down: the mini-guide with focus on the channel on screen; Right and Select zap.
+        remote.press(.down)
+        shot("r2-11-guide", delay: 2)
+        remote.press(.right)
+        shot("r2-12-guide-moved", delay: 1)
+        remote.press(.select)
+        shot("r2-13-guide-zap", delay: 1)
+        shot("r2-14-guide-zapped", delay: 10)
+
+        // Menu closes the mini-guide first, then leaves the player.
+        remote.press(.down)
+        sleep(2)
+        remote.press(.menu)
+        shot("r2-15-guide-closed", delay: 2)
+        remote.press(.menu)
+        XCTAssertTrue(app.staticTexts["Продолжить"].waitForExistence(timeout: 10), "Menu should leave the player")
+        shot("r2-16-back-to-tv", delay: 2)
+
+        topShelf("r2-17-top-shelf")
+    }
+
+    /// The Top Shelf alone (after `testContinueZapAndMiniGuide` or any sign-in).
+    func testTopShelf() {
+        sleep(5)
+        topShelf("r2-18-top-shelf")
+    }
+
+    /// `antresol://channel/{id}` (the Top Shelf's link) opens the channel's live player. The
+    /// system asks before opening a URL from outside; Select confirms. `CHANNELS_LINK_ID` picks
+    /// the channel (3 by default).
+    func testChannelLink() {
+        let id = ProcessInfo.processInfo.environment["CHANNELS_LINK_ID"] ?? "3"
+        remote.press(.home)
+        sleep(3)
+        XCUIDevice.shared.system.open(URL(string: "antresol://channel/\(id)")!)
+        sleep(2)
+        remote.press(.select)
+        shot("r2-19-link-opening", delay: 2)
+        shot("r2-20-link-playing", delay: 10)
+        // Menu leaves the player onto the TV tab.
+        remote.press(.menu)
+        shot("r2-21-link-back", delay: 3)
+    }
+
     // MARK: - Helpers
+
+    /// The Home screen with the app focused shows its Top Shelf («Сейчас в эфире»).
+    /// `CHANNELS_HOME_MOVES`: how many apps to the right of the first one the app is.
+    private func topShelf(_ name: String) {
+        remote.press(.home)
+        sleep(3)
+        let moves = Int(ProcessInfo.processInfo.environment["CHANNELS_HOME_MOVES"] ?? "") ?? 2
+        for _ in 0..<moves {
+            remote.press(.right)
+            sleep(1)
+        }
+        shot(name, delay: 15)
+    }
+
+    /// Up until the wide Continue card has focus.
+    private func moveFocusToWide(limit: Int) -> Bool {
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        for _ in 0..<limit {
+            if focused.exists, focused.frame.width > 1500 { return true }
+            remote.press(.up)
+            sleep(1)
+        }
+        return focused.exists && focused.frame.width > 1500
+    }
 
     private func signIn(_ profile: String, password: String) {
         XCTAssertTrue(app.staticTexts["Кто смотрит?"].waitForExistence(timeout: 40), "no profile picker")

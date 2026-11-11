@@ -264,8 +264,11 @@
 "No channels yet" = "Каналов пока нет";
 "Channels appear by themselves once the library has at least six movies of a genre or a series with eight episodes." = "Каналы появятся сами, когда в медиатеке наберётся хотя бы шесть фильмов одного жанра или сериал от восьми серий.";
 "Live" = "Прямой эфир";
-"At %@ — %@" = "В %1$@ — %2$@";
 "Next Channel" = "Следующий канал";
 "Previous Channel" = "Предыдущий канал";
 "Starting the channel…" = "Канал запускается…";
 "The channel can’t be shown" = "Канал не показывается";
+"Continue" = "Продолжить";
+"Next at %@ — %@" = "Далее в %1$@ — %2$@";
+"Channels" = "Каналы";
+"Now Watching" = "Сейчас смотрите";

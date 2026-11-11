@@ -78,6 +78,13 @@ final class AppState {
         return nil
     }
 
+    /// The signed-in profile on this server: the key of what the device keeps per profile
+    /// (the last watched channel).
+    var profileKey: CredentialKey? {
+        guard let server, let user = currentUser else { return nil }
+        return CredentialKey(serverId: server.serverId, userId: user.id)
+    }
+
     /// Restores the saved server and profile, validating the stored token with `/api/me`.
     func bootstrap() async {
         guard phase == .launching || isUnreachable else { return }

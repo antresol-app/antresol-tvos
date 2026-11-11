@@ -1,9 +1,10 @@
 import AntresolKit
 import SwiftUI
 
-/// The TV tab: the server's live channels («ТВ»). A section pill picks All (every section
-/// as a row of channel cards) or one section (its channels in a grid); a card opens the
-/// live player. What is on is refreshed every 30 s while the tab shows.
+/// The TV tab: the server's live channels («ТВ»). The channel the profile watched last
+/// comes first as a wide "Continue" card; a section pill picks All (every section as a row
+/// of channel cards) or one section (its channels in a grid); a card opens the live
+/// player. What is on is refreshed every 30 s while the tab shows.
 struct TVView: View {
     /// The All option of the section pill.
     static let allSections = ""
@@ -14,6 +15,8 @@ struct TVView: View {
     @Environment(PlaybackCoordinator.self) private var playback
     @AppStorage("tv.section") private var storedSection = TVView.allSections
     @State private var loader = ContentLoader<[Channel]>()
+    /// The channel this profile watched last on this device.
+    @State private var lastChannelId: Int?
 
     private let columns = Array(
         repeating: GridItem(.fixed(Self.gridCardWidth), spacing: Theme.Layout.cardSpacing, alignment: .top),
@@ -35,12 +38,20 @@ struct TVView: View {
         .scrollClipDisabled()
         .ignoresSafeArea(edges: .horizontal)
         .background(Theme.Colors.background.ignoresSafeArea())
+        .onAppear(perform: loadLastChannel)
+        .onChange(of: playback.presentedChannel == nil) { _, closed in
+            if closed { loadLastChannel() }
+        }
         .task {
             while !Task.isCancelled {
                 await loader.load(using: appState) { try await $0.channels().channels }
                 try? await Task.sleep(for: Self.refreshInterval)
             }
         }
+    }
+
+    private func loadLastChannel() {
+        lastChannelId = appState.profileKey.flatMap { LastChannelStore().channelId(for: $0) }
     }
 
     private var sections: [ChannelSection] {
@@ -104,12 +115,38 @@ struct TVView: View {
                     message: "Channels appear by themselves once the library has at least six movies of a genre or a series with eight episodes."
                 )
                 .frame(minHeight: 700)
-            } else if let shown = sections.first(where: { $0.category == section.wrappedValue }) {
-                grid(shown, all: channels)
             } else {
-                rows(all: channels)
+                VStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
+                    if let last = LastChannelStore.channel(lastChannelId, in: channels) {
+                        continueRow(last, all: channels)
+                    }
+                    if let shown = sections.first(where: { $0.category == section.wrappedValue }) {
+                        grid(shown, all: channels)
+                    } else {
+                        rows(all: channels)
+                    }
+                }
             }
         }
+    }
+
+    /// «Продолжить»: the last channel, resumed live with one click.
+    private func continueRow(_ channel: Channel, all channels: [Channel]) -> some View {
+        VStack(alignment: .leading, spacing: 28) {
+            Text("Continue")
+                .font(Theme.Typography.sectionTitle)
+                .foregroundStyle(Theme.Colors.label)
+                .accessibilityAddTraits(.isHeader)
+            Button {
+                playback.watch(channel, channels: channels)
+            } label: {
+                ContinueChannelCard(channel: channel)
+            }
+            .buttonStyle(CardButtonStyle())
+            .onPlayPauseCommand { playback.watch(channel, channels: channels) }
+        }
+        .padding(.horizontal, Theme.Layout.margin)
+        .focusSection()
     }
 
     /// All: a row of channel cards per section.

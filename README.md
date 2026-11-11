@@ -39,9 +39,11 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Now Playing with synced lyrics: the lyrics page takes the artwork's colour, with the
     artwork, title and artist on the left and large lines on the right, the current one bright.
   - Background audio, with Control Center and remote controls.
-- **TV**: the server's live channels made of the library. A section pill (All or one section),
-  channel cards with what is on and its progress, and a full-screen live player with the
-  channel panel (on now, next); Up and Down on the remote switch channels.
+- **TV**: the server's live channels made of the library. The channel watched last comes first
+  as a wide Continue card; a section pill (All or one section); channel cards with what is on,
+  its progress and what is next. The full-screen live player shows a glass channel banner on
+  every change and on Select; Up and the remote's channel buttons switch channels with the old
+  picture held until the new one starts; Down opens a row of the section's channels.
 - **Search**: across movies, shows and music, with browse tiles.
 - **Settings** (the profile tab):
   - Switch profile, or sign out (which revokes the device token on the server).
@@ -51,9 +53,10 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Devices signed in to the profile, with sign-out of other devices.
   - Version and acknowledgements.
 - **Top Shelf**: when the app is in the top row, the Home screen shows the profile's Continue
-  Watching and Recently Added. Selecting a tile opens its page; Play starts it.
-- **Deep links**: `antresol://item/{id}` opens an item's page, and `antresol://play/{id}` plays it.
-  A link to a book opens Home.
+  Watching, the channels On Air Now and Recently Added. Selecting a tile opens its page; Play
+  starts it; a channel opens its live player.
+- **Deep links**: `antresol://item/{id}` opens an item's page, `antresol://play/{id}` plays it
+  and `antresol://channel/{id}` opens a live channel. A link to a book opens Home.
 
 ## Requirements
 
@@ -190,7 +193,8 @@ AntresolKit/          Swift package, Foundation only (builds and tests on Linux)
   Networking/         APIClient (async/await), APIError, ServerURLs, ServerAddress, TokenStore
   Playback/           VideoPlaybackSession, MediaKeyStore, PlaybackProgressReporter, PlayQueue,
                       ResumePolicy, UpNext, WebVTT
-  Integration/        DeepLink (antresol:// URLs), TopShelfPlan (Top Shelf sections from /api/home)
+  Integration/        DeepLink (antresol:// URLs), TopShelfPlan (Top Shelf sections from /api/home),
+                      TopShelfChannels (On Air Now), LastChannelStore
 AntresolTV/           The tvOS app
   App/                AntresolTVApp, AppState (session phases, language, deep links), Route
   Design/             Theme tokens, button styles, cards, shelves, hero, settings rows
@@ -217,7 +221,7 @@ AntresolTVUITests/    Screenshot tests against scripts/mock-server.py
   Each tab has its own `NavigationStack`.
 - **Top Shelf.** While a profile is signed in, the app writes the server, profile and language
   to the App Group defaults, and the token to the shared Keychain group. The extension reads
-  them and fetches `/api/home`. It downloads the artwork with the Bearer header into the shared
+  them and fetches `/api/home` and `/api/channels`. It downloads the artwork with the Bearer header into the shared
   container, because the system cannot fetch authenticated images. Signing out clears the
   shared session.
 

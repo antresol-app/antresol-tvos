@@ -1,17 +1,25 @@
 import AVFoundation
 import AntresolKit
 import Foundation
+import MediaPlayer
 import Observation
+import UIKit
 
 /// The live player of a channel («ТВ»): starts the channel's stream (waiting while the
 /// server starts its encoder), plays it at the live edge and zaps to the neighbouring
-/// channels by number. Live means no seeking, no resume and no progress saving. The
-/// channel's guide (on now, next) and the channel list are refreshed every 30 s.
+/// channels by number or to a channel picked in the mini-guide. Live means no seeking, no
+/// resume and no progress saving. The channel's guide (on now, next) and the channel list
+/// are refreshed every 30 s.
+///
+/// Zapping never goes black: there are two players, each with its own layer. The new
+/// channel loads into the one underneath while the other holds its last frame (paused,
+/// dimmed by the view); they swap once the new picture's first frame is ready.
 @MainActor
 @Observable
 final class LivePlayerModel {
     enum State: Equatable {
-        /// Asking the server for the stream; `isStarting` once it said the channel is starting.
+        /// Asking the server for the stream, or waiting for its first frame;
+        /// `isStarting` once the server said the channel is starting.
         case connecting(isStarting: Bool)
         case playing
         case failed(String)
@@ -22,29 +30,50 @@ final class LivePlayerModel {
     /// Every channel, by number: the order of channel up / down.
     private(set) var channels: [Channel]
     private(set) var guide: ChannelGuide?
-    /// The channel info panel (logo, what is on, next) is up.
+    /// The channel banner (logo, what is on, next) is up.
     private(set) var showsInfo = true
+    /// The mini-guide (the section's channels along the bottom) is up.
+    private(set) var showsGuide = false
     private(set) var isPaused = false
+    /// The previous channel's last frame is on screen while the new channel starts.
+    private(set) var isHoldingFrame = false
+    /// Which of `players` / `layers` is on screen.
+    private(set) var front = 0
 
-    let player = AVPlayer()
+    /// Two players and their layers: the one on screen and the one a zap loads into.
+    let players = [AVPlayer(), AVPlayer()]
+    let layers: [AVPlayerLayer]
 
-    private weak var appState: AppState?
-    private weak var coordinator: PlaybackCoordinator?
-    private var startTask: Task<Void, Never>?
-    private var refreshTask: Task<Void, Never>?
-    private var hideTask: Task<Void, Never>?
-    private var keyValueObservers: [NSKeyValueObservation] = []
-    private var notificationObservers: [NSObjectProtocol] = []
-    private var isStopped = false
+    private var player: AVPlayer { players[front] }
 
-    /// How long the info panel stays up after a change.
-    private static let infoDuration: Duration = .seconds(6)
+    @ObservationIgnored private weak var appState: AppState?
+    @ObservationIgnored private weak var coordinator: PlaybackCoordinator?
+    @ObservationIgnored private var startTask: Task<Void, Never>?
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var hideTask: Task<Void, Never>?
+    @ObservationIgnored private var swapTask: Task<Void, Never>?
+    /// Per player: the observers of its current item.
+    @ObservationIgnored private var keyValueObservers: [[NSKeyValueObservation]] = [[], []]
+    @ObservationIgnored private var notificationObservers: [[NSObjectProtocol]] = [[], []]
+    @ObservationIgnored private var nowPlaying = LiveNowPlaying()
+    @ObservationIgnored private var isStopped = false
+
+    /// How long the banner stays up after a change.
+    private static let infoDuration: Duration = .seconds(5)
+    /// How long a ready item may wait for its layer's first frame before it is shown anyway.
+    private static let firstFrameGrace: Duration = .milliseconds(1500)
 
     init(request: PlaybackCoordinator.LiveRequest) {
         channel = request.channel
-        channels = request.channels.sorted { ($0.number, $0.id) < ($1.number, $1.id) }
+        var channels = request.channels.sorted { ($0.number, $0.id) < ($1.number, $1.id) }
         if !channels.contains(where: { $0.id == request.channel.id }) {
             channels.append(request.channel)
+        }
+        self.channels = channels
+        layers = players.map { player in
+            let layer = AVPlayerLayer(player: player)
+            layer.videoGravity = .resizeAspect
+            return layer
         }
     }
 
@@ -53,9 +82,12 @@ final class LivePlayerModel {
         if let guide, guide.channel.id == channel.id, !guide.programs.isEmpty {
             return guide.onAir(at: date)
         }
-        let now = channel.program(at: date)
-        let next = channel.next.flatMap { $0 == now ? nil : $0 }
-        return (now, next)
+        return (channel.program(at: date), channel.upNext(at: date))
+    }
+
+    /// The mini-guide's channels: the current section, starting at the current channel.
+    var strip: ChannelStrip {
+        ChannelStrip(current: channel, in: channels)
     }
 
     // MARK: - Lifecycle
@@ -63,8 +95,11 @@ final class LivePlayerModel {
     func start(appState: AppState, coordinator: PlaybackCoordinator) {
         self.appState = appState
         self.coordinator = coordinator
-        player.allowsExternalPlayback = true
+        for player in players {
+            player.allowsExternalPlayback = true
+        }
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        nowPlaying.begin(client: appState.client)
         open()
         refreshTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -80,8 +115,10 @@ final class LivePlayerModel {
         startTask?.cancel()
         refreshTask?.cancel()
         hideTask?.cancel()
-        teardownItem()
-        player.pause()
+        swapTask?.cancel()
+        teardown(0)
+        teardown(1)
+        nowPlaying.end()
     }
 
     /// Starts the current channel again (Try Again).
@@ -95,7 +132,17 @@ final class LivePlayerModel {
             showInfo()
             return
         }
-        channel = next
+        tune(to: next)
+    }
+
+    /// Switches to `target` (a mini-guide pick); the current channel just closes the guide.
+    func tune(to target: Channel) {
+        showsGuide = false
+        guard !isStopped, target.id != channel.id else {
+            showInfo()
+            return
+        }
+        channel = channels.first { $0.id == target.id } ?? target
         guide = nil
         open()
         Task { await refreshGuide() }
@@ -115,6 +162,18 @@ final class LivePlayerModel {
         scheduleHide()
     }
 
+    /// Opens the mini-guide; the banner makes room for it.
+    func showGuide() {
+        guard !isStopped else { return }
+        hideTask?.cancel()
+        showsInfo = false
+        showsGuide = true
+    }
+
+    func hideGuide() {
+        showsGuide = false
+    }
+
     /// Play/Pause. Live goes on while paused, so playing again rejoins it at the live edge.
     func togglePause() {
         guard state == .playing else { return }
@@ -128,25 +187,41 @@ final class LivePlayerModel {
         }
     }
 
-    /// The app went to the background: live cannot be caught up later, so stop the item.
+    /// The app went to the background: live cannot be caught up later, so stop the items.
     func suspend() {
         guard !isStopped else { return }
         startTask?.cancel()
-        teardownItem()
+        swapTask?.cancel()
+        teardown(0)
+        teardown(1)
+        isHoldingFrame = false
     }
 
     func resumeFromBackground() {
-        guard !isStopped, player.currentItem == nil else { return }
+        guard !isStopped, players.allSatisfy({ $0.currentItem == nil }) else { return }
         open()
     }
 
     // MARK: - Stream
 
+    private var back: Int { 1 - front }
+
+    /// Starts the current channel in the player underneath. A picture on screen is held:
+    /// paused on its last frame until the new one is ready.
     private func open() {
         startTask?.cancel()
-        teardownItem()
+        swapTask?.cancel()
+        teardown(back)
+        if state == .playing, player.currentItem != nil, layers[front].isReadyForDisplay {
+            player.pause()
+            isHoldingFrame = true
+        } else {
+            teardown(front)
+            isHoldingFrame = false
+        }
         state = .connecting(isStarting: false)
         showInfo()
+        nowPlaying.update(channel: channel, program: onAir(at: Date()).now)
         let id = channel.id
         startTask = Task { [weak self] in
             await self?.connect(channelId: id)
@@ -161,7 +236,7 @@ final class LivePlayerModel {
                 await self?.channelIsStarting(channelId)
             }
             guard !Task.isCancelled, channel.id == channelId, !isStopped else { return }
-            load(url)
+            load(url, into: back)
         } catch {
             guard !Task.isCancelled, channel.id == channelId, !isStopped else { return }
             fail(error)
@@ -174,39 +249,45 @@ final class LivePlayerModel {
         state = .connecting(isStarting: true)
     }
 
-    private func load(_ url: URL) {
-        teardownItem()
+    private func load(_ url: URL, into slot: Int) {
+        teardown(slot)
         let item = AVPlayerItem(url: url)
         // Join at the live edge; there is nothing to catch up on.
         item.automaticallyPreservesTimeOffsetFromLive = true
         let itemID = ObjectIdentifier(item)
+        let player = players[slot]
         player.replaceCurrentItem(with: item)
-        keyValueObservers = [
+        keyValueObservers[slot] = [
             item.observe(\.status, options: [.new]) { [weak self] item, _ in
                 let status = item.status
                 Task { @MainActor in
-                    guard let self, self.isCurrentItem(itemID) else { return }
+                    guard let self, self.isItem(itemID, in: slot) else { return }
                     switch status {
-                    case .readyToPlay:
-                        self.state = .playing
-                        self.scheduleHide()
+                    case .readyToPlay: self.itemIsReady(slot)
                     case .failed: self.fail(nil)
                     default: break
                     }
                 }
             },
+            layers[slot].observe(\.isReadyForDisplay, options: [.new]) { [weak self] layer, _ in
+                let ready = layer.isReadyForDisplay
+                Task { @MainActor in
+                    guard ready, let self, self.isItem(itemID, in: slot) else { return }
+                    self.swapIfReady(slot)
+                }
+            },
             player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
                 let paused = player.timeControlStatus == .paused
                 Task { @MainActor in
-                    guard let self, self.isPaused != paused else { return }
+                    guard let self, self.front == slot, !self.isHoldingFrame, self.isPaused != paused else { return }
                     self.isPaused = paused
                 }
             },
         ]
-        notificationObservers = [
+        notificationObservers[slot] = [
             NotificationCenter.default.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: item, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    guard let self, self.isCurrentItem(itemID) else { return }
+                    guard let self, self.isItem(itemID, in: slot) else { return }
                     self.fail(nil)
                 }
             },
@@ -214,8 +295,41 @@ final class LivePlayerModel {
         player.play()
     }
 
-    private func isCurrentItem(_ id: ObjectIdentifier) -> Bool {
-        player.currentItem.map(ObjectIdentifier.init) == id
+    private func isItem(_ id: ObjectIdentifier, in slot: Int) -> Bool {
+        players[slot].currentItem.map(ObjectIdentifier.init) == id
+    }
+
+    /// The item can play: show it as soon as its first frame is up, or after a short grace
+    /// period when the layer does not say so.
+    private func itemIsReady(_ slot: Int) {
+        swapIfReady(slot)
+        guard slot != front || state != .playing else { return }
+        swapTask?.cancel()
+        swapTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.firstFrameGrace)
+            guard !Task.isCancelled else { return }
+            self?.swap(to: slot)
+        }
+    }
+
+    private func swapIfReady(_ slot: Int) {
+        guard players[slot].currentItem?.status == .readyToPlay, layers[slot].isReadyForDisplay else { return }
+        swap(to: slot)
+    }
+
+    /// Puts `slot` on screen and lets the held picture go.
+    private func swap(to slot: Int) {
+        guard !isStopped, players[slot].currentItem != nil, state != .playing || slot != front else { return }
+        swapTask?.cancel()
+        let old = front
+        front = slot
+        if old != slot { teardown(old) }
+        isHoldingFrame = false
+        isPaused = players[slot].timeControlStatus == .paused
+        state = .playing
+        appState?.profileKey.map { LastChannelStore().remember(channel.id, for: $0) }
+        nowPlaying.update(channel: channel, program: onAir(at: Date()).now, isPlaying: true)
+        scheduleHide()
     }
 
     private func seekToLiveEdge() {
@@ -223,19 +337,24 @@ final class LivePlayerModel {
         player.seek(to: range.end, toleranceBefore: .positiveInfinity, toleranceAfter: .zero)
     }
 
-    private func teardownItem() {
-        keyValueObservers.forEach { $0.invalidate() }
-        keyValueObservers = []
-        notificationObservers.forEach(NotificationCenter.default.removeObserver)
-        notificationObservers = []
-        player.replaceCurrentItem(with: nil)
+    private func teardown(_ slot: Int) {
+        keyValueObservers[slot].forEach { $0.invalidate() }
+        keyValueObservers[slot] = []
+        notificationObservers[slot].forEach(NotificationCenter.default.removeObserver)
+        notificationObservers[slot] = []
+        players[slot].pause()
+        players[slot].replaceCurrentItem(with: nil)
     }
 
     /// Shows the server's message (busy, screen time, a gone channel), else "can't be shown".
     private func fail(_ error: Error?) {
-        teardownItem()
+        swapTask?.cancel()
+        teardown(0)
+        teardown(1)
+        isHoldingFrame = false
         hideTask?.cancel()
         showsInfo = true
+        showsGuide = false
         var message = String(localized: "The channel can’t be shown", bundle: .localized)
         if let error {
             // nil: signed out (401).
@@ -243,6 +362,7 @@ final class LivePlayerModel {
             message = text
         }
         state = .failed(message)
+        nowPlaying.update(channel: channel, program: nil, isPlaying: false)
     }
 
     private func scheduleHide() {
@@ -264,6 +384,7 @@ final class LivePlayerModel {
         if let fresh = channels.first(where: { $0.id == channel.id }) {
             channel = fresh
         }
+        nowPlaying.update(channel: channel, program: onAir(at: Date()).now, isPlaying: state == .playing && !isPaused)
     }
 
     private func refreshGuide() async {
@@ -271,5 +392,64 @@ final class LivePlayerModel {
         guard let client = appState?.client, let fresh = try? await client.channelGuide(id: id) else { return }
         guard !isStopped, channel.id == id else { return }
         guide = fresh
+    }
+}
+
+/// The system's Now Playing for the live player: the programme, the channel and the live
+/// flag (no scrubber, no time left), with the programme's backdrop as artwork. What was
+/// there before (music, paused) comes back when the player closes.
+@MainActor
+private final class LiveNowPlaying {
+    private var previous: [String: Any]?
+    private var client: APIClient?
+    private var artworkPath = ""
+    private var artwork: MPMediaItemArtwork?
+    private var artworkTask: Task<Void, Never>?
+
+    func begin(client: APIClient?) {
+        self.client = client
+        previous = MPNowPlayingInfoCenter.default().nowPlayingInfo
+    }
+
+    func update(channel: Channel, program: ChannelProgram?, isPlaying: Bool = false) {
+        var info: [String: Any] = [
+            MPNowPlayingInfoPropertyIsLiveStream: true,
+            MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.video.rawValue,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
+            MPMediaItemPropertyTitle: program?.fullTitle ?? channel.name,
+            MPMediaItemPropertyArtist: channel.label,
+        ]
+        let path = program?.backdrop ?? ""
+        if path == artworkPath, let artwork {
+            info[MPMediaItemPropertyArtwork] = artwork
+        } else if path != artworkPath {
+            loadArtwork(path)
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func loadArtwork(_ path: String) {
+        artworkPath = path
+        artwork = nil
+        artworkTask?.cancel()
+        guard let client, let url = client.urls.image(path) else { return }
+        let headers = client.authorizationHeaders(for: url)
+        artworkTask = Task { [weak self] in
+            guard let image = await ImagePipeline.shared.image(for: url, headers: headers, maxPixelSize: 800),
+                  !Task.isCancelled, let self, self.artworkPath == path
+            else { return }
+            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+            self.artwork = artwork
+            let center = MPNowPlayingInfoCenter.default()
+            guard var info = center.nowPlayingInfo, info[MPNowPlayingInfoPropertyIsLiveStream] as? Bool == true else { return }
+            info[MPMediaItemPropertyArtwork] = artwork
+            center.nowPlayingInfo = info
+        }
+    }
+
+    func end() {
+        artworkTask?.cancel()
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = previous
     }
 }

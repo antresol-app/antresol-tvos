@@ -234,15 +234,19 @@ struct MainShellView: View {
         .accessibilityLabel(Text(verbatim: String(localized: "\(user.name), Profile and Settings", bundle: .localized)))
     }
 
-    /// Opens a Top Shelf / URL-scheme link: the item's page on the Home tab, or playback
-    /// (Home alone for a book).
+    /// Opens a Top Shelf / URL-scheme link: the item's page on the Home tab, playback
+    /// (Home alone for a book), or a live channel's player over the TV tab.
     private func openPendingDeepLink() async {
         guard let link = appState.pendingDeepLink, let client = appState.client else { return }
         // Cleared only once handled: clearing it earlier would cancel this task.
         defer { appState.pendingDeepLink = nil }
+        guard let itemId = link.itemId else {
+            if case .channel(let id) = link { await openChannel(id, client: client) }
+            return
+        }
         let card: Card
         do {
-            card = try await client.item(id: link.itemId).card
+            card = try await client.item(id: itemId).card
         } catch {
             // A link to an item this profile cannot see (or a gone item) is ignored.
             _ = appState.message(for: error)
@@ -258,6 +262,22 @@ struct MainShellView: View {
         // The app has no pages for books: a link to one just opens Home.
         if !card.kind.isBook { path.append(Route.linkedItem(card)) }
         homePath = path
+    }
+
+    /// `antresol://channel/{id}`: the channel's live player, with the TV tab under it. A
+    /// channel this profile does not see is ignored; a video already playing is left alone.
+    private func openChannel(_ id: Int, client: APIClient) async {
+        let channels: [Channel]
+        do {
+            channels = try await client.channels().channels
+        } catch {
+            _ = appState.message(for: error)
+            return
+        }
+        guard let channel = channels.first(where: { $0.id == id }), playback.presented == nil else { return }
+        showsNowPlaying = false
+        selection = .tv
+        playback.watch(channel, channels: channels)
     }
 
     /// The avatar circle (grad-N gradient and initial) as an image that keeps its colours

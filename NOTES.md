@@ -889,3 +889,68 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   (`upArrow` / `downArrow`) only.
 - The "starting" state with its text was not captured (the test server mostly holds the first
   request until the stream is ready instead of answering `503`).
+
+## Live channels, second round (Continue, zap without black, mini-guide, Top Shelf)
+
+### What exists
+- **Kit**: `Channel.upNext(at:)` (what follows the programme on air, nil once `next` is on
+  air itself), `ChannelStrip` (the mini-guide: the current channel's section in the TV tab's
+  order, starting at the current channel; a channel missing from the list gets a strip of its
+  own), `LastChannelStore` (the last channel id per server and profile in `UserDefaults`,
+  resolved against the current list so a channel the profile no longer sees is dropped),
+  `TopShelfChannels` (up to 10 channels with a programme on air, in the TV tab's order:
+  "10 · Name — Title", backdrop, else poster, else `/api/channels/{id}/logo.png`, progress,
+  `antresol://channel/{id}`) and `DeepLink.channel(id:)` (`itemId` is now optional). Tests in
+  `LiveTVTests`.
+- **TV tab**: a "Continue" row first (`ContinueChannelCard`): the page-wide card of the last
+  channel with the programme's backdrop (else the logo gradient), a left-to-right scrim, the
+  logo, "10 · Name" and Live, the title, the episode line, progress with the time range and
+  "Next at 23:30 — …". It shows once a channel has played on this device and reloads when the
+  player closes. Channel cards got a third line, "Next at HH:MM — title" (always laid out so a
+  row's captions line up).
+- **Player**: two `AVPlayer`s with their own `AVPlayerLayer`s in one view. A zap pauses the
+  picture on screen (its last frame stays, dimmed, with a small glass spinner) and loads the
+  new channel into the player underneath; they swap when the new item is ready and its layer
+  `isReadyForDisplay` (or 1.5 s after ready, if the layer never says so). The banner is a glass
+  panel at the bottom (logo, "10 · Name", Live, title, progress and times, next, and hints for
+  Up and Down) over a soft scrim; it slides in on every change and on Select and fades after
+  5 s. Down (click or swipe) opens the mini-guide: a row of the section's channel cards over
+  a scrim, focus on the current one (marked with a play glyph); Select switches, Up or Menu
+  closes it, the next Menu leaves. While it is open the picture view is not focusable and
+  passes the presses on. Now Playing: title, "10 · Name", the backdrop, live (no scrubber);
+  whatever was there before (paused music) is put back on close. A channel that plays is
+  remembered as the profile's last channel.
+- **Remote**: Up and the channel buttons zap (Up / Page Up next, Page Down previous), Down
+  opens the mini-guide, Left / Right show the banner, Select toggles it, Play/Pause pauses.
+- **Top Shelf**: an "On Air Now" («Сейчас в эфире») section between Continue Watching and
+  Recently Added; `/api/channels` is fetched alongside `/api/home`, and a failed or missing
+  list just leaves the section out. Tiles carry the programme's progress; Select and Play
+  both open `antresol://channel/{id}`.
+- **Deep link** `antresol://channel/{id}`: the shell loads the channel list, selects the TV
+  tab and opens the live player (ignored for a channel the profile does not see, or while a
+  video plays).
+- `ChannelScreenshotTests.testContinueZapAndMiniGuide` captures every new state,
+  `testChannelLink` opens `antresol://channel/{id}` through the system (which asks "Open in
+  …?" first; Select confirms) and `testTopShelf` the Home screen.
+
+### Decisions
+- Down opens the mini-guide instead of switching to the previous channel (the design doc's
+  "swipe / click down opens the mini-guide"). The previous channel is Page Down, or one card
+  to the left in the mini-guide.
+- The held frame is the old player paused, not a snapshot image: nothing to render, and it
+  costs nothing when the new channel is quick.
+- The mini-guide's channel order is fixed when it opens, so a list refresh does not move the
+  row under the focus; the cards' programmes still update.
+
+### Known gaps
+- The dynamic Top Shelf is still unseen: on the tvOS 27.2 simulator the extension process
+  exits with `exit(3)` a few milliseconds after exec, before any of its code runs (HeadBoard
+  logs "connection to service … interrupted"), for both ad-hoc and team signing settings. The
+  section is covered by the kit's tests only.
+- Swipes and the channel buttons are still not exercised by the UI tests (clicks only).
+- The Top Shelf's "On Air Now" goes stale between the system's refreshes of the extension.
+- Up from the Continue card lands on the section pill's option nearest it, not on the
+  selected one (the pill has no default focus; giving it one made it take the page's first
+  focus in every tab, so it was left as it is).
+- Right after a programme boundary the cards and the Continue card can miss their "Next"
+  line until the next list refresh (the list's `next` is then on air).
