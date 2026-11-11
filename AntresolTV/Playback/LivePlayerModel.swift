@@ -389,6 +389,8 @@ final class LivePlayerModel {
         swapTask?.cancel()
         teardown(back)
         tracksProgram = nil
+        // The old channel's cue does not belong to the new one.
+        subtitleText = nil
         if state == .playing, player.currentItem != nil, layers[front].isReadyForDisplay {
             player.pause()
             isHoldingFrame = true
@@ -512,6 +514,7 @@ final class LivePlayerModel {
         let old = front
         front = slot
         if old != slot { teardown(old) }
+        subtitleText = nil
         isHoldingFrame = false
         isPaused = players[slot].timeControlStatus == .paused
         state = .playing

@@ -216,7 +216,8 @@ struct GuideView: View {
                 Button {
                     open(ProgramDetails(channelId: row.id, program: program))
                 } label: {
-                    GuideBlock(program: program, now: now, continuesBefore: x < left)
+                    // A sliver left of the view shows no text (a lone chevron reads as noise).
+                    GuideBlock(program: program, now: now, continuesBefore: x < left, showsText: right - left - Self.blockGap >= 110)
                         .frame(width: max(8, right - left - Self.blockGap), height: Self.rowHeight)
                 }
                 .buttonStyle(GuideBlockStyle(fill: fill(program, now: now)))
@@ -301,18 +302,21 @@ struct GuideView: View {
             // A vertical move: the programme at the anchor, whatever the engine picked.
             let wanted = target(in: rows[now.row])
             if wanted != new {
-                focused = wanted
+                // Not inside this focus update: SwiftUI ignores a change made there.
+                Task { @MainActor in focused = wanted }
                 return
             }
-        } else if let before, before.row == now.row, let program = now.program {
+        } else if before != nil, let program = now.program {
             // Along the row: the anchor follows.
             anchor = min(max(program.start, viewStart), program.end.addingTimeInterval(-1))
-            _ = before
-        } else if before == nil, let program = now.program, !program.isOnAir(at: anchor) {
-            // Into the grid from the header: the row's programme at the anchor.
+        } else if before == nil {
+            // Into the grid from the header: the row's programme at the anchor, which is
+            // never left in the past (the page may have been open for a while).
+            if anchor < Date() { anchor = Date() }
             let wanted = target(in: rows[now.row])
             if wanted != new {
-                focused = wanted
+                // Not inside this focus update: SwiftUI ignores a change made there.
+                Task { @MainActor in focused = wanted }
                 return
             }
         }
@@ -383,6 +387,7 @@ private struct GuideBlock: View {
     let now: Date
     /// Began before the visible part: a chevron says it goes on to the left.
     let continuesBefore: Bool
+    var showsText = true
 
     @Environment(\.isCardFocused) private var isFocused
     @Environment(\.locale) private var locale
@@ -391,26 +396,28 @@ private struct GuideBlock: View {
         let isPast = program.end <= now
         let onAir = program.isOnAir(at: now)
         ZStack(alignment: .bottomLeading) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    if continuesBefore {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
+            if showsText || isFocused {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        if continuesBefore {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 18, weight: .bold))
+                        }
+                        Text(verbatim: program.title)
+                            .font(.system(size: 24, weight: .semibold))
+                            .lineLimit(1)
                     }
-                    Text(verbatim: program.title)
-                        .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(isFocused ? Theme.Colors.labelInverse : (isPast ? Theme.Colors.label3 : Theme.Colors.label))
+                    Text(verbatim: program.subtitle.isEmpty ? program.timeRange(locale) : "\(program.timeRange(locale)) · \(program.subtitle)")
+                        .font(.system(size: 20, weight: .regular))
+                        .monospacedDigit()
                         .lineLimit(1)
+                        .foregroundStyle(isFocused ? Theme.Colors.labelInverse.opacity(0.6) : Theme.Colors.label3)
                 }
-                .foregroundStyle(isFocused ? Theme.Colors.labelInverse : (isPast ? Theme.Colors.label3 : Theme.Colors.label))
-                Text(verbatim: program.subtitle.isEmpty ? program.timeRange(locale) : "\(program.timeRange(locale)) · \(program.subtitle)")
-                    .font(.system(size: 20, weight: .regular))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .foregroundStyle(isFocused ? Theme.Colors.labelInverse.opacity(0.6) : Theme.Colors.label3)
+                .padding(.horizontal, 18)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 18)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            if onAir {
+            if onAir, showsText || isFocused {
                 LiveProgressBar(value: program.progress(at: now), onLight: isFocused, height: 4)
                     .padding(.horizontal, 18)
                     .padding(.bottom, 12)

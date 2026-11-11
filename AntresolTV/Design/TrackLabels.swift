@@ -43,10 +43,11 @@ enum TrackLabels {
         return text
     }
 
-    /// "English" for "eng" or "en", in the interface language.
+    /// "English" for "eng" or "en", in the app's language.
     static func languageName(_ code: String?) -> String? {
         guard let code else { return nil }
-        let name = Locale.current.localizedString(forLanguageCode: code) ?? code.uppercased()
+        // The app's language, which may differ from the system's.
+        let name = AppLanguage.stored.locale.localizedString(forLanguageCode: code) ?? code.uppercased()
         return name.prefix(1).uppercased() + name.dropFirst()
     }
 

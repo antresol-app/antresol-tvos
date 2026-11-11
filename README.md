@@ -39,15 +39,25 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Now Playing with synced lyrics: the lyrics page takes the artwork's colour, with the
     artwork, title and artist on the left and large lines on the right, the current one bright.
   - Background audio, with Control Center and remote controls.
-- **TV**: the server's live channels made of the library. The channel watched last comes first
-  as a wide Continue card; a section pill (All or one section); channel cards with what is on,
-  its progress and what is next. The full-screen live player shows a glass channel banner on
-  every change and on Select; Up and the remote's channel buttons switch channels with the old
-  picture held until the new one starts; Down opens a row of the section's channels.
+- **TV**: the server's live channels made of the library, as a television has them.
+  - One numbered list: a row per channel with its number, the programme's still, what is on
+    (progress, "until 21:40") and what is next. Focus starts on the last channel; a small pill
+    returns to it. Filters: All, Favourites and the themes; a long press stars a channel.
+  - The Guide: channels × time with a ruler, the now line and a block per programme; the
+    remote moves between blocks keeping the time; a programme opens its details (Watch while
+    it is on air, the channel's star).
+  - The live player: Up / Down switch channels inside the list it was opened from (the old
+    picture held until the new one starts); the banner shows the number, the name, what is on
+    and next; Select opens the options (audio and subtitles of the programme, the star, the
+    channel row); a swipe down opens the channel row.
+  - TV is TV: a channel leaves no progress, history, resume point or watched mark; only the
+    favourites and the last channel are saved on the server.
 - **Search**: across movies, shows and music, with browse tiles.
 - **Settings** (the profile tab):
   - Switch profile, or sign out (which revokes the device token on the server).
   - Default video quality, audio and subtitle languages, and autoplay of the next episode.
+  - The film player lists voice-over files beside the video and their cleaned versions
+    ("Cleaned"), each cleaned one under the track it was made from.
   - App language: System, English or Русский.
   - Server address and version, and Change Server (hidden for kid profiles).
   - Devices signed in to the profile, with sign-out of other devices.
@@ -190,11 +200,12 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
 ```
 AntresolKit/          Swift package, Foundation only (builds and tests on Linux)
   Models/             Codable API models with tolerant decoding
-  Networking/         APIClient (async/await), APIError, ServerURLs, ServerAddress, TokenStore
+  Networking/         APIClient (async/await), APIError, ServerURLs, ServerAddress, TokenStore,
+                      ChannelService (every channel request; favourites and last channel only)
   Playback/           VideoPlaybackSession, MediaKeyStore, PlaybackProgressReporter, PlayQueue,
                       ResumePolicy, UpNext, WebVTT
   Integration/        DeepLink (antresol:// URLs), TopShelfPlan (Top Shelf sections from /api/home),
-                      TopShelfChannels (On Air Now), LastChannelStore
+                      TopShelfChannels (On Air Now)
 AntresolTV/           The tvOS app
   App/                AntresolTVApp, AppState (session phases, language, deep links), Route
   Design/             Theme tokens, button styles, cards, shelves, hero, settings rows

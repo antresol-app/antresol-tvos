@@ -152,9 +152,17 @@ private struct TVHeader: View {
                     selection: Binding(get: { model.activeFilter }, set: { model.filter = $0 })
                 )
                 .padding(.vertical, 12)
+                .padding(.trailing, Theme.Layout.margin)
             }
             .scrollClipDisabled()
             .padding(.vertical, -12)
+            // Themes that run past the screen's edge fade out instead of being cut.
+            .mask(alignment: .leading) {
+                LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.9), .init(color: .clear, location: 1)], startPoint: .leading, endPoint: .trailing)
+                    .padding(.vertical, -40)
+                    .padding(.leading, -Theme.Layout.margin)
+                    .padding(.trailing, -Theme.Layout.margin)
+            }
         }
         .padding(.top, 24)
     }
@@ -241,7 +249,12 @@ private struct ChannelListView: View {
                     .padding(.horizontal, Theme.Layout.margin)
                     .padding(.vertical, 20)
                 }
-                .scrollClipDisabled()
+                // Rows scroll under the header's edge (softly), not over the filters.
+                .mask {
+                    LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.06), .init(color: .black, location: 1)], startPoint: .top, endPoint: .bottom)
+                        .padding(.horizontal, -Theme.Layout.margin)
+                        .padding(.bottom, -120)
+                }
                 .focusSection()
                 .onAppear {
                     if let initial { proxy.scrollTo(initial, anchor: .center) }
@@ -302,7 +315,7 @@ struct ChannelRow: View {
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: 620, alignment: .leading)
                 VStack(alignment: .leading, spacing: 6) {
                     if let next {
                         Text(verbatim: "\(String(localized: "Next", bundle: .localized)) · \(next.start.clock(locale))")
@@ -315,7 +328,7 @@ struct ChannelRow: View {
                             .lineLimit(2)
                     }
                 }
-                .frame(width: 440, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 16)
         }

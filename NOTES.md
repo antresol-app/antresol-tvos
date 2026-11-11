@@ -954,3 +954,53 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   focus in every tab, so it was left as it is).
 - Right after a programme boundary the cards and the Continue card can miss their "Next"
   line until the next list refresh (the list's `next` is then on air).
+
+## Live channels, third round (one list, the guide, audio and subtitles, TV is TV)
+
+### What exists
+- **Kit**: `Channel.favorite` (no logo: a channel is its number and name), programmes with
+  `id`, `kind`, `rating`, `genres`, `external` and the `audio` / `subtitles` renditions
+  they have (`LiveTrack`), `ChannelList.lastChannel`, `ChannelFilter` (All, Favourites,
+  themes; `zapList`), `ChannelEPGWindow` / `ChannelGuideGrid` (`GET /api/channels/epg`
+  windows merged per channel), `GuideScale`, `PlaybackPrefs`, `LiveTrackSelection` and
+  `ChannelService`, the only way the app talks to the server about channels.
+  `ChannelGuideTests.testChannelsLeaveNoHistory` runs a whole session through it and fails
+  on any write but the favourite and the last channel.
+- **TV tab** (`Views/TV`): `TVView` (header: title, the last-channel pill, Channels | Guide,
+  filters), the numbered list (`ChannelRow`), `GuideView`, `ProgramDetailView`, `TVModel`.
+  `tv.mode` and `tv.filter` are remembered in `UserDefaults` (and can be set with launch
+  arguments, which the UI tests use).
+- **Guide focus**: every block is a SwiftUI button; each row is a `focusSection()` with
+  `defaultFocus(…, priority: .userInitiated)` on the programme at the time anchor, and
+  `focusMoved` puts a vertical move right if the engine picked another block. The anchor
+  follows horizontal moves (the block's start, never before the view's start).
+- **Live player**: the options row (Select) with Audio, Subtitles, the star and the channel
+  row; `TrackMenu` lists the programme's entries and selects the HLS rendition by `NAME`
+  (else by language); subtitles come from `AVPlayerItemLegibleOutput` and are drawn by the
+  view, above the banner when it is up. Down (click) is channel down now; the mini-guide
+  opens with a swipe down or from the options row.
+- **Film player**: voice-over files beside the video and cleaned voice-overs (the kit sends
+  `X-Vault-Caps: external-audio`; `audioSrc` with an external track; menu order and labels
+  as on the web).
+- `ChannelScreenshotTests`: `testList`, `testFavourites`, `testGuide`, `testLivePlayer`,
+  `testFilmVoiceOver`, `testTopShelf`, `testChannelLink`; `CHANNELS_LANGUAGE=en` runs them in
+  English.
+
+### Decisions
+- The guide does not take the remote itself: a UIKit focus view inside SwiftUI is wrapped
+  by SwiftUI's own focus item, so its `shouldUpdateFocus` is never asked when focus leaves
+  and the focus engine moved focus out of the grid on Left. Real SwiftUI buttons with
+  per-row default focus keep the engine and the grid in agreement.
+- The guide zooms to the schedule (`GuideScale`): a typical programme gets ~360 pt, never
+  less than the usual half hour = 320 pt. The test library's seven-minute films would
+  otherwise be slivers.
+- The options row instead of `AVPlayerViewController`'s transport bar: the live player has
+  no transport bar (nothing to scrub, and Up / Down zap).
+- No favourite-studio ordering of the Audio menu beyond the server's own order: the web
+  player shows the server's order (cleaned tracks under their source) and the studios list
+  is a household setting only administrators can read.
+
+### Known gaps
+- The Top Shelf extension still exits on the tvOS 27.2 simulator before running, so the
+  On Air Now tiles (and the placeholder picture) were not seen.
+- Swipes on a real Siri Remote were not exercised (the UI tests send clicks).
