@@ -160,7 +160,12 @@ final class VideoPlayerModel {
     func selectAudio(_ index: Int) {
         guard index != menus.audioIndex, let track = menus.audio.first(where: { $0.index == index }) else { return }
         preferences.audioLanguage = TrackLabels.normalizedLanguage(track.language)
-        requestOptions { $0.audioIndex = index }
+        // A voice-over file beside the video (or its cleaned version) is asked for by its
+        // id too: a file added meanwhile shifts the 2000+ positions.
+        requestOptions {
+            $0.audioIndex = index
+            $0.audioSrc = track.external ? track.src : nil
+        }
     }
 
     func selectQuality(_ quality: VideoQuality) {
@@ -254,9 +259,11 @@ final class VideoPlayerModel {
         pendingOptions = nil
         await session?.stop()
         await reporter?.stop()
+        let audioIndex = preferences.audioIndex(for: file.audio)
         options = PlaybackOptions(
             quality: preferences.quality == .auto ? nil : preferences.quality,
-            audioIndex: preferences.audioIndex(for: file.audio)
+            audioIndex: audioIndex,
+            audioSrc: file.audio.first { $0.index == audioIndex && $0.external }?.src
         )
         let session = VideoPlaybackSession(
             client: client,
@@ -423,7 +430,8 @@ final class VideoPlayerModel {
         let subtitles = response.subtitles.isEmpty ? (file?.subs ?? []) : response.subtitles
         let burned = response.burnedSubtitle
         menus = PlayerMenuState(
-            audio: audio,
+            // Each cleaned voice-over right under the track it was made from (as on the web).
+            audio: AudioTrack.menuOrder(audio),
             audioIndex: audio.isEmpty ? nil : response.audioIndex,
             subtitles: subtitles.filter { $0.isText || $0.burnIn },
             subtitleIndex: burned ?? (menus.subtitleIndex.flatMap { index in

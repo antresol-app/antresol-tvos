@@ -18,9 +18,12 @@ enum PlayerMenus {
 
     private static func audioMenu(_ state: PlayerMenuState, model: VideoPlayerModel) -> UIMenu {
         let actions = state.audio.map { track in
-            UIAction(title: TrackLabels.describe(track), state: track.index == state.audioIndex ? .on : .off) { [weak model] _ in
+            let label = TrackLabels.menuLabel(track)
+            let action = UIAction(title: label.title, state: track.index == state.audioIndex ? .on : .off) { [weak model] _ in
                 model?.selectAudio(track.index)
             }
+            if !label.detail.isEmpty { action.subtitle = label.detail }
+            return action
         }
         return UIMenu(
             title: String(localized: "Audio", bundle: .localized),
