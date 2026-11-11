@@ -12,6 +12,25 @@ extension APIClient {
         try await send(.get, "/api/channels/\(id)/guide", query: [URLQueryItem(name: "hours", value: String(hours))])
     }
 
+    /// `GET /api/channels/epg?from=&hours=`: every channel with the programmes that overlap
+    /// `[from, from + hours)`. The server clamps `from` to the schedule it keeps.
+    public func channelEPG(from: Date? = nil, hours: Int = 6) async throws -> ChannelEPGWindow {
+        var query = [URLQueryItem(name: "hours", value: String(min(max(hours, 1), 24)))]
+        if let from { query.insert(URLQueryItem(name: "from", value: Timestamp.format(from)), at: 0) }
+        return try await send(.get, "/api/channels/epg", query: query)
+    }
+
+    /// `PUT` / `DELETE /api/channels/{id}/favorite`: one of the profile's favourites or not.
+    public func setChannelFavorite(id: Int, _ favorite: Bool) async throws {
+        try await sendWithoutResponse(favorite ? .put : .delete, "/api/channels/\(id)/favorite")
+    }
+
+    /// `PUT /api/channels/last`: the channel just tuned in, the profile's «last channel».
+    /// It is not media progress: the server keeps one id per profile and nothing else.
+    public func setLastChannel(id: Int) async throws {
+        try await sendWithoutResponse(.put, "/api/channels/last", json: LastChannelBody(channelId: id))
+    }
+
     /// Starts a channel's live stream and returns the playlist URL for the player once the
     /// server serves it. The first request starts the channel's encoder: the server may
     /// hold it for a while or answer `503` with a short `Retry-After`, which is retried
@@ -39,6 +58,10 @@ extension APIClient {
             }
         }
     }
+}
+
+private struct LastChannelBody: Encodable {
+    let channelId: Int
 }
 
 /// When a live channel's playlist request is worth repeating.

@@ -58,6 +58,8 @@ public struct PlayRequest: Encodable, Hashable, Sendable {
     public var startSec: Double?
     public var quality: VideoQuality?
     public var audioIndex: Int?
+    /// The `src` of the external audio track `audioIndex` names (2000+).
+    public var audioSrc: String?
     /// HLS session to replace (seek outside the window, audio or quality change).
     public var replaceSession: String?
     /// Image subtitle index to burn in.
@@ -65,8 +67,9 @@ public struct PlayRequest: Encodable, Hashable, Sendable {
 
     public init(
         caps: DeviceCaps, startSec: Double? = nil, quality: VideoQuality? = nil,
-        audioIndex: Int? = nil, replaceSession: String? = nil, burnSubtitle: Int? = nil
+        audioIndex: Int? = nil, audioSrc: String? = nil, replaceSession: String? = nil, burnSubtitle: Int? = nil
     ) {
+        self.audioSrc = audioSrc
         self.caps = caps
         self.startSec = startSec
         self.quality = quality

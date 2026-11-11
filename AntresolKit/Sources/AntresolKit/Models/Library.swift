@@ -179,11 +179,42 @@ public struct AudioTrack: Decodable, Hashable, Identifiable, Sendable {
     public var title: String
     public var channels: Int
     public var isDefault: Bool
+    /// An audio file beside the video or a cleaned voice-over (index 2000+); `src` is its
+    /// stable id, sent back with `/api/play` (`audioSrc`).
+    public var external: Bool
+    public var src: String
+    /// The voice-over studio the file names («Кураж-Бамбей»).
+    public var studio: String
+    /// "cleaned": a voice-over with the original speech subtracted («Очищено»), made
+    /// from the file's track `cleanedFrom`; `method` how ("subtraction", "ml").
+    public var kind: String
+    public var method: String
+    public var cleanedFrom: Int?
 
     public var id: Int { index }
 
+    public var isCleaned: Bool { kind == "cleaned" }
+
+    public init(
+        index: Int, codec: String = "", lang: String = "", title: String = "", channels: Int = 0, isDefault: Bool = false,
+        external: Bool = false, src: String = "", studio: String = "", kind: String = "", method: String = "", cleanedFrom: Int? = nil
+    ) {
+        self.index = index
+        self.codec = codec
+        self.lang = lang
+        self.title = title
+        self.channels = channels
+        self.isDefault = isDefault
+        self.external = external
+        self.src = src
+        self.studio = studio
+        self.kind = kind
+        self.method = method
+        self.cleanedFrom = cleanedFrom
+    }
+
     enum CodingKeys: String, CodingKey {
-        case index, codec, lang, title, channels
+        case index, codec, lang, title, channels, external, src, studio, kind, method, cleanedFrom
         case isDefault = "default"
     }
 
@@ -195,6 +226,28 @@ public struct AudioTrack: Decodable, Hashable, Identifiable, Sendable {
         title = c.value(.title, default: "")
         channels = c.value(.channels, default: 0)
         isDefault = c.value(.isDefault, default: false)
+        external = c.value(.external, default: false)
+        src = c.value(.src, default: "")
+        studio = c.value(.studio, default: "")
+        kind = c.value(.kind, default: "")
+        method = c.value(.method, default: "")
+        cleanedFrom = c.optional(.cleanedFrom)
+    }
+
+    /// The audio menu's order (as the web player's): each cleaned voice-over right under
+    /// the track it was made from, everything else as the server lists it.
+    public static func menuOrder(_ tracks: [AudioTrack]) -> [AudioTrack] {
+        let placed: (AudioTrack) -> Bool = { track in
+            track.isCleaned && tracks.contains { $0.index == track.cleanedFrom && !$0.isCleaned }
+        }
+        var out: [AudioTrack] = []
+        for track in tracks where !placed(track) {
+            out.append(track)
+            if !track.isCleaned {
+                out += tracks.filter { placed($0) && $0.cleanedFrom == track.index }
+            }
+        }
+        return out
     }
 
     /// The language code, or nil when unknown.

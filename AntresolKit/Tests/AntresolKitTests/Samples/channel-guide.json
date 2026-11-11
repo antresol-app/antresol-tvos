@@ -1,51 +1,73 @@
 {
   "channel": {
-    "id": 6,
-    "number": 100,
-    "name": "Тестовый сериал",
+    "id": 12,
+    "number": 12,
+    "name": "Смешные соседи",
     "category": "Сериалы нон-стоп",
     "personal": false,
     "auto": true,
     "enabled": true,
     "canEdit": true,
-    "logo": 6,
+    "favorite": false,
+    "logo": 5,
     "rules": {
       "titles": [
-        7
+        34
       ],
       "order": "ordered"
     }
   },
   "programs": [
     {
-      "itemId": 11,
-      "title": "Тестовый сериал",
+      "id": "12-3",
+      "itemId": 38,
+      "kind": "episode",
+      "title": "Смешные соседи",
       "subtitle": "S1 E3 · Серия 3",
-      "year": 2010,
-      "start": "2026-11-10T23:11:07.504Z",
-      "end": "2026-11-10T23:12:07.527Z",
-      "poster": "/api/images/local/7/poster",
-      "backdrop": "/api/images/local/7/backdrop"
+      "overview": "Эпизод 3.",
+      "year": 2019,
+      "rating": "12+",
+      "genres": [
+        "комедия"
+      ],
+      "start": "2026-11-11T22:32:53.769Z",
+      "end": "2026-11-11T22:35:53.792Z",
+      "poster": "/api/images/local/34/poster",
+      "backdrop": "/api/images/local/34/backdrop"
     },
     {
-      "itemId": 12,
-      "title": "Тестовый сериал",
+      "id": "12-4",
+      "itemId": 39,
+      "kind": "episode",
+      "title": "Смешные соседи",
       "subtitle": "S1 E4 · Серия 4",
-      "year": 2010,
-      "start": "2026-11-10T23:12:07.527Z",
-      "end": "2026-11-10T23:13:07.55Z",
-      "poster": "/api/images/local/7/poster",
-      "backdrop": "/api/images/local/7/backdrop"
+      "overview": "Эпизод 4.",
+      "year": 2019,
+      "rating": "12+",
+      "genres": [
+        "комедия"
+      ],
+      "start": "2026-11-11T22:35:53.792Z",
+      "end": "2026-11-11T22:38:53.815Z",
+      "poster": "/api/images/local/34/poster",
+      "backdrop": "/api/images/local/34/backdrop"
     },
     {
-      "itemId": 13,
-      "title": "Тестовый сериал",
+      "id": "12-5",
+      "itemId": 40,
+      "kind": "episode",
+      "title": "Смешные соседи",
       "subtitle": "S1 E5 · Серия 5",
-      "year": 2010,
-      "start": "2026-11-10T23:13:07.55Z",
-      "end": "2026-11-10T23:14:07.573Z",
-      "poster": "/api/images/local/7/poster",
-      "backdrop": "/api/images/local/7/backdrop"
+      "overview": "Эпизод 5.",
+      "year": 2019,
+      "rating": "12+",
+      "genres": [
+        "комедия"
+      ],
+      "start": "2026-11-11T22:38:53.815Z",
+      "end": "2026-11-11T22:41:53.838Z",
+      "poster": "/api/images/local/34/poster",
+      "backdrop": "/api/images/local/34/backdrop"
     }
   ]
 }

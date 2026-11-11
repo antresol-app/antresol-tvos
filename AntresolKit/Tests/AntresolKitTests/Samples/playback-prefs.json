@@ -1,0 +1,15 @@
+{
+    "audioLangs": [
+        "ru",
+        "en"
+    ],
+    "subMode": "off",
+    "subLangs": [
+        "ru",
+        "en"
+    ],
+    "subSize": "m",
+    "subBackground": "translucent",
+    "preferCleaned": false,
+    "custom": false
+}

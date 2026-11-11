@@ -18,72 +18,67 @@ final class ChannelTests: XCTestCase {
 
     func testDecodesTheChannelList() throws {
         let list = try Samples.decode(ChannelList.self, "channels.json")
-        XCTAssertEqual(list.channels.count, 6)
+        XCTAssertEqual(list.channels.map(\.number), [1, 2, 3, 4])
         XCTAssertTrue(list.canManage)
-        let comedy = list.channels[1]
-        XCTAssertEqual(comedy.id, 2)
-        XCTAssertEqual(comedy.number, 10)
-        XCTAssertEqual(comedy.name, "Комедии")
-        XCTAssertEqual(comedy.category, "Кино по жанрам")
-        XCTAssertTrue(comedy.auto)
-        XCTAssertEqual(comedy.logoPreset, .grad3)
-        let now = try XCTUnwrap(comedy.now)
-        XCTAssertEqual(now.backdrop, "/api/images/local/1/backdrop")
-        XCTAssertEqual(now.year, 1991)
-        XCTAssertEqual(now.end.timeIntervalSince(now.start), 90, accuracy: 0.1)
-        XCTAssertEqual(comedy.next?.start, now.end)
-
-        let series = try XCTUnwrap(list.channels.last)
-        XCTAssertEqual(series.now?.subtitle, "S1 E3 · Серия 3")
-        XCTAssertEqual(series.now?.fullTitle, "Тестовый сериал · S1 E3 · Серия 3")
+        XCTAssertEqual(list.lastChannel, 2)
+        XCTAssertEqual(list.last?.name, "Комедии")
+        let drama = list.channels[2]
+        XCTAssertEqual(drama.name, "Драмы")
+        XCTAssertEqual(drama.category, "Кино по жанрам")
+        XCTAssertTrue(drama.favorite)
+        XCTAssertFalse(list.channels[0].favorite)
+        let now = try XCTUnwrap(list.channels[0].now)
+        XCTAssertEqual(now.id, "1-1")
+        XCTAssertEqual(now.kind, "movie")
+        XCTAssertEqual(now.rating, "12+")
+        XCTAssertEqual(now.genres, ["комедия", "приключения"])
+        XCTAssertEqual(now.still, "/api/images/local/18/backdrop")
+        XCTAssertEqual(now.audio?.map(\.slot), ["ru", "en", "orig"])
+        XCTAssertEqual(now.audio?.first?.title, "Русский — LostFilm")
+        XCTAssertEqual(now.subtitles?.map(\.name), ["English"])
+        // Absent arrays are «unknown», empty ones «none».
+        XCTAssertEqual(list.channels[0].next?.audio, [])
+        XCTAssertNil(list.channels[0].next?.subtitles)
+        XCTAssertNil(list.channels[1].now?.audio)
+        XCTAssertEqual(list.channels[0].next?.start, now.end)
     }
 
     func testDecodesTheGuide() throws {
         let guide = try Samples.decode(ChannelGuide.self, "channel-guide.json")
-        XCTAssertEqual(guide.channel.number, 100)
-        XCTAssertEqual(guide.programs.map(\.itemId), [11, 12, 13])
+        XCTAssertEqual(guide.channel.number, 12)
+        XCTAssertEqual(guide.programs.count, 3)
+        XCTAssertEqual(guide.programs[0].kind, "episode")
+        XCTAssertTrue(guide.programs[0].fullTitle.hasPrefix("Смешные соседи · S1 E"))
         let during = guide.programs[0].start.addingTimeInterval(10)
         let onAir = guide.onAir(at: during)
-        XCTAssertEqual(onAir.now?.itemId, 11)
-        XCTAssertEqual(onAir.next?.itemId, 12)
+        XCTAssertEqual(onAir.now, guide.programs[0])
+        XCTAssertEqual(onAir.next, guide.programs[1])
         // The guide moves on by itself between refreshes.
-        XCTAssertEqual(guide.onAir(at: guide.programs[1].start).now?.itemId, 12)
-        XCTAssertEqual(guide.onAir(at: guide.programs[2].start.addingTimeInterval(1)).next == nil, true)
+        XCTAssertEqual(guide.onAir(at: guide.programs[1].start).now, guide.programs[1])
+        XCTAssertNil(guide.onAir(at: guide.programs[2].start.addingTimeInterval(1)).next)
         // Before the first programme: nothing on, the first is next.
         let early = guide.onAir(at: guide.programs[0].start.addingTimeInterval(-5))
         XCTAssertNil(early.now)
-        XCTAssertEqual(early.next?.itemId, 11)
+        XCTAssertEqual(early.next, guide.programs[0])
     }
 
     func testToleratesMissingFields() throws {
-        let list = try JSONDecoder().decode(ChannelList.self, from: Data(#"{"channels":[{"id":3,"logo":"x"}]}"#.utf8))
+        let list = try JSONDecoder().decode(ChannelList.self, from: Data(#"{"channels":[{"id":3,"logo":"x","now":{"start":"bad"}}]}"#.utf8))
         let channel = try XCTUnwrap(list.channels.first)
         XCTAssertEqual(channel.name, "")
-        XCTAssertEqual(channel.logo, 0)
-        XCTAssertNil(channel.now)
+        XCTAssertFalse(channel.favorite)
+        XCTAssertEqual(channel.now?.id, "")
+        XCTAssertNil(channel.now?.audio)
+        XCTAssertNil(list.lastChannel)
+        XCTAssertNil(list.last)
         XCTAssertFalse(list.canCreate)
         XCTAssertThrowsError(try JSONDecoder().decode(Channel.self, from: Data(#"{"name":"No id"}"#.utf8)))
     }
 
-    func testSectionsAreOrderedByTheirLowestNumber() {
-        let channels = [
-            channel(1, 40, "Decades"), channel(2, 10, "Genres"), channel(3, 1, "All"),
-            channel(4, 11, "Genres"), channel(5, 2, "Decades"), channel(6, 100, "Series"),
-        ]
-        let sections = ChannelSection.group(channels)
-        XCTAssertEqual(sections.map(\.category), ["All", "Decades", "Genres", "Series"])
-        XCTAssertEqual(sections[1].channels.map(\.number), [2, 40])
-        XCTAssertEqual(sections[2].channels.map(\.number), [10, 11])
-        XCTAssertEqual(sections.map(\.id), sections.map(\.category))
-        XCTAssertTrue(ChannelSection.group([]).isEmpty)
-    }
-
-    func testSampleSections() throws {
-        let list = try Samples.decode(ChannelList.self, "channels.json")
-        XCTAssertEqual(
-            ChannelSection.group(list.channels).map(\.category),
-            ["Кино и сериалы", "Кино по жанрам", "Кино по десятилетиям", "Детям", "Сериалы нон-стоп"]
-        )
+    func testTheListIsOrderedByNumber() throws {
+        let list = try JSONDecoder().decode(ChannelList.self, from: Data(#"{"channels":[{"id":3,"number":7},{"id":1,"number":2},{"id":9,"number":2}],"lastChannel":42}"#.utf8))
+        XCTAssertEqual(list.channels.map(\.id), [1, 9, 3])
+        XCTAssertNil(list.last, "a last channel the profile no longer sees")
     }
 
     func testProgress() {
@@ -119,13 +114,6 @@ final class ChannelTests: XCTestCase {
         XCTAssertNil(Channel.neighbour(of: 99, in: channels, step: 1))
     }
 
-    func testLogoGradientWraps() {
-        XCTAssertEqual(Channel(id: 1, number: 1, name: "", logo: 0).logoPreset, .grad1)
-        XCTAssertEqual(Channel(id: 1, number: 1, name: "", logo: 6).logoPreset, .grad7)
-        XCTAssertEqual(Channel(id: 1, number: 1, name: "", logo: 7).logoPreset, .grad1)
-        XCTAssertEqual(Channel(id: 1, number: 1, name: "", logo: -1).logoPreset, .grad7)
-    }
-
     func testLiveURL() {
         let urls = ServerURLs(baseURL: base)
         XCTAssertEqual(urls.liveChannel(id: 2, mediaKey: "v1.k")?.absoluteString, "http://tv.test:8420/api/channels/live/2/index.m3u8?mk=v1.k")
@@ -146,6 +134,36 @@ final class ChannelTests: XCTestCase {
         XCTAssertTrue(guide.programs.isEmpty)
         XCTAssertEqual(transport.requests.map(\.pathAndQuery), ["/api/channels", "/api/channels/1/guide?hours=6"])
         XCTAssertEqual(transport.requests[0].value(forHTTPHeaderField: "Authorization"), "Bearer t")
+    }
+
+    func testGuideFavouritesAndLastChannelRequests() async throws {
+        let transport = MockTransport { request in
+            request.url?.path == "/api/channels/epg" ? .json(#"{"from":"2026-11-11T21:00:00Z","to":"2026-11-11T23:00:00Z","channels":[]}"#) : .noContent
+        }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        let window = try await client.channelEPG(from: Date(timeIntervalSince1970: 1_700_000_000), hours: 30)
+        XCTAssertEqual(window.to.timeIntervalSince(window.from), 2 * 3600)
+        _ = try await client.channelEPG()
+        try await client.setChannelFavorite(id: 3, true)
+        try await client.setChannelFavorite(id: 3, false)
+        try await client.setLastChannel(id: 5)
+        let requests = transport.requests
+        XCTAssertEqual(requests.map { "\($0.httpMethod ?? "") \($0.pathAndQuery)" }, [
+            "GET /api/channels/epg?from=2023-11-14T22%3A13%3A20.000Z&hours=24",
+            "GET /api/channels/epg?hours=6",
+            "PUT /api/channels/3/favorite",
+            "DELETE /api/channels/3/favorite",
+            "PUT /api/channels/last",
+        ])
+        XCTAssertEqual(requests[4].bodyJSON?["channelId"] as? Int, 5)
+        XCTAssertNil(requests[2].httpBody)
+    }
+
+    func testEveryRequestSaysItListsExternalAudio() async throws {
+        let transport = MockTransport { _ in .json(#"{"channels":[]}"#) }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        _ = try await client.channels()
+        XCTAssertEqual(transport.requests[0].value(forHTTPHeaderField: "X-Vault-Caps"), "external-audio")
     }
 
     func testStartingChannelIsRetried() async throws {

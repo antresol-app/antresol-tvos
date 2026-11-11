@@ -4,11 +4,14 @@ import Foundation
 public struct PlaybackOptions: Hashable, Sendable {
     public var quality: VideoQuality?
     public var audioIndex: Int?
+    /// The external track's id when `audioIndex` is one (2000+).
+    public var audioSrc: String?
     public var burnSubtitle: Int?
 
-    public init(quality: VideoQuality? = nil, audioIndex: Int? = nil, burnSubtitle: Int? = nil) {
+    public init(quality: VideoQuality? = nil, audioIndex: Int? = nil, audioSrc: String? = nil, burnSubtitle: Int? = nil) {
         self.quality = quality
         self.audioIndex = audioIndex
+        self.audioSrc = audioSrc
         self.burnSubtitle = burnSubtitle
     }
 }
@@ -202,6 +205,7 @@ public actor VideoPlaybackSession {
             startSec: startSec,
             quality: options.quality,
             audioIndex: options.audioIndex,
+            audioSrc: (options.audioIndex ?? 0) >= 2000 ? options.audioSrc : nil,
             replaceSession: session,
             burnSubtitle: options.burnSubtitle
         )

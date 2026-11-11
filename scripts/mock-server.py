@@ -238,6 +238,7 @@ def on_air_now(sample):
     data = json.loads((SAMPLES / sample).read_text())
     channels = data["channels"] if "channels" in data else [data["channel"]]
     programs = [p for c in channels for p in (c.get("now"), c.get("next")) if p] + data.get("programs", [])
+    programs += [p for c in channels for p in c.get("programs", [])]
     parse = lambda t: datetime.datetime.fromisoformat(t.replace("Z", "+00:00"))
     if programs:
         first = min(parse(p["start"]) for p in programs)
@@ -245,6 +246,10 @@ def on_air_now(sample):
         for p in programs:
             for key in ("start", "end"):
                 p[key] = (parse(p[key]) + shift).isoformat().replace("+00:00", "Z")
+        # The guide's window moves with them.
+        for key in ("from", "to"):
+            if key in data:
+                data[key] = (parse(data[key]) + shift).isoformat().replace("+00:00", "Z")
     return data
 
 
@@ -320,6 +325,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, json.dumps(on_air_now("channels.json")).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/channels/\d+/guide", path):
             return self.send(200, json.dumps(on_air_now("channel-guide.json")).encode(), "application/json")
+        if method == "GET" and path == "/api/channels/epg":
+            return self.send(200, json.dumps(on_air_now("channel-epg.json")).encode(), "application/json")
+        if method in ("PUT", "DELETE") and re.fullmatch(r"/api/channels/(\d+/favorite|last)", path):
+            return self.send(204, b"", "application/json")
+        if method == "GET" and path == "/api/me/playback-prefs":
+            return self.send(200, (SAMPLES / "playback-prefs.json").read_bytes(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/items/(19|22)", path):
             item_id = int(path.rsplit("/", 1)[1])
             return self.send(200, json.dumps(item_with_extras(item_id, "item-movie.json")).encode(), "application/json")

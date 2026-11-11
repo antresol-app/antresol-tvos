@@ -34,6 +34,11 @@ extension APIClient {
         try await send(.get, "/api/me")
     }
 
+    /// `GET /api/me/playback-prefs`: the profile's audio and subtitle defaults.
+    public func playbackPrefs() async throws -> PlaybackPrefs {
+        try await send(.get, "/api/me/playback-prefs")
+    }
+
     /// `POST /api/logout`: revokes the current token and forgets it.
     public func signOut() async throws {
         defer { token = nil }

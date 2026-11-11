@@ -1,0 +1,84 @@
+{
+  "channels": [
+    {
+      "id": 1,
+      "number": 1,
+      "name": "Все фильмы",
+      "category": "Кино и сериалы",
+      "favorite": false,
+      "programs": [
+        {
+          "id": "1-1",
+          "itemId": 18,
+          "kind": "movie",
+          "title": "Морской бриз",
+          "overview": "Тестовый фильм «Морской бриз».",
+          "year": 1993,
+          "rating": "12+",
+          "genres": [
+            "комедия",
+            "приключения"
+          ],
+          "start": "2026-11-11T22:26:53.675Z",
+          "end": "2026-11-11T22:33:53.698Z",
+          "poster": "/api/images/local/18/poster",
+          "backdrop": "/api/images/local/18/backdrop"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "number": 2,
+      "name": "Комедии",
+      "category": "Кино по жанрам",
+      "favorite": false,
+      "programs": [
+        {
+          "id": "2-1",
+          "itemId": 1,
+          "kind": "movie",
+          "title": "Большой куш",
+          "overview": "Тестовый фильм «Большой куш» для проверки каналов: несколько озвучек и субтитры.",
+          "year": 2001,
+          "rating": "12+",
+          "genres": [
+            "криминал",
+            "комедия"
+          ],
+          "start": "2026-11-11T22:26:53.682Z",
+          "end": "2026-11-11T22:32:53.705Z",
+          "poster": "/api/images/local/1/poster",
+          "backdrop": "/api/images/local/1/backdrop"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "number": 3,
+      "name": "Драмы",
+      "category": "Кино по жанрам",
+      "favorite": true,
+      "programs": [
+        {
+          "id": "3-1",
+          "itemId": 16,
+          "kind": "movie",
+          "title": "Летний сад",
+          "overview": "Тестовый фильм «Летний сад» для проверки каналов: несколько озвучек и субтитры.",
+          "year": 1989,
+          "rating": "12+",
+          "genres": [
+            "мелодрама",
+            "драма"
+          ],
+          "start": "2026-11-11T22:26:53.688Z",
+          "end": "2026-11-11T22:31:53.711Z",
+          "poster": "/api/images/local/16/poster",
+          "backdrop": "/api/images/local/16/backdrop"
+        }
+      ]
+    }
+  ],
+  "from": "2026-11-11T21:30:00Z",
+  "to": "2026-11-11T22:30:00Z"
+}

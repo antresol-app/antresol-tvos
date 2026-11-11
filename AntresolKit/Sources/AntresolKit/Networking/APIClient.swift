@@ -77,6 +77,11 @@ public final class APIClient: Sendable {
 
     // MARK: - Request plumbing
 
+    /// What this app understands beyond the first App Store build (`X-Vault-Caps`):
+    /// `external-audio` lists the audio files beside a video (index 2000+ with their
+    /// studio and `src`, cleaned voice-overs) in the item and `/api/play` answers.
+    public static let capabilities = "external-audio"
+
     static let encoder = JSONEncoder()
     static let decoder = JSONDecoder()
 
@@ -91,6 +96,7 @@ public final class APIClient: Sendable {
             request.setValue(value, forHTTPHeaderField: name)
         }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(Self.capabilities, forHTTPHeaderField: "X-Vault-Caps")
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

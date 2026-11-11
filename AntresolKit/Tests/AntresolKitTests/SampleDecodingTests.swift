@@ -22,6 +22,8 @@ final class SampleDecodingTests: XCTestCase {
             "books-home.json": d(ShelvesResponse.self),
             "channel-guide.json": d(ChannelGuide.self),
             "channels.json": d(ChannelList.self),
+            "channel-epg.json": d(ChannelEPGWindow.self),
+            "playback-prefs.json": d(PlaybackPrefs.self),
             "comic-pages.json": d(ComicPages.self),
             "error-401.json": d(ErrorBody.self),
             "health.json": d(ServerHealth.self),

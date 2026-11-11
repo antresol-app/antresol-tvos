@@ -1,15 +1,15 @@
 import Foundation
 
-/// The Top Shelf's "On Air Now" section: channels with a programme on air, in the TV tab's
-/// order (sections by their lowest number, channels by number), each opening the channel.
+/// The Top Shelf's "On Air Now" section: channels with a programme on air, by number (the
+/// one list), each opening the channel. A tile's picture is the programme's still; a
+/// programme without one gets the extension's neutral placeholder.
 public struct TopShelfChannels: Sendable, Equatable {
     public struct Entry: Sendable, Equatable {
         public let channel: Channel
         public let program: ChannelProgram
         /// "10 · Comedies — Night Laughs".
         public let title: String
-        /// Server image path: the programme's backdrop, else its poster, else the channel's
-        /// logo picture.
+        /// Server image path: the programme's backdrop, else its poster; "" for neither.
         public let imagePath: String
         /// How far the programme is, for the tile's progress bar.
         public let progress: Double
@@ -23,23 +23,17 @@ public struct TopShelfChannels: Sendable, Equatable {
 
     public init(channels: [Channel], at date: Date, limit: Int = Self.defaultLimit) {
         var entries: [Entry] = []
-        for channel in ChannelSection.group(channels).flatMap(\.channels) where entries.count < limit {
+        for channel in channels.sorted(by: Channel.byNumber) where entries.count < limit {
             guard channel.enabled, let program = channel.program(at: date), program.isOnAir(at: date) else { continue }
-            let image = [program.backdrop, program.poster].first { !$0.isEmpty } ?? Self.logoPath(channel.id)
             entries.append(Entry(
                 channel: channel,
                 program: program,
                 title: "\(channel.number) · \(channel.name) — \(program.title)",
-                imagePath: image,
+                imagePath: program.still,
                 progress: program.progress(at: date),
                 url: DeepLink.channel(id: channel.id).url
             ))
         }
         self.entries = entries
-    }
-
-    /// `GET /api/channels/{id}/logo.png`: the channel's logo tile as a 480×270 picture.
-    public static func logoPath(_ channelId: Int) -> String {
-        "/api/channels/\(channelId)/logo.png"
     }
 }
