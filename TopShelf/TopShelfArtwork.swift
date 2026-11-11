@@ -1,5 +1,6 @@
 import AntresolKit
 import Foundation
+import UIKit
 
 /// Downloads Top Shelf artwork with the Bearer header (the server does not serve images
 /// without it, so the system cannot fetch them itself) into the shared container, and
@@ -58,6 +59,27 @@ struct TopShelfArtwork {
             // Offline: a stale copy is better than no artwork.
             return FileManager.default.fileExists(atPath: file.path) ? file : nil
         }
+    }
+
+    /// The neutral picture of a programme without artwork: a dark system fill with the
+    /// `tv` glyph (never a coloured tile), drawn once into the cache.
+    func placeholderFile() -> URL? {
+        let file = directory.appendingPathComponent("programme-placeholder-v1.png")
+        if FileManager.default.fileExists(atPath: file.path) { return file }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let size = CGSize(width: 1096, height: 616)
+        let image = UIGraphicsImageRenderer(size: size).image { context in
+            UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1).setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            let config = UIImage.SymbolConfiguration(pointSize: 150, weight: .regular)
+            if let glyph = UIImage(systemName: "tv", withConfiguration: config)?
+                .withTintColor(UIColor(white: 0.92, alpha: 0.4), renderingMode: .alwaysOriginal) {
+                let origin = CGPoint(x: (size.width - glyph.size.width) / 2, y: (size.height - glyph.size.height) / 2)
+                glyph.draw(at: origin)
+            }
+        }
+        guard let data = image.pngData(), (try? data.write(to: file, options: .atomic)) != nil else { return nil }
+        return file
     }
 
     private func removeExpiredFiles(in directory: URL) {

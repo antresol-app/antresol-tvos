@@ -268,7 +268,31 @@
 "Previous Channel" = "Previous Channel";
 "Starting the channel…" = "Starting the channel…";
 "The channel can’t be shown" = "The channel can’t be shown";
-"Continue" = "Continue";
-"Next at %@ — %@" = "Next at %1$@ — %2$@";
 "Channels" = "Channels";
 "Now Watching" = "Now Watching";
+
+/* «ТВ», round 3: the list, the guide, the player's options, voice-overs */
+"until %@" = "until %@";
+"Next %@ %@" = "Next %1$@ %2$@";
+"Today" = "Today";
+"Tomorrow" = "Tomorrow";
+"Yesterday" = "Yesterday";
+"Favourites" = "Favourites";
+"Favourite" = "Favourite";
+"Guide" = "Guide";
+"Back to %@" = "Back to %@";
+"No favourite channels" = "No favourite channels";
+"No channels here" = "No channels here";
+"Press and hold a channel, or use the star in the player, to add it to Favourites." = "Press and hold a channel, or use the star in the player, to add it to Favourites.";
+"Press and hold a channel in the list, or use the star in the player, to add it to Favourites." = "Press and hold a channel in the list, or use the star in the player, to add it to Favourites.";
+"Choose another filter." = "Choose another filter.";
+"Watch" = "Watch";
+"Remove from Favourites" = "Remove from Favourites";
+"Add to Favourites" = "Add to Favourites";
+"In Favourites" = "In Favourites";
+"No programmes" = "No programmes";
+"Starts at %@" = "Starts at %@";
+"Switch Channel" = "Switch Channel";
+"Options" = "Options";
+"Cleaned" = "Cleaned";
+"Ended at %@" = "Ended at %@";

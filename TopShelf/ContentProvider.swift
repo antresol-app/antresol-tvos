@@ -18,15 +18,16 @@ final class ContentProvider: TVTopShelfContentProvider {
         guard let stored = SharedSessionStore.load() else { return nil }
         let client = APIClient(baseURL: stored.session.serverURL, token: stored.token, language: stored.session.language)
         // A server without channels (or a failed list) just leaves the section out.
-        async let channelList = try? client.channels()
+        async let channelList = try? ChannelService(client: client).list()
         guard let home = try? await client.home() else { return nil }
         let plan = TopShelfPlan(home: home)
         let live = TopShelfChannels(channels: await channelList?.channels ?? [], at: Date())
         guard !plan.sections.isEmpty || !live.entries.isEmpty else { return nil }
 
         let artwork = TopShelfArtwork(client: client)
-        let paths = plan.sections.flatMap { $0.entries.compactMap(\.imagePath) } + live.entries.map(\.imagePath)
+        let paths = plan.sections.flatMap { $0.entries.compactMap(\.imagePath) } + live.entries.map(\.imagePath).filter { !$0.isEmpty }
         let files = await artwork.files(for: paths)
+        let placeholder = live.entries.contains { files[$0.imagePath] == nil } ? artwork.placeholderFile() : nil
 
         var collections = plan.sections.map { section in
             let items = section.entries.map { entry in
@@ -52,18 +53,19 @@ final class ContentProvider: TVTopShelfContentProvider {
         if !live.entries.isEmpty {
             // After Continue Watching, before Recently Added.
             let index = plan.sections.first?.kind == .continueWatching ? 1 : 0
-            collections.insert(liveCollection(live, files: files), at: index)
+            collections.insert(liveCollection(live, files: files, placeholder: placeholder), at: index)
         }
         return TVTopShelfSectionedContent(sections: collections)
     }
 
-    /// «Сейчас в эфире»: the programme's art, "10 · Comedies — Title" and how far it is.
-    private static func liveCollection(_ live: TopShelfChannels, files: [String: URL]) -> TVTopShelfItemCollection<TVTopShelfSectionedItem> {
+    /// «Сейчас в эфире»: the programme's still (else the neutral placeholder), "10 ·
+    /// Comedies — Title" and how far it is.
+    private static func liveCollection(_ live: TopShelfChannels, files: [String: URL], placeholder: URL?) -> TVTopShelfItemCollection<TVTopShelfSectionedItem> {
         let items = live.entries.map { entry in
             let item = TVTopShelfSectionedItem(identifier: "channel-\(entry.channel.id)")
             item.title = entry.title
             item.imageShape = .hdtv
-            if let file = files[entry.imagePath] {
+            if let file = files[entry.imagePath] ?? placeholder {
                 item.setImageURL(file, for: [.screenScale1x, .screenScale2x])
             }
             item.playbackProgress = entry.progress
