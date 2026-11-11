@@ -67,6 +67,13 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
         return now
     }
 
+    /// What comes after the programme on air at `date` ("Next at 23:30 — …"): `next`, unless
+    /// it is already on air or over (the list is refreshed only every half minute).
+    public func upNext(at date: Date) -> ChannelProgram? {
+        guard let next, next != program(at: date), next.end > date else { return nil }
+        return next
+    }
+
     /// The channel `step` places away by number (+1 is channel up), wrapping around the
     /// ends of the list. `channels` need not be sorted. nil when `id` is not in the list.
     public static func neighbour(of id: Int, in channels: [Channel], step: Int) -> Channel? {
