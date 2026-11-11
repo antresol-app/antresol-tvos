@@ -27,11 +27,13 @@ final class PlaybackCoordinator {
         var fileId: Int?
     }
 
-    /// A live channel to watch, with the channels it can zap to.
+    /// A live channel to watch: the whole list, and the filter it was opened from (channel
+    /// up / down stays inside it).
     struct LiveRequest: Identifiable, Hashable {
         let id = UUID()
         let channel: Channel
         let channels: [Channel]
+        let filter: ChannelFilter
     }
 
     /// The request the player is showing, if any.
@@ -50,14 +52,22 @@ final class PlaybackCoordinator {
         presented = Request(card: card, start: start, fileId: fileId)
     }
 
-    /// Opens the live player on `channel`; channel up / down moves through `channels`.
-    func watch(_ channel: Channel, channels: [Channel]) {
-        presentedChannel = LiveRequest(channel: channel, channels: channels)
+    /// Opens the live player on `channel`; channel up / down moves through the channels of
+    /// `filter`, by number.
+    func watch(_ channel: Channel, channels: [Channel], filter: ChannelFilter = .all) {
+        presentedChannel = LiveRequest(channel: channel, channels: channels, filter: filter)
     }
 
+    /// The live player closed. `completedSessions` is left alone: a channel is not a
+    /// playback session, nothing of the library changed (TV is TV).
     func liveChannelDidClose() {
         presentedChannel = nil
+        liveSessions += 1
     }
+
+    /// Incremented each time the live player closes, so the TV tab can refresh its list
+    /// (favourites and the last channel may have changed there).
+    private(set) var liveSessions = 0
 
     func playerDidClose() {
         presented = nil

@@ -269,7 +269,7 @@ struct MainShellView: View {
     private func openChannel(_ id: Int, client: APIClient) async {
         let channels: [Channel]
         do {
-            channels = try await client.channels().channels
+            channels = try await ChannelService(client: client).list().channels
         } catch {
             _ = appState.message(for: error)
             return

@@ -5,11 +5,12 @@ import UIKit
 
 /// The full-screen live player presented by the shell for
 /// `PlaybackCoordinator.presentedChannel`. The picture fills the screen; the channel banner
-/// (logo, "10 · Comedies", Live, what is on with its progress, what is next) slides in on
-/// every change and on Select and fades after 5 s. Up (a click or a swipe) and the remote's
-/// channel buttons zap; Down opens the mini-guide, a row of the section's channels with
-/// focus on the current one; Menu closes the mini-guide first, then leaves. A zap holds
-/// the old picture, dimmed under the banner, until the new channel's first frame.
+/// (the number, the name, Live, what is on with its progress, what is next) slides in on
+/// every change and fades after 5 s. Up / Down (clicks) and the channel buttons zap through
+/// the list the player was opened from; a swipe down opens the mini-guide, a row of those
+/// channels with focus on the current one; Select brings up the options row (star, audio,
+/// subtitles, channels); Menu closes what is open first, then leaves. A zap holds the old
+/// picture, dimmed, until the new channel's first frame.
 struct LivePlayerView: View {
     let request: PlaybackCoordinator.LiveRequest
 
@@ -49,10 +50,12 @@ struct LivePlayerView: View {
                     LiveConnectingView(model: model, isStarting: isStarting)
                         .allowsHitTesting(false)
                 }
+                if let text = model.subtitleText, !model.showsGuide {
+                    LiveSubtitle(text: text, raised: model.showsInfo)
+                }
                 if model.showsInfo {
                     LiveBanner(model: model)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .allowsHitTesting(false)
                 }
                 if model.showsGuide {
                     LiveChannelRail(model: model)
@@ -62,9 +65,18 @@ struct LivePlayerView: View {
         }
         .animation(Theme.Motion.slowEaseOut, value: model.showsInfo)
         .animation(Theme.Motion.slowEaseOut, value: model.showsGuide)
+        .animation(Theme.Motion.easeOut, value: model.showsControls)
+        .animation(Theme.Motion.easeOut, value: model.openMenu)
         .animation(Theme.Motion.easeOut, value: model.isHoldingFrame)
         .animation(Theme.Motion.easeOut, value: model.state)
         .task { model.start(appState: appState, coordinator: coordinator) }
+        .task {
+            // A programme boundary picks the next programme's tracks.
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                model.tick()
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background: model.suspend()
@@ -79,9 +91,45 @@ struct LivePlayerView: View {
     }
 }
 
+// MARK: - Subtitles
+
+/// The subtitle cue, centred near the bottom (the film player's look), lifted above the
+/// banner while it is up.
+private struct LiveSubtitle: View {
+    let text: String
+    let raised: Bool
+
+    var body: some View {
+        VStack {
+            Spacer()
+            Text(verbatim: text)
+                .font(.system(size: 48, weight: .semibold))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+                .shadow(color: .black.opacity(0.9), radius: 4, y: 1)
+                .padding(.horizontal, 22)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
+                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .frame(maxWidth: 1500)
+                .padding(.bottom, raised ? 330 : 96)
+        }
+        .frame(maxWidth: .infinity)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .animation(Theme.Motion.easeOut, value: raised)
+        .accessibilityElement()
+        .accessibilityLabel(Text(verbatim: text))
+    }
+}
+
 // MARK: - Banner and mini-guide
 
-/// The channel banner: a glass panel along the bottom edge, the app's player chrome.
+/// The channel banner: a glass panel along the bottom edge. The channel's identity is its
+/// number and name (no logo); then what is on, its progress and times, and what is next.
+/// With the options row up, the star, audio, subtitles and the channel list sit on its
+/// right and take focus.
 private struct LiveBanner: View {
     let model: LivePlayerModel
 
@@ -90,19 +138,32 @@ private struct LiveBanner: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let onAir = model.onAir(at: context.date)
-            VStack {
+            VStack(alignment: .trailing, spacing: 24) {
                 Spacer()
-                HStack(alignment: .center, spacing: 40) {
-                    ChannelLogo(model.channel, cornerRadius: Theme.Radius.control)
-                        .frame(width: 240, height: 135)
-                        .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
+                if let menu = model.openMenu {
+                    TrackMenu(model: model, kind: menu)
+                        .padding(.trailing, Theme.Layout.margin + 32)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                HStack(alignment: .center, spacing: 44) {
+                    Text(verbatim: String(model.channel.number))
+                        .font(.system(size: 76, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Colors.label2)
+                        .frame(minWidth: 120, alignment: .trailing)
+                        .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 18) {
-                            Text(verbatim: model.channel.label)
+                            Text(verbatim: model.channel.name)
                                 .font(Theme.Typography.headline)
                                 .foregroundStyle(Theme.Colors.label)
                                 .lineLimit(1)
+                            if model.isFavorite {
+                                Image(systemName: "star.fill")
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundStyle(Theme.Colors.label2)
+                            }
                             LiveBadge()
                         }
                         if let now = onAir.now {
@@ -111,7 +172,7 @@ private struct LiveBanner: View {
                                 .foregroundStyle(Theme.Colors.label)
                                 .lineLimit(1)
                             HStack(spacing: 24) {
-                                ProgressBar(value: now.progress(at: context.date), height: 8)
+                                LiveProgressBar(value: now.progress(at: context.date), height: 8)
                                     .frame(width: 420)
                                 Text(verbatim: now.timeRange(locale))
                                     .font(Theme.Typography.meta)
@@ -133,9 +194,16 @@ private struct LiveBanner: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    RemoteHints()
+                    if model.showsControls {
+                        LiveControls(model: model)
+                            .transition(.opacity)
+                    } else {
+                        RemoteHints()
+                            .transition(.opacity)
+                    }
                 }
-                .padding(32)
+                .padding(.vertical, 32)
+                .padding(.horizontal, 40)
                 // A dark backing keeps the glass legible over a bright, saturated picture.
                 .background(.black.opacity(0.3), in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 12, style: .continuous))
                 .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 12, style: .continuous), highlighted: false, interactive: false)
@@ -145,16 +213,146 @@ private struct LiveBanner: View {
             .background(alignment: .bottom) { BottomScrim(height: 520) }
         }
         .ignoresSafeArea()
-        .accessibilityElement(children: .combine)
+        .allowsHitTesting(model.showsControls)
     }
 }
 
-/// What the remote does here: Up for the next channel, Down for the channel row.
+/// The options row: audio, subtitles, the star and the channel list, as round glass
+/// buttons (the system player's transport-bar idiom).
+private struct LiveControls: View {
+    let model: LivePlayerModel
+
+    @FocusState private var focused: Control?
+
+    enum Control: Hashable {
+        case audio, subtitles, favorite, channels
+    }
+
+    var body: some View {
+        let audio = model.audioEntries()
+        let subtitles = model.subtitleEntries()
+        GlassGroup(spacing: 24) {
+            HStack(spacing: 24) {
+                if audio.count > 1 {
+                    control(.audio, "Audio", "speaker.wave.2.fill", isActive: model.openMenu == .audio) {
+                        model.openMenu = model.openMenu == .audio ? nil : .audio
+                    }
+                }
+                if !subtitles.isEmpty {
+                    control(.subtitles, "Subtitles", model.subtitleSlot == nil ? "captions.bubble" : "captions.bubble.fill", isActive: model.openMenu == .subtitles) {
+                        model.openMenu = model.openMenu == .subtitles ? nil : .subtitles
+                    }
+                }
+                control(.favorite, model.isFavorite ? "Remove from Favourites" : "Add to Favourites", model.isFavorite ? "star.fill" : "star", isActive: false) {
+                    model.toggleFavorite()
+                }
+                control(.channels, "Channels", "list.bullet", isActive: false) {
+                    model.showGuide()
+                }
+            }
+        }
+        .focusSection()
+        .defaultFocus($focused, first(audio: audio, subtitles: subtitles))
+        .onAppear {
+            // The picture gives up focus as the row appears: hand it to the row.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                focused = first(audio: audio, subtitles: subtitles)
+            }
+        }
+        .onExitCommand { model.closeControls() }
+        .onMoveCommand { direction in
+            if direction == .up, model.openMenu == nil { model.closeControls() }
+        }
+    }
+
+    /// Audio when there is a choice, else subtitles, else the star.
+    private func first(audio: [LiveTrack], subtitles: [LiveTrack]) -> Control {
+        audio.count > 1 ? .audio : (subtitles.isEmpty ? .favorite : .subtitles)
+    }
+
+    private func control(_ id: Control, _ title: LocalizedStringKey, _ symbol: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+        }
+        .buttonStyle(CircleButtonStyle(diameter: 84, isActive: isActive))
+        .focused($focused, equals: id)
+        .accessibilityLabel(Text(title))
+        .accessibilityIdentifier("live.\(id)")
+    }
+}
+
+/// The audio or subtitle list over the options row: the programme's entries with their
+/// labels («Русский — LostFilm»), a check on the one that plays. A pick sticks for the
+/// session (programmes and channels) and is not saved anywhere.
+private struct TrackMenu: View {
+    let model: LivePlayerModel
+    let kind: TrackMenuKind
+
+    @FocusState private var focused: String?
+
+    var body: some View {
+        let entries = kind == .audio ? model.audioEntries() : model.subtitleEntries()
+        let selected = kind == .audio ? model.audioSlot : (model.subtitleSlot ?? "")
+        VStack(alignment: .leading, spacing: 4) {
+            Text(kind == .audio ? "Audio" : "Subtitles")
+                .font(Theme.Typography.eyebrow)
+                .foregroundStyle(Theme.Colors.label3)
+                .padding(.horizontal, Theme.Layout.listRowInset)
+                .padding(.bottom, 8)
+            if kind == .subtitles {
+                row(id: "", title: String(localized: "Off", bundle: .localized), isOn: selected.isEmpty) {
+                    model.selectSubtitle(nil)
+                }
+            }
+            ForEach(entries, id: \.slot) { entry in
+                row(id: entry.slot, title: entry.title, isOn: entry.slot == selected) {
+                    if kind == .audio { model.selectAudio(entry) } else { model.selectSubtitle(entry) }
+                }
+            }
+        }
+        .padding(24)
+        .frame(width: 560, alignment: .leading)
+        .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous))
+        .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous), highlighted: false, interactive: false)
+        .focusSection()
+        .defaultFocus($focused, selected)
+        .onAppear {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                focused = selected
+            }
+        }
+        .onExitCommand { model.openMenu = nil }
+    }
+
+    private func row(id: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 18) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 22, weight: .bold))
+                    .opacity(isOn ? 1 : 0)
+                    .frame(width: 28)
+                Text(verbatim: title)
+                    .font(Theme.Typography.headline)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+        }
+        .buttonStyle(ListRowButtonStyle())
+        .focused($focused, equals: id)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+        .accessibilityIdentifier("live.track.\(id.isEmpty ? "off" : id)")
+    }
+}
+
+/// What the remote does here: Up / Down switch channels, a swipe down lists them, Select
+/// opens the options.
 private struct RemoteHints: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("Next Channel", systemImage: "chevron.up")
-            Label("Channels", systemImage: "chevron.down")
+            Label("Switch Channel", systemImage: "chevron.up.chevron.down")
+            Label("Options", systemImage: "circle.circle")
         }
         .labelStyle(HintLabelStyle())
         .font(Theme.Typography.cardMeta)
@@ -189,37 +387,34 @@ private struct BottomScrim: View {
     }
 }
 
-/// The mini-guide: the current section's channels as a row of channel cards along the
-/// bottom, focus on the current channel. Select switches to a card's channel; Up or Menu
-/// closes the row.
+/// The mini-guide: the channels of the list the player was opened from, along the bottom,
+/// focus on the current one. Each card is the programme's still with the number and the
+/// name, what is on and its progress. Select switches; Up or Menu closes the row.
 private struct LiveChannelRail: View {
     let model: LivePlayerModel
 
     @FocusState private var focused: Int?
     /// Fixed when the row opens, so a refresh or a zap does not move it under the focus.
-    @State private var strip: ChannelStrip?
+    @State private var order: [Int]?
 
-    private static let cardWidth: CGFloat = 420
+    private static let cardWidth: CGFloat = 400
 
     var body: some View {
-        let strip = strip ?? model.strip
+        let channels = fresh(order ?? model.zapList.map(\.id))
         VStack(alignment: .leading, spacing: 8) {
             Spacer()
-            Text(verbatim: strip.category.isEmpty ? String(localized: "Channels", bundle: .localized) : strip.category)
+            Text(verbatim: model.filter == .all ? String(localized: "Channels", bundle: .localized) : model.filter.title)
                 .font(Theme.Typography.sectionTitle)
                 .foregroundStyle(Theme.Colors.label)
                 .padding(.horizontal, Theme.Layout.margin)
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .top, spacing: Theme.Layout.cardSpacing) {
-                        ForEach(fresh(strip.channels)) { channel in
+                        ForEach(channels) { channel in
                             Button {
                                 model.tune(to: channel)
                             } label: {
-                                ChannelCard(channel: channel, width: Self.cardWidth)
-                                    .overlay(alignment: .topTrailing) {
-                                        if channel.id == model.channel.id { NowWatchingMark() }
-                                    }
+                                RailCard(channel: channel, isCurrent: channel.id == model.channel.id, width: Self.cardWidth)
                             }
                             .buttonStyle(CardButtonStyle())
                             .focused($focused, equals: channel.id)
@@ -234,12 +429,12 @@ private struct LiveChannelRail: View {
                 // keeps to its cards so it sits on the bottom edge.
                 .fixedSize(horizontal: false, vertical: true)
                 .onAppear {
-                    self.strip = model.strip
+                    order = model.zapList.map(\.id)
                     proxy.scrollTo(model.channel.id, anchor: .center)
                     focused = model.channel.id
                 }
             }
-            .defaultFocus($focused, strip.current.id)
+            .defaultFocus($focused, model.channel.id)
             .padding(.bottom, 30)
         }
         // Captions sit straight on the picture: a deeper fade than the banner's.
@@ -252,9 +447,55 @@ private struct LiveChannelRail: View {
         }
     }
 
-    /// The strip's channels as the latest list has them (what is on moves on).
-    private func fresh(_ channels: [Channel]) -> [Channel] {
-        channels.map { channel in model.channels.first { $0.id == channel.id } ?? channel }
+    /// The row's channels as the latest list has them (what is on moves on).
+    private func fresh(_ ids: [Int]) -> [Channel] {
+        ids.compactMap { id in model.channels.first { $0.id == id } ?? (model.channel.id == id ? model.channel : nil) }
+    }
+}
+
+/// A channel in the mini-guide: the programme's still (a play mark on the channel being
+/// watched) with its progress, then "10 · Name" and what is on.
+private struct RailCard: View {
+    let channel: Channel
+    let isCurrent: Bool
+    let width: CGFloat
+
+    @Environment(\.isCardFocused) private var isFocused
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            let program = channel.program(at: context.date)
+            VStack(alignment: .leading, spacing: 0) {
+                ProgrammeStill(program: program, maxPixelSize: width * 2)
+                    .frame(width: width, height: width * 9 / 16)
+                    .overlay(alignment: .bottom) {
+                        if let program, program.isOnAir(at: context.date) {
+                            LiveProgressBar(value: program.progress(at: context.date), height: 5)
+                                .padding(.horizontal, 18)
+                                .padding(.bottom, 16)
+                                .shadow(color: .black.opacity(0.4), radius: 4)
+                        }
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        if isCurrent { NowWatchingMark() }
+                    }
+                    .cardLift(isFocused: isFocused)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(verbatim: channel.label)
+                        .font(Theme.Typography.cardTitle)
+                        .foregroundStyle(Theme.Colors.label)
+                        .lineLimit(1)
+                    Text(verbatim: program?.fullTitle ?? String(localized: "Nothing on now", bundle: .localized))
+                        .font(Theme.Typography.cardMeta)
+                        .foregroundStyle(Theme.Colors.label2)
+                        .lineLimit(1)
+                }
+                .padding(.top, 20)
+                .offset(y: isFocused ? 12 : 0)
+            }
+            .frame(width: width, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -306,10 +547,9 @@ private struct LiveErrorView: View {
 
     var body: some View {
         VStack(spacing: 30) {
-            ChannelLogo(model.channel)
-                .frame(width: 256, height: 144)
             Text(verbatim: model.channel.label)
                 .font(Theme.Typography.headline)
+                .monospacedDigit()
                 .foregroundStyle(Theme.Colors.label2)
             Text("The channel can’t be shown")
                 .font(Theme.Typography.sectionTitle)
@@ -354,9 +594,10 @@ private struct LiveErrorView: View {
 // MARK: - Picture and remote
 
 /// The picture (two `AVPlayerLayer`s, the one on screen above the one a zap loads into; no
-/// transport bar: live has nothing to scrub) and the remote: Up and the channel buttons
-/// zap, Down opens the mini-guide, Select shows or hides the banner, Play/Pause pauses,
-/// Menu leaves. While the mini-guide is up the picture gives up focus and the presses.
+/// transport bar: live has nothing to scrub) and the remote: Up / Down (clicks) and the
+/// channel buttons zap, a swipe up zaps up, a swipe down opens the mini-guide, Left /
+/// Right show the banner, Select opens the options row, Play/Pause pauses, Menu leaves.
+/// While the mini-guide or the options row is up the picture gives up focus and presses.
 private struct LivePlayerSurface: UIViewControllerRepresentable {
     let model: LivePlayerModel
     let exit: () -> Void
@@ -375,12 +616,12 @@ private struct LivePlayerSurface: UIViewControllerRepresentable {
         let model = model
         controller.onZap = { model.zap($0) }
         controller.onGuide = { model.showGuide() }
-        controller.onSelect = { model.toggleInfo() }
+        controller.onSelect = { model.showControls() }
         controller.onInfo = { model.showInfo() }
         controller.onPlayPause = { model.togglePause() }
         controller.onExit = exit
         controller.show(layer: model.front)
-        controller.takesRemote = !model.showsGuide
+        controller.takesRemote = !model.showsGuide && !model.showsControls
         controller.view.accessibilityLabel = model.channel.label
     }
 }
@@ -393,8 +634,8 @@ final class LivePlayerController: UIViewController {
     var onPlayPause: () -> Void = {}
     var onExit: () -> Void = {}
 
-    /// False while the mini-guide has focus: the picture is not focusable then, so moving
-    /// focus up from the row cannot land on it.
+    /// False while the mini-guide or the options row has focus: the picture is not
+    /// focusable then, so moving focus up from them cannot land on it.
     var takesRemote = true {
         didSet {
             guard takesRemote != oldValue else { return }
@@ -482,8 +723,7 @@ final class LivePlayerController: UIViewController {
         for press in mine {
             switch press.type {
             case .upArrow, .pageUp: onZap(1)
-            case .pageDown: onZap(-1)
-            case .downArrow: onGuide()
+            case .downArrow, .pageDown: onZap(-1)
             case .leftArrow, .rightArrow: onInfo()
             case .select: onSelect()
             case .playPause: onPlayPause()
