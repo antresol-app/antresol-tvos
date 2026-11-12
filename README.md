@@ -71,7 +71,7 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 ## Requirements
 
 - An Antresol server, v0.3.0 or newer, reachable from the Apple TV.
-- Xcode 16.4 or newer and [XcodeGen](https://github.com/yonaskolb/XcodeGen) to build the app.
+- Xcode 27.2 or newer (the tvOS 27 SDK) and [XcodeGen](https://github.com/yonaskolb/XcodeGen) to build the app.
 - Swift 6.0+ (any platform, Linux included) to build and test `AntresolKit`.
 
 ## Build and run

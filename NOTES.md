@@ -50,7 +50,7 @@ Running log between milestones. Newest entry last.
 - Localisation: `Localizable.strings` + `InfoPlist.strings` in en.lproj / ru.lproj (plain .strings,
   not a string catalog, so XcodeGen needs no special handling). Add every new UI string to both files.
 - CI (`.github/workflows/ci.yml`): `kit-linux` (swift:6.0.3-noble container, build + test; integration
-  tests skip) and `app-tvos` (macos-15, Xcode 16.4, xcodegen, xcodebuild for the tvOS Simulator).
+  tests skip) and `app-tvos` (the xcode-27 runner, Xcode 27.2, xcodegen, xcodebuild for the tvOS Simulator).
 
 ### Decisions
 - Swift 5 language mode in both package (tools 5.10) and app; models and actors are still `Sendable`.
