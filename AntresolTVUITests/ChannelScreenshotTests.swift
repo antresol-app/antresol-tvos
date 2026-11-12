@@ -218,6 +218,57 @@ final class ChannelScreenshotTests: XCTestCase {
         sleep(3)
     }
 
+    /// A channel with many voices and subtitles (make it the profile's last channel first):
+    /// the list, the banner and the mini-guide with its logo; the Audio list scrolls to its
+    /// last entry and plays it; the Subtitles list with every language.
+    func testManyVoices() {
+        launch()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        shot("r5-60-list-logo", delay: 4)
+        remote.press(.select)
+        shot("r5-61-banner-logo", delay: 10)
+        remote.press(.select)
+        sleep(2)
+        let audio = app.buttons["live.audio"]
+        if audio.exists {
+            moveFocus(.left, to: audio, limit: 4)
+            remote.press(.select)
+            shot("r5-62-audio-long", delay: 2)
+            for _ in 0..<8 { remote.press(.down); usleep(400_000) }
+            shot("r5-63-audio-scrolled", delay: 1)
+            remote.press(.select)
+            sleep(4)
+            remote.press(.select)
+            sleep(2)
+            moveFocus(.left, to: audio, limit: 4)
+            remote.press(.select)
+            shot("r5-64-audio-picked", delay: 2)
+            remote.press(.menu)
+            sleep(1)
+        }
+        let subtitles = app.buttons["live.subtitles"]
+        if subtitles.exists {
+            moveFocus(.right, to: subtitles, limit: 4)
+            remote.press(.select)
+            shot("r5-65-subtitles-long", delay: 2)
+            remote.press(.down)
+            remote.press(.down)
+            remote.press(.select)
+            shot("r5-66-subtitles-on", delay: 6)
+        }
+        remote.press(.select)
+        sleep(2)
+        let channels = app.buttons["live.channels"]
+        if moveFocus(.right, to: channels, limit: 5) {
+            remote.press(.select)
+            shot("r5-67-mini-guide-logo", delay: 3)
+            remote.press(.menu)
+            sleep(2)
+        }
+        remote.press(.menu)
+        sleep(3)
+    }
+
     /// The film player's Audio menu lists the voice-over file beside the video and plays it
     /// (`CHANNELS_FILM_ID`, «Тихий дом» of the test library by default).
     func testFilmVoiceOver() {

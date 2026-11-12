@@ -293,11 +293,13 @@ private struct TrackMenu: View {
     let kind: TrackMenuKind
 
     @FocusState private var focused: String?
+    /// The rows' own height (the list is as tall as they are, up to `maxListHeight`).
+    @State private var contentHeight: CGFloat = 0
 
-    /// The rows that show before the list scrolls: it stays clear of the screen's top
-    /// safe area above the banner.
+    /// The tallest the list gets before it scrolls: it stays clear of the top of the
+    /// screen above the banner (about six rows).
+    static let maxListHeight: CGFloat = 540
     static let visibleRows = 6
-    static let rowHeight: CGFloat = 76
 
     var body: some View {
         let entries = kind == .audio ? model.audioEntries() : model.subtitleEntries()
@@ -336,9 +338,9 @@ private struct TrackMenu: View {
                     }
                     // room for the focused row's lift
                     .padding(.vertical, 8)
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { contentHeight = $0 }
                 }
-                .scrollClipDisabled(false)
-                .frame(height: CGFloat(min(count, Self.visibleRows)) * (Self.rowHeight + 4) + 16)
+                .frame(height: contentHeight == 0 ? Self.maxListHeight : min(contentHeight, Self.maxListHeight))
                 .onAppear { proxy.scrollTo(selected, anchor: .center) }
             }
         }
@@ -370,7 +372,6 @@ private struct TrackMenu: View {
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
             }
-            .frame(minHeight: Self.rowHeight - 24)
         }
         .buttonStyle(ListRowButtonStyle())
         .focused($focused, equals: id)
