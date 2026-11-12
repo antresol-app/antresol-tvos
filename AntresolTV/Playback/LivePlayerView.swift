@@ -71,9 +71,9 @@ struct LivePlayerView: View {
         .animation(Theme.Motion.easeOut, value: model.state)
         .task { model.start(appState: appState, coordinator: coordinator) }
         .task {
-            // A programme boundary picks the next programme's tracks.
+            // A programme boundary picks the next programme's tracks; «В эфир» follows the lag.
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(for: .seconds(1))
                 model.tick()
             }
         }
@@ -165,7 +165,7 @@ private struct LiveBanner: View {
                                     .font(.system(size: 22, weight: .semibold))
                                     .foregroundStyle(Theme.Colors.label2)
                             }
-                            LiveBadge()
+                            if model.isBehindLive { GoLiveBadge() } else { LiveBadge() }
                         }
                         if let now = onAir.now {
                             Text(verbatim: now.fullTitle)
@@ -226,7 +226,7 @@ private struct LiveControls: View {
     @FocusState private var focused: Control?
 
     enum Control: Hashable {
-        case audio, subtitles, favorite, channels
+        case goLive, audio, subtitles, favorite, channels
     }
 
     var body: some View {
@@ -234,6 +234,12 @@ private struct LiveControls: View {
         let subtitles = model.subtitleEntries()
         GlassGroup(spacing: 24) {
             HStack(spacing: 24) {
+                if model.isBehindLive {
+                    control(.goLive, "Go Live", "forward.end.fill", isActive: false) {
+                        model.goLive()
+                        model.closeControls()
+                    }
+                }
                 if audio.count > 1 {
                     control(.audio, "Audio", "speaker.wave.2.fill", isActive: model.openMenu == .audio) {
                         model.openMenu = model.openMenu == .audio ? nil : .audio
@@ -269,7 +275,8 @@ private struct LiveControls: View {
 
     /// Audio when there is a choice, else subtitles, else the star.
     private func first(audio: [LiveTrack], subtitles: [LiveTrack]) -> Control {
-        audio.count > 1 ? .audio : (subtitles.isEmpty ? .favorite : .subtitles)
+        if model.isBehindLive { return .goLive }
+        return audio.count > 1 ? .audio : (subtitles.isEmpty ? .favorite : .subtitles)
     }
 
     private func control(_ id: Control, _ title: LocalizedStringKey, _ symbol: String, isActive: Bool, action: @escaping () -> Void) -> some View {

@@ -209,6 +209,8 @@ final class LivePlayerModel {
             return
         }
         channel = channels.first { $0.id == target.id } ?? target
+        pausedAt = nil
+        isBehindLive = false
         externalSelection = trackMemory.selection(for: channel.id)
         audioOptions = []
         subtitleOptions = []
@@ -411,17 +413,65 @@ final class LivePlayerModel {
         showsGuide = false
     }
 
-    /// Play/Pause. Live goes on while paused, so playing again rejoins it at the live edge.
+    /// Play/Pause (allowed on live, every platform). Playing again goes on from where it
+    /// stopped while the stream still holds that moment — an own channel keeps about
+    /// `ownLiveWindow` seconds, an external stream its seekable range; a longer pause comes
+    /// back at the live edge.
     func togglePause() {
         guard state == .playing else { return }
         if player.timeControlStatus == .paused {
-            seekToLiveEdge()
+            let paused = pausedAt.map { Date().timeIntervalSince($0) } ?? 0
+            pausedAt = nil
+            if let range = liveRange {
+                let window = channel.external ? range.upperBound - range.lowerBound
+                    : min(Self.ownLiveWindow, range.upperBound - range.lowerBound)
+                if paused > window || player.currentTime().seconds < range.lowerBound + 1 { seekToLiveEdge() }
+            }
             player.play()
+            scheduleHide()
         } else {
+            pausedAt = Date()
             player.pause()
             hideTask?.cancel()
             showsInfo = true
         }
+        updateLiveLag()
+    }
+
+    /// How much of the past an own channel's live playlist keeps.
+    static let ownLiveWindow: TimeInterval = 60
+    /// Further behind the live edge than this, «В эфир» shows instead of LIVE.
+    static let behindLiveThreshold: TimeInterval = 10
+    /// More than `behindLiveThreshold` behind the live edge (after a pause).
+    private(set) var isBehindLive = false
+    @ObservationIgnored private var pausedAt: Date?
+
+    /// The seekable range of a live stream (nil for one with a duration: a VOD loop).
+    private var liveRange: ClosedRange<Double>? {
+        guard let item = player.currentItem, !item.duration.isNumeric,
+              let r = item.seekableTimeRanges.last?.timeRangeValue, r.start.isNumeric, r.end.isNumeric, r.end > r.start
+        else { return nil }
+        return r.start.seconds...r.end.seconds
+    }
+
+    /// Seconds behind the live edge (nil: no edge known).
+    var liveLag: Double? {
+        liveRange.map { max(0, $0.upperBound - player.currentTime().seconds) }
+    }
+
+    /// «В эфир»: back to the live edge, playing.
+    func goLive() {
+        guard state == .playing else { return }
+        pausedAt = nil
+        seekToLiveEdge()
+        player.play()
+        isBehindLive = false
+        scheduleHide()
+    }
+
+    func updateLiveLag() {
+        let behind = state == .playing && (liveLag ?? 0) > Self.behindLiveThreshold
+        if behind != isBehindLive { isBehindLive = behind }
     }
 
     /// The app went to the background: live cannot be caught up later, so stop the items.
@@ -803,6 +853,7 @@ final class LivePlayerModel {
     /// programme's default tracks (unless the viewer picked one).
     func tick() {
         applyTracks()
+        updateLiveLag()
     }
 }
 

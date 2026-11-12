@@ -130,17 +130,7 @@ private struct TVHeader: View {
                     .foregroundStyle(Theme.Colors.label)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 24)
-                if let last = model.list.last {
-                    Button(action: watchLast) {
-                        Label {
-                            Text(verbatim: last.label)
-                        } icon: {
-                            Image(systemName: "arrow.uturn.backward")
-                        }
-                    }
-                    .buttonStyle(QuietPillButtonStyle())
-                    .accessibilityLabel(Text(verbatim: String(localized: "Back to \(last.label)", bundle: .localized)))
-                }
+                // (no «Back to …» pill: the list opens on the last channel, tinted)
                 SegmentedPill(
                     options: [
                         .init(value: TVModel.Mode.channels, title: String(localized: "Channels", bundle: .localized)),

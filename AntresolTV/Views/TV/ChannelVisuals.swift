@@ -73,6 +73,27 @@ struct LiveBadge: View {
     }
 }
 
+/// Behind the live edge (a pause): «В эфир», the way back (the options row's first
+/// button and Play/Pause take it).
+struct GoLiveBadge: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "forward.end.fill")
+                .font(.system(size: 18, weight: .semibold))
+            Text("Go Live")
+                .font(Theme.Typography.eyebrow)
+                .tracking(1.5)
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(Theme.Colors.label)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .background(Theme.Colors.label.opacity(0.18), in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("live.behind")
+    }
+}
+
 extension Channel {
     /// "10 · Comedies".
     var label: String {

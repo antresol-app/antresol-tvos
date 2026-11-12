@@ -91,8 +91,9 @@ final class ExternalChannelTests: XCTestCase {
         XCTAssertEqual(memory.selection(for: 51), LiveTrackSelection(), "another channel keeps its own")
         // the default with nothing kept: the profile's language
         let tracks = [LiveTrack(slot: "o0", name: "Main", lang: "en"), LiveTrack(slot: "o1", name: "Commentaire", lang: "fr")]
-        XCTAssertEqual(LiveTrackSelection().audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["fr"]))?.name, "Commentaire")
-        XCTAssertEqual(memory.selection(for: 50).audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["en"]))?.name, "Commentaire")
+        XCTAssertEqual(LiveTrackSelection().audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["fr"]), device: [])?.name, "Commentaire")
+        XCTAssertEqual(LiveTrackSelection().audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["fr"])?.name, "Commentaire")
+        XCTAssertEqual(memory.selection(for: 50).audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["en"])?.name, "Commentaire")
     }
 
     func testOpenedIsTheOnlyNewWrite() {

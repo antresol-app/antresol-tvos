@@ -427,7 +427,6 @@ private struct GuideBlock: View {
 
     var body: some View {
         let isPast = program.end <= now
-        let onAir = program.isOnAir(at: now)
         ZStack(alignment: .bottomLeading) {
             if showsText || isFocused {
                 VStack(alignment: .leading, spacing: 6) {
@@ -450,11 +449,7 @@ private struct GuideBlock: View {
                 .padding(.horizontal, 18)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
-            if onAir, showsText || isFocused {
-                LiveProgressBar(value: program.progress(at: now), onLight: isFocused, height: 4)
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 12)
-            }
+            // no progress bar per programme: the red now line says where now is
         }
     }
 }

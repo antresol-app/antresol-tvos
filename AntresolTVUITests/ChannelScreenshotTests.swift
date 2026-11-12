@@ -269,6 +269,38 @@ final class ChannelScreenshotTests: XCTestCase {
         sleep(3)
     }
 
+    /// Pause on live (`CHANNELS_PAUSE=1`; the profile's last channel an own channel):
+    /// Play/Pause pauses, 13 s later the banner says «В эфир» instead of LIVE; playing on
+    /// stays behind; the options row's first button, «В эфир», takes it back to the edge.
+    func testPauseBehindLive() throws {
+        guard ProcessInfo.processInfo.environment["CHANNELS_PAUSE"] == "1" else { throw XCTSkip("CHANNELS_PAUSE not set") }
+        launch()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        remote.press(.select)
+        sleep(12)
+        remote.press(.playPause)
+        shot("r6-81-paused", delay: 2)
+        sleep(13)
+        let behind = app.descendants(matching: .any)["live.behind"]
+        XCTAssertTrue(behind.waitForExistence(timeout: 5), "no «В эфир» after a pause")
+        shot("r6-82-behind-live-paused", delay: 0)
+        remote.press(.playPause)
+        sleep(3)
+        XCTAssertTrue(behind.exists, "«В эфир» gone after a short pause")
+        shot("r6-83-behind-live", delay: 0)
+        remote.press(.select)
+        sleep(2)
+        let goLive = app.buttons["live.goLive"]
+        XCTAssertTrue(goLive.waitForExistence(timeout: 3), "no «В эфир» in the options row")
+        shot("r6-84-options-go-live", delay: 0)
+        if goLive.exists { moveFocus(.left, to: goLive, limit: 5); remote.press(.select) }
+        sleep(4)
+        XCTAssertFalse(behind.exists, "still behind after «В эфир»")
+        shot("r6-85-live-again", delay: 0)
+        remote.press(.menu)
+        sleep(2)
+    }
+
     /// The guide with the external rows (the last channel's row first in view) and an
     /// external programme's details (no item page behind it).
     func testExternalGuide() throws {

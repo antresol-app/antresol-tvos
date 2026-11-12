@@ -160,12 +160,20 @@ final class ChannelGuideTests: XCTestCase {
 
     func testAudioDefaultsToTheProfilesFirstLanguageThatIsThere() {
         let none = LiveTrackSelection()
-        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["en", "ru"])), en)
-        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["ru", "en"])), ru)
-        XCTAssertEqual(none.audio(in: [orig, ru], prefs: PlaybackPrefs(audioLangs: ["de"])), ru, "Russian, else the first")
-        XCTAssertEqual(none.audio(in: [orig], prefs: PlaybackPrefs(audioLangs: ["de"])), orig)
-        XCTAssertNil(none.audio(in: [], prefs: PlaybackPrefs(audioLangs: ["en"])))
-        XCTAssertEqual(none.audio(in: [orig, en], prefs: PlaybackPrefs(audioLangs: ["fr", "en"])), orig)
+        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["en", "ru"]), device: []), en)
+        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["ru", "en"]), device: []), ru)
+        XCTAssertEqual(none.audio(in: [ru, orig], prefs: PlaybackPrefs(audioLangs: ["de"]), device: []), orig, "the original, else the first")
+        XCTAssertEqual(none.audio(in: [ru2, ru], prefs: PlaybackPrefs(audioLangs: ["de"]), device: []), ru2)
+        XCTAssertNil(none.audio(in: [], prefs: PlaybackPrefs(audioLangs: ["en"]), device: []))
+        XCTAssertEqual(none.audio(in: [orig, en], prefs: PlaybackPrefs(audioLangs: ["fr", "en"]), device: []), orig)
+    }
+
+    /// Round 6: the device's system language comes before the profile's.
+    func testAudioDefaultsToTheDevicesLanguageFirst() {
+        let none = LiveTrackSelection()
+        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["ru"]), device: ["en-GB"]), en)
+        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["ru-RU", "en"]), ru)
+        XCTAssertEqual(none.audio(in: [ru, en], prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["de"]), en, "then the profile's")
     }
 
     func testTheViewersPickSticksByNameThenLanguage() {
