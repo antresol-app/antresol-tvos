@@ -40,9 +40,16 @@ public struct ChannelService: Sendable {
     public func tuneIn(
         channelId: Int, mediaKey: String?, onStarting: @Sendable () async -> Void = {}
     ) async throws -> URL {
-        let url = try await client.startLiveChannel(id: channelId, mediaKey: mediaKey, onStarting: onStarting)
+        try await tuneInStream(channelId: channelId, mediaKey: mediaKey, onStarting: onStarting).url
+    }
+
+    /// `tuneIn` with the master playlist's renditions (which option is which NAME).
+    public func tuneInStream(
+        channelId: Int, mediaKey: String?, onStarting: @Sendable () async -> Void = {}
+    ) async throws -> LiveStream {
+        let stream = try await client.startLiveStream(id: channelId, mediaKey: mediaKey, onStarting: onStarting)
         try? await client.setLastChannel(id: channelId)
-        return url
+        return stream
     }
 
     /// The requests a channel may write: favourites and the last channel. Anything else

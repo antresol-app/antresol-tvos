@@ -2,8 +2,9 @@ import Foundation
 
 /// A live channel made of the library (`GET /api/channels`, «ТВ»). The server plays its
 /// programmes back to back; apps list channels, show what is on, keep favourites and play
-/// the live stream. A channel is its number and its name: there is no logo (the server's
-/// `logo` is for IPTV players and is not decoded), its picture is the programme on air.
+/// the live stream. A channel is its number and its name, with the logo someone uploaded
+/// when there is one (`logoUrl`; the server's generated `logo` index is for IPTV players and
+/// is not decoded); its picture is the programme on air.
 /// Editing (`rules`) is web only and not decoded.
 public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     public var id: Int
@@ -21,11 +22,15 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     /// What is on air, when the server knows.
     public var now: ChannelProgram?
     public var next: ChannelProgram?
+    /// The uploaded logo (`/api/channels/{id}/logo.png?v=…`); "" when there is none.
+    public var logoUrl: String
 
     public init(
         id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, personal: Bool = false,
-        auto: Bool = false, enabled: Bool = true, now: ChannelProgram? = nil, next: ChannelProgram? = nil
+        auto: Bool = false, enabled: Bool = true, now: ChannelProgram? = nil, next: ChannelProgram? = nil,
+        logoUrl: String = ""
     ) {
+        self.logoUrl = logoUrl
         self.id = id
         self.number = number
         self.name = name
@@ -39,7 +44,7 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, number, name, category, favorite, personal, auto, enabled, now, next
+        case id, number, name, category, favorite, personal, auto, enabled, now, next, logoUrl
     }
 
     public init(from decoder: Decoder) throws {
@@ -54,6 +59,7 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
         enabled = c.value(.enabled, default: true)
         now = c.optional(.now)
         next = c.optional(.next)
+        logoUrl = c.value(.logoUrl, default: "")
     }
 
     /// What is on at `date`: `now`, or `next` once `now` has ended (the list is refreshed
@@ -87,17 +93,20 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
 }
 
 /// An audio or subtitle rendition a programme really has (`Program.audio` / `.subtitles`):
-/// `slot` names the server's fixed rendition (`ru`, `ru2`, `en`, `orig`; subtitles `ru`,
-/// `en`), `name` is that rendition's HLS `NAME`, `label` what the picker shows
-/// («Русский — LostFilm»).
-public struct LiveTrack: Decodable, Hashable, Sendable {
+/// `name` is that rendition's HLS `NAME` (unique within its kind: what the player selects
+/// and remembers), `label` what the picker shows («Русский — LostFilm»). `slot` is the
+/// server's key for it, informational only (older servers sent fixed `ru`, `ru2`, `en`,
+/// `orig`); a stream may carry any number of renditions with any names.
+public struct LiveTrack: Decodable, Hashable, Sendable, Identifiable {
     public var slot: String
     public var name: String
     public var label: String
     public var lang: String
 
-    public init(slot: String, name: String, label: String = "", lang: String = "") {
-        self.slot = slot
+    public var id: String { name }
+
+    public init(slot: String = "", name: String, label: String = "", lang: String = "") {
+        self.slot = slot.isEmpty ? name : slot
         self.name = name
         self.label = label
         self.lang = lang
@@ -107,8 +116,10 @@ public struct LiveTrack: Decodable, Hashable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        slot = c.value(.slot, default: "")
-        name = c.value(.name, default: "")
+        let slot: String = c.value(.slot, default: "")
+        let name: String = c.value(.name, default: "")
+        self.name = name.isEmpty ? slot : name
+        self.slot = slot.isEmpty ? self.name : slot
         label = c.value(.label, default: "")
         lang = c.value(.lang, default: "")
     }

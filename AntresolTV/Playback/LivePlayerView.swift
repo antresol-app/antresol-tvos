@@ -127,7 +127,7 @@ private struct LiveSubtitle: View {
 // MARK: - Banner and mini-guide
 
 /// The channel banner: a glass panel along the bottom edge. The channel's identity is its
-/// number and name (no logo); then what is on, its progress and times, and what is next.
+/// number and name (with its uploaded logo, when it has one); then what is on, its progress and times, and what is next.
 /// With the options row up, the star, audio, subtitles and the channel list sit on its
 /// right and take focus.
 private struct LiveBanner: View {
@@ -155,6 +155,7 @@ private struct LiveBanner: View {
 
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 18) {
+                            ChannelLogo(path: model.channel.logoUrl, height: 44)
                             Text(verbatim: model.channel.name)
                                 .font(Theme.Typography.headline)
                                 .foregroundStyle(Theme.Colors.label)
@@ -239,7 +240,7 @@ private struct LiveControls: View {
                     }
                 }
                 if !subtitles.isEmpty {
-                    control(.subtitles, "Subtitles", model.subtitleSlot == nil ? "captions.bubble" : "captions.bubble.fill", isActive: model.openMenu == .subtitles) {
+                    control(.subtitles, "Subtitles", model.subtitleTrack == nil ? "captions.bubble" : "captions.bubble.fill", isActive: model.openMenu == .subtitles) {
                         model.openMenu = model.openMenu == .subtitles ? nil : .subtitles
                     }
                 }
@@ -283,36 +284,66 @@ private struct LiveControls: View {
 }
 
 /// The audio or subtitle list over the options row: the programme's entries with their
-/// labels («Русский — LostFilm»), a check on the one that plays. A pick sticks for the
-/// session (programmes and channels) and is not saved anywhere.
+/// labels («Русский — LostFilm»), a check on the one that plays. Any number of entries (a
+/// channel carries up to 8 voices and 6 subtitle languages): past what fits above the
+/// banner the list scrolls, the focused row kept in view. A pick sticks for the session
+/// (programmes and channels) and is not saved anywhere.
 private struct TrackMenu: View {
     let model: LivePlayerModel
     let kind: TrackMenuKind
 
     @FocusState private var focused: String?
 
+    /// The rows that show before the list scrolls: it stays clear of the screen's top
+    /// safe area above the banner.
+    static let visibleRows = 6
+    static let rowHeight: CGFloat = 76
+
     var body: some View {
         let entries = kind == .audio ? model.audioEntries() : model.subtitleEntries()
-        let selected = kind == .audio ? model.audioSlot : (model.subtitleSlot ?? "")
+        let selected = kind == .audio ? (model.audioTrack?.name ?? "") : (model.subtitleTrack?.name ?? "")
+        let count = entries.count + (kind == .subtitles ? 1 : 0)
         VStack(alignment: .leading, spacing: 4) {
-            Text(kind == .audio ? "Audio" : "Subtitles")
-                .font(Theme.Typography.eyebrow)
-                .foregroundStyle(Theme.Colors.label3)
-                .padding(.horizontal, Theme.Layout.listRowInset)
-                .padding(.bottom, 8)
-            if kind == .subtitles {
-                row(id: "", title: String(localized: "Off", bundle: .localized), isOn: selected.isEmpty) {
-                    model.selectSubtitle(nil)
+            HStack {
+                Text(kind == .audio ? "Audio" : "Subtitles")
+                    .font(Theme.Typography.eyebrow)
+                    .foregroundStyle(Theme.Colors.label3)
+                Spacer()
+                if count > Self.visibleRows {
+                    Text(verbatim: "\(count)")
+                        .font(Theme.Typography.eyebrow)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Colors.label3)
                 }
             }
-            ForEach(entries, id: \.slot) { entry in
-                row(id: entry.slot, title: entry.title, isOn: entry.slot == selected) {
-                    if kind == .audio { model.selectAudio(entry) } else { model.selectSubtitle(entry) }
+            .padding(.horizontal, Theme.Layout.listRowInset)
+            .padding(.bottom, 8)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if kind == .subtitles {
+                            row(id: "", title: String(localized: "Off", bundle: .localized), isOn: selected.isEmpty) {
+                                model.selectSubtitle(nil)
+                            }
+                            .id("")
+                        }
+                        ForEach(entries) { entry in
+                            row(id: entry.name, title: entry.title, isOn: entry.name == selected) {
+                                if kind == .audio { model.selectAudio(entry) } else { model.selectSubtitle(entry) }
+                            }
+                            .id(entry.name)
+                        }
+                    }
+                    // room for the focused row's lift
+                    .padding(.vertical, 8)
                 }
+                .scrollClipDisabled(false)
+                .frame(height: CGFloat(min(count, Self.visibleRows)) * (Self.rowHeight + 4) + 16)
+                .onAppear { proxy.scrollTo(selected, anchor: .center) }
             }
         }
         .padding(24)
-        .frame(width: 560, alignment: .leading)
+        .frame(width: 640, alignment: .leading)
         .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous))
         .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous), highlighted: false, interactive: false)
         .focusSection()
@@ -336,8 +367,10 @@ private struct TrackMenu: View {
                 Text(verbatim: title)
                     .font(Theme.Typography.headline)
                     .lineLimit(1)
+                    .truncationMode(.tail)
                 Spacer(minLength: 0)
             }
+            .frame(minHeight: Self.rowHeight - 24)
         }
         .buttonStyle(ListRowButtonStyle())
         .focused($focused, equals: id)
@@ -481,10 +514,13 @@ private struct RailCard: View {
                     }
                     .cardLift(isFocused: isFocused)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(verbatim: channel.label)
-                        .font(Theme.Typography.cardTitle)
-                        .foregroundStyle(Theme.Colors.label)
-                        .lineLimit(1)
+                    HStack(spacing: 12) {
+                        ChannelLogo(path: channel.logoUrl, height: 32)
+                        Text(verbatim: channel.label)
+                            .font(Theme.Typography.cardTitle)
+                            .foregroundStyle(Theme.Colors.label)
+                            .lineLimit(1)
+                    }
                     Text(verbatim: program?.fullTitle ?? String(localized: "Nothing on now", bundle: .localized))
                         .font(Theme.Typography.cardMeta)
                         .foregroundStyle(Theme.Colors.label2)

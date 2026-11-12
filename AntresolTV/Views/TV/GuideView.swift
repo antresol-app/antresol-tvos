@@ -197,6 +197,7 @@ struct GuideView: View {
                 .monospacedDigit()
                 .foregroundStyle(Theme.Colors.label3)
                 .frame(width: 64, alignment: .trailing)
+            ChannelLogo(path: row.logoUrl, height: 36)
             Text(verbatim: row.name)
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(isCurrent ? Theme.Colors.label : Theme.Colors.label2)

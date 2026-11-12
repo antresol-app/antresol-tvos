@@ -160,35 +160,82 @@ final class ChannelGuideTests: XCTestCase {
 
     func testAudioDefaultsToTheProfilesFirstLanguageThatIsThere() {
         let none = LiveTrackSelection()
-        XCTAssertEqual(none.audio(for: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["en", "ru"])), "en")
-        XCTAssertEqual(none.audio(for: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["ru", "en"])), "ru")
-        XCTAssertEqual(none.audio(for: [orig], prefs: PlaybackPrefs(audioLangs: ["de"])), "ru", "the fallback slot")
-        XCTAssertEqual(none.audio(for: nil, prefs: PlaybackPrefs(audioLangs: ["en"])), "ru", "unknown: the fallback slot")
-        XCTAssertEqual(none.audio(for: [orig, en], prefs: PlaybackPrefs(audioLangs: ["fr", "en"])), "orig")
+        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["en", "ru"])), en)
+        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["ru", "en"])), ru)
+        XCTAssertEqual(none.audio(in: [orig, ru], prefs: PlaybackPrefs(audioLangs: ["de"])), ru, "Russian, else the first")
+        XCTAssertEqual(none.audio(in: [orig], prefs: PlaybackPrefs(audioLangs: ["de"])), orig)
+        XCTAssertNil(none.audio(in: [], prefs: PlaybackPrefs(audioLangs: ["en"])))
+        XCTAssertEqual(none.audio(in: [orig, en], prefs: PlaybackPrefs(audioLangs: ["fr", "en"])), orig)
     }
 
-    func testTheViewersPickSticksAcrossProgrammes() {
-        let picked = LiveTrackSelection(audioSlot: "ru2", subtitleSlot: "en")
-        // The next programme has no ru2: the slot stays (the server plays its fallback there).
-        XCTAssertEqual(picked.audio(for: [ru, en], prefs: PlaybackPrefs(audioLangs: ["en"])), "ru2")
-        XCTAssertEqual(picked.subtitle(for: [subRu], audio: [ru], audioSlot: "ru2", prefs: PlaybackPrefs()), "en")
-        let off = LiveTrackSelection(subtitleSlot: "")
-        XCTAssertNil(off.subtitle(for: [subRu, subEn], audio: [ru], audioSlot: "ru", prefs: PlaybackPrefs(subMode: "always", subLangs: ["ru"])))
+    func testTheViewersPickSticksByNameThenLanguage() {
+        let picked = LiveTrackSelection(audio: .init(ru2), subtitle: .some(.init(subEn)))
+        XCTAssertEqual(picked.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["en"])), ru2)
+        // The next programme has no «Русский 2»: the first Russian one.
+        XCTAssertEqual(picked.audio(in: [en, ru], prefs: PlaybackPrefs(audioLangs: ["en"])), ru)
+        XCTAssertEqual(picked.subtitle(in: [subRu, subEn], audio: ru, prefs: PlaybackPrefs()), subEn)
+        XCTAssertNil(picked.subtitle(in: [subRu], audio: ru, prefs: PlaybackPrefs()), "no English: the defaults (off)")
+        let off = LiveTrackSelection(subtitle: .some(nil))
+        XCTAssertNil(off.subtitle(in: [subRu, subEn], audio: ru, prefs: PlaybackPrefs(subMode: "always", subLangs: ["ru"])))
     }
 
     func testSubtitleDefaultsFollowTheMode() {
         let none = LiveTrackSelection()
         let subs = [subRu, subEn]
-        XCTAssertNil(none.subtitle(for: subs, audio: [ru], audioSlot: "ru", prefs: PlaybackPrefs(audioLangs: ["ru"], subMode: "off", subLangs: ["ru"])))
-        XCTAssertEqual(none.subtitle(for: subs, audio: [ru], audioSlot: "ru", prefs: PlaybackPrefs(audioLangs: ["ru"], subMode: "always", subLangs: ["en", "ru"])), "en")
-        XCTAssertEqual(none.subtitle(for: subs, audio: [ru], audioSlot: "ru", prefs: PlaybackPrefs(audioLangs: ["ru"], subMode: "always", subLangs: [])), "ru", "subLangs empty: audioLangs")
+        XCTAssertNil(none.subtitle(in: subs, audio: ru, prefs: PlaybackPrefs(audioLangs: ["ru"], subMode: "off", subLangs: ["ru"])))
+        XCTAssertEqual(none.subtitle(in: subs, audio: ru, prefs: PlaybackPrefs(audioLangs: ["ru"], subMode: "always", subLangs: ["en", "ru"])), subEn)
+        XCTAssertEqual(none.subtitle(in: subs, audio: ru, prefs: PlaybackPrefs(audioLangs: ["ru"], subMode: "always", subLangs: [])), subRu, "subLangs empty: audioLangs")
         // Foreign: only when the audio's language is not one of the profile's.
         let foreign = PlaybackPrefs(audioLangs: ["ru"], subMode: "foreign", subLangs: ["ru"])
-        XCTAssertNil(none.subtitle(for: subs, audio: [ru, orig], audioSlot: "ru", prefs: foreign))
-        XCTAssertEqual(none.subtitle(for: subs, audio: [ru, orig], audioSlot: "orig", prefs: foreign), "ru")
-        XCTAssertEqual(none.subtitle(for: subs, audio: nil, audioSlot: "en", prefs: foreign), "ru", "the slot's language when the programme is unknown")
-        XCTAssertNil(none.subtitle(for: [], audio: [orig], audioSlot: "orig", prefs: foreign), "none to show")
-        XCTAssertNil(none.subtitle(for: nil, audio: [orig], audioSlot: "orig", prefs: foreign))
+        XCTAssertNil(none.subtitle(in: subs, audio: ru, prefs: foreign))
+        XCTAssertEqual(none.subtitle(in: subs, audio: orig, prefs: foreign), subRu)
+        XCTAssertNil(none.subtitle(in: subs, audio: nil, prefs: foreign), "no voice known")
+        XCTAssertNil(none.subtitle(in: [], audio: orig, prefs: foreign), "none to show")
+    }
+
+    /// Round 5: eight voices with arbitrary names, a master read by the app, AVFoundation's
+    /// options renamed by language.
+    func testRenditionsOfAnyNameAndCount() {
+        let names = ["Дубляж", "LostFilm", "Кураж-Бамбей", "LostFilm (очищено)", "Оригинал (English)", "Français", "Deutsch", "Español"]
+        let langs = ["ru", "ru", "ru", "ru", "en", "fr", "de", "es"]
+        var master = "#EXTM3U\n"
+        for (i, n) in names.enumerated() {
+            master += "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"aud\",NAME=\"\(n)\",LANGUAGE=\"\(langs[i])\",DEFAULT=\(i == 0 ? "YES" : "NO"),URI=\"audio-\(i).m3u8\"\n"
+        }
+        master += "#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"sub\",NAME=\"Русские, полные\",LANGUAGE=\"ru\",URI=\"subs-0.m3u8\"\n"
+        master += "#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO=\"aud\"\nvideo.m3u8\n"
+        let r = LiveRenditions(master: Data(master.utf8))
+        XCTAssertEqual(r.audio.map(\.name), names)
+        XCTAssertEqual(r.subtitles.map(\.name), ["Русские, полные"], "a quoted comma")
+        XCTAssertTrue(r.audio[0].isDefault)
+        let renamed: [(name: String, lang: String)] = langs.map { ($0 == "ru" ? "Русский" : "Другой", $0) }
+        XCTAssertEqual(LiveRenditions.option(named: "LostFilm (очищено)", lang: "ru", options: renamed, renditions: r.audio), 3)
+        XCTAssertEqual(LiveRenditions.option(named: "Deutsch", lang: "de", options: renamed, renditions: r.audio), 6)
+        XCTAssertEqual(LiveRenditions.name(ofOption: 2, options: renamed, renditions: r.audio), "Кураж-Бамбей")
+        // Fewer options than renditions: per language, in order.
+        let fewer = Array(renamed.prefix(3)) + [renamed[6]]
+        XCTAssertEqual(LiveRenditions.option(named: "Deutsch", lang: "de", options: fewer, renditions: r.audio), 3)
+        XCTAssertEqual(LiveRenditions.option(named: "LostFilm", lang: "ru", options: fewer, renditions: r.audio), 1)
+        // A name the run does not carry: the first of its language.
+        XCTAssertEqual(LiveRenditions.option(named: "Многоголосый", lang: "ru", options: renamed, renditions: r.audio), 0)
+        // Titles kept by the asset: by name.
+        let titled = names.reversed().map { ($0, "") }
+        XCTAssertEqual(LiveRenditions.option(named: "Дубляж", lang: "ru", options: titled, renditions: r.audio), 7)
+    }
+
+    func testTracksAndLogosDecode() throws {
+        let json = Data(#"{"id":3,"number":3,"name":"Кино","logoUrl":"/api/channels/3/logo.png?v=1","now":{"itemId":1,"title":"Много голосов","start":"2026-11-12T10:00:00Z","end":"2026-11-12T12:00:00Z","audio":[{"name":"Дубляж","label":"Русский — Дубляж","lang":"ru"},{"slot":"x","name":"LostFilm","lang":"ru"}]}}"#.utf8)
+        let channel = try JSONDecoder().decode(Channel.self, from: json)
+        XCTAssertEqual(channel.logoUrl, "/api/channels/3/logo.png?v=1")
+        XCTAssertEqual(channel.now?.audio?.map(\.id), ["Дубляж", "LostFilm"])
+        XCTAssertEqual(channel.now?.audio?.first?.slot, "Дубляж", "no slot: the name")
+        XCTAssertEqual(channel.now?.audio?.last?.title, "LostFilm")
+        let bare = try JSONDecoder().decode(Channel.self, from: Data(#"{"id":4,"number":4,"name":"Б"}"#.utf8))
+        XCTAssertEqual(bare.logoUrl, "")
+        var grid = ChannelGuideGrid(ChannelEPGWindow(from: Date(), to: Date(), channels: [ChannelEPG(id: 3, number: 3, name: "Кино"), ChannelEPG(id: 4, number: 4, name: "Б")]))
+        grid.applyLogos(from: [channel, bare])
+        XCTAssertEqual(grid.rows.map(\.logoUrl), ["/api/channels/3/logo.png?v=1", ""])
+        XCTAssertEqual(grid.rows[0].channel.logoUrl, channel.logoUrl)
     }
 
     // MARK: TV is TV

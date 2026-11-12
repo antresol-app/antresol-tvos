@@ -3,6 +3,7 @@ import AntresolKit
 import Foundation
 import MediaPlayer
 import Observation
+import os
 import UIKit
 
 /// The live player of a channel («ТВ»): starts the channel's stream (waiting while the
@@ -83,6 +84,11 @@ final class LivePlayerModel {
     @ObservationIgnored private var service: ChannelService?
     /// The programme the tracks were last chosen for.
     @ObservationIgnored private var tracksProgram: String?
+    /// Per player: the renditions of its master playlist (read while the channel starts),
+    /// which tell AVFoundation's options apart.
+    @ObservationIgnored private var renditions = [LiveRenditions(), LiveRenditions()]
+
+    private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Antresol", category: "live")
 
     /// How long the banner stays up after a change.
     private static let infoDuration: Duration = .seconds(5)
@@ -253,39 +259,40 @@ final class LivePlayerModel {
     /// the stream's renditions.
     func audioEntries(at date: Date = Date()) -> [LiveTrack] {
         if let audio = onAir(at: date).now?.audio, !audio.isEmpty {
-            return audio.filter { entry in audioOptions.isEmpty || option(for: entry, in: audioOptions) != nil }
+            return audio.filter { entry in audioOptions.isEmpty || optionIndex(for: entry, in: audioOptions, renditions: renditions[front].audio) != nil }
         }
-        return audioOptions.map { LiveTrack(slot: $0.name, name: $0.name, label: $0.name, lang: $0.language) }
+        return audioOptions.map { LiveTrack(name: $0.name, label: $0.name, lang: $0.language) }
     }
 
     func subtitleEntries(at date: Date = Date()) -> [LiveTrack] {
         if let subtitles = onAir(at: date).now?.subtitles {
-            return subtitles.filter { entry in subtitleOptions.isEmpty || option(for: entry, in: subtitleOptions) != nil }
+            return subtitles.filter { entry in
+                subtitleOptions.isEmpty || optionIndex(for: entry, in: subtitleOptions, renditions: renditions[front].subtitles) != nil
+            }
         }
-        return subtitleOptions.map { LiveTrack(slot: $0.name, name: $0.name, label: $0.name, lang: $0.language) }
+        return subtitleOptions.map { LiveTrack(name: $0.name, label: $0.name, lang: $0.language) }
     }
 
-    /// The slot that plays now.
-    var audioSlot: String {
-        selection.audio(for: onAir(at: Date()).now?.audio, prefs: prefs)
+    /// The voice that plays now (nil: none known).
+    var audioTrack: LiveTrack? {
+        selection.audio(in: audioEntries(), prefs: prefs)
     }
 
-    /// The subtitle slot shown now (nil: off).
-    var subtitleSlot: String? {
-        let program = onAir(at: Date()).now
-        return selection.subtitle(for: program?.subtitles, audio: program?.audio, audioSlot: audioSlot, prefs: prefs)
+    /// The subtitles shown now (nil: off).
+    var subtitleTrack: LiveTrack? {
+        selection.subtitle(in: subtitleEntries(), audio: audioTrack, prefs: prefs)
     }
 
-    /// The viewer's audio pick: sticks across programmes and channels for this session.
+    /// The viewer's audio pick: sticks by name across programmes and channels for this session.
     func selectAudio(_ entry: LiveTrack) {
-        selection.audioSlot = entry.slot
+        selection.audio = .init(entry)
         openMenu = nil
         applyTracks(force: true)
     }
 
     /// The viewer's subtitle pick (nil: off).
     func selectSubtitle(_ entry: LiveTrack?) {
-        selection.subtitleSlot = entry?.slot ?? ""
+        selection.subtitle = .some(entry.map(LiveTrackSelection.Pick.init))
         subtitleText = nil
         openMenu = nil
         applyTracks(force: true)
@@ -299,51 +306,56 @@ final class LivePlayerModel {
         tracksProgram = program?.key
         for slot in [front, back] {
             guard let item = players[slot].currentItem, item.status == .readyToPlay else { continue }
-            select(in: item)
+            select(in: item, slot: slot)
         }
     }
 
-    private func select(in item: AVPlayerItem) {
-        let program = onAir(at: Date()).now
-        let audioSlot = audioSlot
-        let subtitleSlot = subtitleSlot
-        let audioEntry = program?.audio?.first { $0.slot == audioSlot }
-            ?? LiveTrack(slot: audioSlot, name: audioSlot, lang: LiveTrackSelection.slotLanguage(audioSlot))
-        let subtitleEntry = subtitleSlot.map { slot in
-            program?.subtitles?.first { $0.slot == slot } ?? LiveTrack(slot: slot, name: slot, lang: LiveTrackSelection.slotLanguage(slot))
-        }
+    private func select(in item: AVPlayerItem, slot: Int) {
+        let master = renditions[slot]
         Task { [weak self] in
             guard let self else { return }
             let asset = item.asset
+            var audioLine = "-", audioNames: [String] = []
             if let group = try? await asset.loadMediaSelectionGroup(for: .audible) {
-                let options = group.options.map(StreamOption.init)
+                let options = await StreamOption.describe(group.options)
                 if item === self.players[self.front].currentItem { self.audioOptions = options }
-                if let index = self.optionIndex(for: audioEntry, in: options) {
+                // the choice once the options are known (a programme without its own list uses them)
+                if let entry = self.audioTrack, let index = self.optionIndex(for: entry, in: options, renditions: master.audio) {
                     item.select(group.options[index], in: group)
                 }
+                audioNames = options.map(\.name)
+                if let playing = item.currentMediaSelection.selectedMediaOption(in: group), let index = group.options.firstIndex(of: playing) {
+                    let name = LiveRenditions.name(ofOption: index, options: options.map { ($0.name, $0.language) }, renditions: master.audio)
+                    audioLine = "\(name ?? "?") [option \(index) «\(playing.displayName)» \(options[index].language)]"
+                }
             }
+            var subtitleLine = "off"
             if let group = try? await asset.loadMediaSelectionGroup(for: .legible) {
-                let all = group.options.map(StreamOption.init)
+                let all = await StreamOption.describe(group.options)
                 if item === self.players[self.front].currentItem { self.subtitleOptions = all.filter { !$0.isForcedOnly } }
-                if let subtitleEntry, let index = self.optionIndex(for: subtitleEntry, in: all) {
+                if let entry = self.subtitleTrack, let index = self.optionIndex(for: entry, in: all, renditions: master.subtitles) {
                     item.select(group.options[index], in: group)
+                    subtitleLine = "\(entry.name) [option \(index)]"
                 } else {
                     item.select(nil, in: group)
                 }
             }
+            Self.log.info("""
+                live tracks: audio \(self.audioTrack?.name ?? "-", privacy: .public) → \(audioLine, privacy: .public) \
+                of \(audioNames, privacy: .public) / master \(master.audio.map(\.name), privacy: .public); \
+                subtitles \(subtitleLine, privacy: .public) / master \(master.subtitles.map(\.name), privacy: .public)
+                """)
         }
     }
 
-    private func option(for entry: LiveTrack, in options: [StreamOption]) -> StreamOption? {
-        optionIndex(for: entry, in: options).map { options[$0] }
-    }
-
-    /// The rendition of an entry: by its HLS NAME, else by the slot's language.
-    private func optionIndex(for entry: LiveTrack, in options: [StreamOption]) -> Int? {
-        if let index = options.firstIndex(where: { $0.name == entry.name && !$0.isForcedOnly }) { return index }
-        let lang = entry.lang.isEmpty ? LiveTrackSelection.slotLanguage(entry.slot) : entry.lang
-        guard !lang.isEmpty else { return nil }
-        return options.firstIndex { $0.language.hasPrefix(lang) && !$0.isForcedOnly }
+    /// The option of an entry (`LiveRenditions`): aligned with the master's rendition of
+    /// that NAME (by title, else the master's order checked by language, else the order
+    /// within the language), else an option titled so, else the first of its language.
+    private func optionIndex(for entry: LiveTrack, in options: [StreamOption], renditions: [HLSRendition]) -> Int? {
+        let usable = options.enumerated().filter { !$0.element.isForcedOnly }
+        let index = LiveRenditions.option(named: entry.name, lang: entry.lang,
+                                          options: usable.map { ($0.element.name, $0.element.language) }, renditions: renditions)
+        return index.map { usable[$0].offset }
     }
 
     func hideGuide() {
@@ -411,11 +423,12 @@ final class LivePlayerModel {
         guard let appState, let coordinator, let client = appState.client, let service else { return }
         do {
             let key = try await coordinator.mediaKeyStore(for: client).key()
-            let url = try await service.tuneIn(channelId: channelId, mediaKey: key) { [weak self] in
+            let stream = try await service.tuneInStream(channelId: channelId, mediaKey: key) { [weak self] in
                 await self?.channelIsStarting(channelId)
             }
             guard !Task.isCancelled, channel.id == channelId, !isStopped else { return }
-            load(url, into: back)
+            renditions[back] = stream.renditions
+            load(stream.url, into: back)
         } catch {
             guard !Task.isCancelled, channel.id == channelId, !isStopped else { return }
             fail(error)
@@ -452,7 +465,7 @@ final class LivePlayerModel {
                     guard let self, self.isItem(itemID, in: slot) else { return }
                     switch status {
                     case .readyToPlay:
-                        self.select(in: item)
+                        self.select(in: item, slot: slot)
                         self.itemIsReady(slot)
                     case .failed: self.fail(nil)
                     default: break
@@ -518,7 +531,7 @@ final class LivePlayerModel {
         isHoldingFrame = false
         isPaused = players[slot].timeControlStatus == .paused
         state = .playing
-        if let item = players[slot].currentItem { select(in: item) }
+        if let item = players[slot].currentItem { select(in: item, slot: slot) }
         nowPlaying.update(channel: channel, program: onAir(at: Date()).now, isPlaying: true)
         scheduleHide()
     }
@@ -627,16 +640,28 @@ enum TrackMenuKind: Equatable {
 
 /// A rendition of the stream on screen.
 struct StreamOption: Equatable {
-    /// The HLS `NAME`.
+    /// The HLS `NAME` when the asset keeps it (the option's title metadata), else
+    /// AVFoundation's display name (made from the language: «Английский» for "English").
     let name: String
     /// The extended language tag ("ru", "en", "mul").
     let language: String
     let isForcedOnly: Bool
 
-    init(_ option: AVMediaSelectionOption) {
-        name = option.displayName
+    init(_ option: AVMediaSelectionOption, title: String? = nil) {
+        name = title ?? option.displayName
         language = option.extendedLanguageTag ?? option.locale?.language.languageCode?.identifier ?? ""
         isForcedOnly = option.hasMediaCharacteristic(.containsOnlyForcedSubtitles)
+    }
+
+    /// The options with their titles loaded.
+    static func describe(_ options: [AVMediaSelectionOption]) async -> [StreamOption] {
+        var out: [StreamOption] = []
+        for option in options {
+            let titles = AVMetadataItem.metadataItems(from: option.commonMetadata, filteredByIdentifier: .commonIdentifierTitle)
+            let title = try? await titles.first?.load(.stringValue)
+            out.append(StreamOption(option, title: title ?? nil))
+        }
+        return out
     }
 }
 

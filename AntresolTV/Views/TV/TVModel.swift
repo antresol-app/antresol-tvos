@@ -77,7 +77,10 @@ final class TVModel {
 
     /// The guide's rows for the filter.
     var guideRows: [ChannelEPG] {
-        grid.rows(activeFilter)
+        var grid = grid
+        // the list's uploaded logos, for rows the guide sent without one
+        grid.applyLogos(from: list.channels)
+        return grid.rows(activeFilter)
     }
 
     // MARK: - Loading

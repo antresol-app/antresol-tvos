@@ -9,6 +9,8 @@ struct RemoteImage: View {
     let path: String
     /// Longest side to decode, in pixels. Keep it near the on-screen size.
     var maxPixelSize: CGFloat = 600
+    /// Fit inside the frame (a logo) instead of filling it (artwork).
+    var fit = false
     /// Called with the decoded image, e.g. to derive a tint colour.
     var onLoad: ((UIImage) -> Void)?
 
@@ -21,7 +23,7 @@ struct RemoteImage: View {
                 if let image = image ?? cachedImage {
                     Image(uiImage: image)
                         .resizable()
-                        .scaledToFill()
+                        .aspectRatio(contentMode: fit ? .fit : .fill)
                         .transition(.opacity)
                 }
             }

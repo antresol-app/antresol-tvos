@@ -309,6 +309,8 @@ struct ChannelRow: View {
                     .frame(width: Self.stillWidth, height: Self.stillWidth * 9 / 16)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 12) {
+                        ChannelLogo(path: channel.logoUrl, height: 34)
+                            .padding(.trailing, 4)
                         Text(verbatim: channel.name)
                             .font(.system(size: 28, weight: .semibold))
                             .foregroundStyle(primary)
@@ -359,6 +361,7 @@ private struct ChannelPreview: View {
                     .aspectRatio(16 / 9, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                 HStack(spacing: 16) {
+                    ChannelLogo(path: channel.logoUrl, height: 40)
                     Text(verbatim: channel.label)
                         .font(Theme.Typography.meta)
                         .foregroundStyle(Theme.Colors.label2)

@@ -40,6 +40,15 @@ extension APIClient {
         id: Int, mediaKey: String?, maxAttempts: Int = 15,
         onStarting: @Sendable () async -> Void = {}
     ) async throws -> URL {
+        try await startLiveStream(id: id, mediaKey: mediaKey, maxAttempts: maxAttempts, onStarting: onStarting).url
+    }
+
+    /// `startLiveChannel`, with the renditions of the master playlist it fetched: the player
+    /// tells AVFoundation's options apart by them (`LiveRenditions`).
+    public func startLiveStream(
+        id: Int, mediaKey: String?, maxAttempts: Int = 15,
+        onStarting: @Sendable () async -> Void = {}
+    ) async throws -> LiveStream {
         guard let url = urls.liveChannel(id: id, mediaKey: mediaKey) else {
             throw APIError.invalidURL("/api/channels/live/\(id)/index.m3u8")
         }
@@ -49,14 +58,25 @@ extension APIClient {
             do {
                 var request = try makeRequest(.get, "/api/channels/live/\(id)/index.m3u8", query: ServerURLs.mediaKeyQuery(mediaKey))
                 request.setValue("application/vnd.apple.mpegurl", forHTTPHeaderField: "Accept")
-                _ = try await perform(request)
-                return url
+                let (data, _) = try await perform(request)
+                return LiveStream(url: url, renditions: LiveRenditions(master: data))
             } catch let error as APIError {
                 guard attempt < maxAttempts, let delay = LiveChannelStart.retryDelay(after: error) else { throw error }
                 await onStarting()
                 try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
         }
+    }
+}
+
+/// A channel's live stream as the player gets it: the playlist URL and the master's renditions.
+public struct LiveStream: Sendable, Equatable {
+    public let url: URL
+    public let renditions: LiveRenditions
+
+    public init(url: URL, renditions: LiveRenditions = LiveRenditions()) {
+        self.url = url
+        self.renditions = renditions
     }
 }
 

@@ -32,8 +32,15 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
     public var favorite: Bool
     /// By start.
     public var programs: [ChannelProgram]
+    /// The uploaded logo, when the server sends it with the row ("" otherwise; the guide
+    /// also takes it from the channel list).
+    public var logoUrl: String
 
-    public init(id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, programs: [ChannelProgram] = []) {
+    public init(
+        id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, programs: [ChannelProgram] = [],
+        logoUrl: String = ""
+    ) {
+        self.logoUrl = logoUrl
         self.id = id
         self.number = number
         self.name = name
@@ -42,7 +49,7 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
         self.programs = programs.sorted { $0.start < $1.start }
     }
 
-    enum CodingKeys: String, CodingKey { case id, number, name, category, favorite, programs }
+    enum CodingKeys: String, CodingKey { case id, number, name, category, favorite, programs, logoUrl }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -52,11 +59,12 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
         category = c.value(.category, default: "")
         favorite = c.value(.favorite, default: false)
         programs = (c.value(.programs, default: [ChannelProgram]())).sorted { $0.start < $1.start }
+        logoUrl = c.value(.logoUrl, default: "")
     }
 
     /// The row as a channel (no now / next), for filters and the player.
     public var channel: Channel {
-        Channel(id: id, number: number, name: name, category: category, favorite: favorite)
+        Channel(id: id, number: number, name: name, category: category, favorite: favorite, logoUrl: logoUrl)
     }
 
     /// The programme on air at `date`, else the nearest one: the first to start after it,
@@ -105,6 +113,15 @@ public struct ChannelGuideGrid: Hashable, Sendable {
         }
         loadedFrom = min(loadedFrom ?? window.from, window.from)
         loadedTo = max(loadedTo ?? window.to, window.to)
+    }
+
+    /// Gives rows that came without a logo the channel list's one.
+    public mutating func applyLogos(from channels: [Channel]) {
+        var logos: [Int: String] = [:]
+        for channel in channels where !channel.logoUrl.isEmpty { logos[channel.id] = channel.logoUrl }
+        for index in rows.indices where rows[index].logoUrl.isEmpty {
+            rows[index].logoUrl = logos[rows[index].id] ?? ""
+        }
     }
 
     /// Marks a channel as a favourite or not (after the API call succeeded).

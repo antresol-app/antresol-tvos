@@ -28,79 +28,84 @@ public struct PlaybackPrefs: Decodable, Hashable, Sendable {
     }
 }
 
-/// The live player's audio and subtitles. The live stream carries fixed renditions (audio
-/// slots `ru`, `ru2`, `en`, `orig`; subtitle slots `ru`, `en`); each programme says which it
-/// really has. The profile's defaults pick a slot per programme until the viewer picks one
-/// in the player: that pick then sticks for the rest of the session, across programmes
-/// and channels, and is never sent to the server (TV is TV).
+/// The live player's audio and subtitles. A channel's stream carries any number of
+/// renditions (up to 8 audio and 6 subtitle ones) with arbitrary names; each programme says
+/// which it really has. The profile's defaults pick one per programme until the viewer picks
+/// one in the player: that pick then sticks by its name for the rest of the session, across
+/// programmes and channels (by its language where a channel has no such name), and is never
+/// sent to the server (TV is TV).
 public struct LiveTrackSelection: Hashable, Sendable {
-    /// What the viewer picked in this session: an audio slot.
-    public var audioSlot: String?
-    /// What the viewer picked: a subtitle slot, or "" for off; nil while the defaults apply.
-    public var subtitleSlot: String?
+    /// A pick: the rendition's name and language.
+    public struct Pick: Hashable, Sendable {
+        public var name: String
+        public var lang: String
 
-    public init(audioSlot: String? = nil, subtitleSlot: String? = nil) {
-        self.audioSlot = audioSlot
-        self.subtitleSlot = subtitleSlot
-    }
-
-    /// The fallback slot every programme has (its best Russian track).
-    public static let fallbackAudioSlot = "ru"
-
-    /// The audio slot to play for a programme with `audio` (nil: unknown).
-    public func audio(for audio: [LiveTrack]?, prefs: PlaybackPrefs) -> String {
-        if let audioSlot { return audioSlot }
-        guard let audio, !audio.isEmpty else { return Self.fallbackAudioSlot }
-        for lang in prefs.audioLangs {
-            if let hit = audio.first(where: { Self.language(of: $0) == lang }) { return hit.slot }
+        public init(name: String, lang: String) {
+            self.name = name
+            self.lang = lang
         }
-        return Self.fallbackAudioSlot
+
+        public init(_ track: LiveTrack) {
+            self.init(name: track.name, lang: track.lang)
+        }
     }
 
-    /// The subtitle slot to show (nil: off) for a programme with `subtitles`, while the
-    /// audio plays `audioSlot`.
-    public func subtitle(for subtitles: [LiveTrack]?, audio: [LiveTrack]?, audioSlot: String, prefs: PlaybackPrefs) -> String? {
-        if let subtitleSlot { return subtitleSlot.isEmpty ? nil : subtitleSlot }
-        guard let subtitles, !subtitles.isEmpty else { return nil }
+    /// What the viewer picked in this session (nil: the profile's default).
+    public var audio: Pick?
+    /// nil while the defaults apply, `.some(nil)` off, `.some(pick)` that one.
+    public var subtitle: Pick??
+
+    public init(audio: Pick? = nil, subtitle: Pick?? = nil) {
+        self.audio = audio
+        self.subtitle = subtitle
+    }
+
+    /// The voice to play among `tracks`: the viewer's pick by name, else the first of its
+    /// language; else the first entry in the first of the profile's languages present; else
+    /// the first Russian one, else the first. nil when there are none.
+    public func audio(in tracks: [LiveTrack], prefs: PlaybackPrefs) -> LiveTrack? {
+        guard !tracks.isEmpty else { return nil }
+        if let audio {
+            if let hit = tracks.first(where: { $0.name == audio.name }) { return hit }
+            let lang = Self.language(audio.lang)
+            if !lang.isEmpty, let hit = tracks.first(where: { Self.language(of: $0) == lang }) { return hit }
+        }
+        for lang in prefs.audioLangs.map(Self.language) {
+            if let hit = tracks.first(where: { Self.language(of: $0) == lang }) { return hit }
+        }
+        return tracks.first { Self.language(of: $0) == "ru" } ?? tracks[0]
+    }
+
+    /// The subtitles to show (nil: off) among `tracks` while `audio` plays: the viewer's
+    /// pick by name, else by its language; else by the profile's `subMode`.
+    public func subtitle(in tracks: [LiveTrack], audio: LiveTrack?, prefs: PlaybackPrefs) -> LiveTrack? {
+        if let subtitle {
+            guard let pick = subtitle else { return nil }
+            if let hit = tracks.first(where: { $0.name == pick.name }) { return hit }
+            let lang = Self.language(pick.lang)
+            if !lang.isEmpty, let hit = tracks.first(where: { Self.language(of: $0) == lang }) { return hit }
+        }
+        guard !tracks.isEmpty else { return nil }
         let wanted: Bool
         switch prefs.subMode {
         case "always":
             wanted = true
         case "foreign":
-            let playing = audio?.first { $0.slot == audioSlot }
-            let lang = playing.map(Self.language(of:)) ?? Self.slotLanguage(audioSlot)
-            wanted = !lang.isEmpty && !prefs.audioLangs.contains(lang)
+            let lang = audio.map(Self.language(of:)) ?? ""
+            wanted = !lang.isEmpty && !prefs.audioLangs.map(Self.language).contains(lang)
         default:
             wanted = false
         }
         guard wanted else { return nil }
         let langs = prefs.subLangs.isEmpty ? prefs.audioLangs : prefs.subLangs
-        for lang in langs {
-            if let hit = subtitles.first(where: { Self.language(of: $0) == lang }) { return hit.slot }
+        for lang in langs.map(Self.language) {
+            if let hit = tracks.first(where: { Self.language(of: $0) == lang }) { return hit }
         }
         return nil
     }
 
-    /// A track's two-letter language: its `lang`, else its slot's.
-    static func language(of track: LiveTrack) -> String {
-        let lang = LanguageCode.known(track.lang).map(Self.twoLetter) ?? ""
-        return lang.isEmpty ? slotLanguage(track.slot) : lang
-    }
+    /// A track's two-letter language.
+    static func language(of track: LiveTrack) -> String { language(track.lang) }
 
-    /// The language of a fixed slot ("ru" for `ru` and `ru2`, "en"; "" for `orig`).
-    public static func slotLanguage(_ slot: String) -> String {
-        switch slot {
-        case "ru", "ru2": return "ru"
-        case "en": return "en"
-        default: return ""
-        }
-    }
-
-    private static func twoLetter(_ code: String) -> String {
-        switch code.lowercased() {
-        case "rus": return "ru"
-        case "eng": return "en"
-        default: return code.lowercased().count == 2 ? code.lowercased() : String(code.lowercased().prefix(2))
-        }
-    }
+    static func language(_ tag: String) -> String { LiveRenditions.shortLang(tag) }
 }

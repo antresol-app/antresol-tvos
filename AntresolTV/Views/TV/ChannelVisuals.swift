@@ -2,7 +2,8 @@ import AntresolKit
 import SwiftUI
 
 /// A programme's picture: its backdrop, else its poster, else a neutral fill with the
-/// `tv` glyph. A channel has no logo of its own; this is what stands for it everywhere.
+/// `tv` glyph. This is what stands for a channel everywhere; an uploaded logo
+/// (`ChannelLogo`) only sits beside its number and name.
 struct ProgrammeStill: View {
     let program: ChannelProgram?
     var maxPixelSize: CGFloat = 600
@@ -18,6 +19,26 @@ struct ProgrammeStill: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .accessibilityHidden(true)
+    }
+}
+
+/// A channel's uploaded logo, small, in a neutral rounded 3:2 box beside its number and
+/// name. Nothing at all for a channel without one (no generated tile). Decorative for
+/// VoiceOver: the name is read.
+struct ChannelLogo: View {
+    let path: String
+    var height: CGFloat = 40
+
+    var body: some View {
+        if !path.isEmpty {
+            let shape = RoundedRectangle(cornerRadius: height / 5, style: .continuous)
+            RemoteImage(path: path, maxPixelSize: height * 3, fit: true)
+                .padding(height / 8)
+                .frame(width: height * 1.5, height: height)
+                .background(Theme.Colors.elevated, in: shape)
+                .overlay(shape.strokeBorder(Theme.Colors.hairline, lineWidth: 1))
+                .accessibilityHidden(true)
+        }
     }
 }
 
