@@ -35,8 +35,10 @@ struct TVView: View {
         .navigationDestination(item: $details) { details in
             ProgramDetailView(details: details, model: model)
         }
-        .task {
+        // Again in a new interface language: channel and theme names come from the server.
+        .task(id: appState.language) {
             model.attach(appState)
+            if model.grid.loadedFrom != nil { await model.reloadGuide() }
             while !Task.isCancelled {
                 await model.refresh()
                 try? await Task.sleep(for: Self.refreshInterval)
@@ -215,6 +217,24 @@ private struct ChannelListView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
+            HStack(alignment: .top, spacing: 56) {
+                list(channels)
+                    .frame(width: Self.listWidth)
+                // What the focused row is showing, at full size (the list keeps to a line).
+                if let shown = channels.first(where: { $0.id == focused.wrappedValue }) ?? channels.first(where: { $0.id == initial }) {
+                    ChannelPreview(channel: shown)
+                        .padding(.trailing, Theme.Layout.margin)
+                        .padding(.top, 20)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
+        }
+    }
+
+    /// The rows' column: the margin, then the rows.
+    static let listWidth: CGFloat = 1040
+
+    private func list(_ channels: [Channel]) -> some View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 6) {
@@ -246,7 +266,9 @@ private struct ChannelListView: View {
                             .onPlayPauseCommand { watch(channel) }
                         }
                     }
-                    .padding(.horizontal, Theme.Layout.margin)
+                    .padding(.leading, Theme.Layout.margin)
+                    // Room for the focused row's plate and lift.
+                    .padding(.trailing, 44)
                     .padding(.vertical, 20)
                 }
                 // Rows scroll under the header's edge (softly), not over the filters.
@@ -260,77 +282,55 @@ private struct ChannelListView: View {
                     if let initial { proxy.scrollTo(initial, anchor: .center) }
                 }
             }
-        }
     }
 }
 
-/// A channel row: the number in large tabular digits, the programme's still, the name and
-/// what is on (title, a progress bar, «до 21:40»), then what is next. Focus lifts it on a
-/// light plate with dark text, like the system's list rows.
+/// A channel row, as a television's channel list: the number in tabular digits, the
+/// programme's still, the channel's name and what is on in one line, and a thin
+/// progress bar. Times and what is next are in the preview beside the list, the
+/// programme page and the player's banner. Focus lifts the row on a light plate.
 struct ChannelRow: View {
     let channel: Channel
 
     @Environment(\.isCardFocused) private var isFocused
-    @Environment(\.locale) private var locale
 
-    static let stillWidth: CGFloat = 224
+    static let stillWidth: CGFloat = 176
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
             let program = channel.program(at: context.date)
-            let next = channel.upNext(at: context.date)
-            HStack(alignment: .center, spacing: 32) {
+            HStack(alignment: .center, spacing: 28) {
                 Text(verbatim: String(channel.number))
-                    .font(.system(size: 40, weight: .semibold))
+                    .font(.system(size: 34, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(secondary)
-                    .frame(width: 84, alignment: .trailing)
+                    .frame(width: 64, alignment: .trailing)
                 ProgrammeStill(program: program, maxPixelSize: Self.stillWidth * 2, cornerRadius: Theme.Radius.smallCard)
                     .frame(width: Self.stillWidth, height: Self.stillWidth * 9 / 16)
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 14) {
+                    HStack(spacing: 12) {
                         Text(verbatim: channel.name)
-                            .font(.system(size: 30, weight: .semibold))
+                            .font(.system(size: 28, weight: .semibold))
                             .foregroundStyle(primary)
                             .lineLimit(1)
                         if channel.favorite {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(secondary)
                                 .accessibilityLabel(Text("Favourite"))
                         }
                     }
                     Text(verbatim: program?.fullTitle ?? String(localized: "Nothing on now", bundle: .localized))
-                        .font(.system(size: 26, weight: .regular))
-                        .foregroundStyle(primary.opacity(0.85))
+                        .font(.system(size: 24, weight: .regular))
+                        .foregroundStyle(primary.opacity(0.8))
                         .lineLimit(1)
-                    if let program, program.isOnAir(at: context.date) {
-                        HStack(spacing: 16) {
-                            LiveProgressBar(value: program.progress(at: context.date), onLight: isFocused)
-                                .frame(width: 260)
-                            Text(verbatim: program.untilLine(locale))
-                                .font(.system(size: 22, weight: .medium))
-                                .monospacedDigit()
-                                .foregroundStyle(secondary)
-                        }
-                    }
-                }
-                .frame(width: 620, alignment: .leading)
-                VStack(alignment: .leading, spacing: 6) {
-                    if let next {
-                        Text(verbatim: "\(String(localized: "Next", bundle: .localized)) · \(next.start.clock(locale))")
-                            .font(.system(size: 22, weight: .medium))
-                            .monospacedDigit()
-                            .foregroundStyle(secondary)
-                        Text(verbatim: next.fullTitle)
-                            .font(.system(size: 24, weight: .regular))
-                            .foregroundStyle(primary.opacity(0.75))
-                            .lineLimit(2)
-                    }
+                        .truncationMode(.tail)
+                    LiveProgressBar(value: program.map { $0.isOnAir(at: context.date) ? $0.progress(at: context.date) : 0 } ?? 0, onLight: isFocused, height: 4)
+                        .opacity(program?.isOnAir(at: context.date) == true ? 1 : 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 14)
         }
         .accessibilityElement(children: .combine)
     }
@@ -341,6 +341,69 @@ struct ChannelRow: View {
 
     private var secondary: Color {
         isFocused ? Theme.Colors.labelInverse.opacity(0.55) : Theme.Colors.label3
+    }
+}
+
+/// The focused channel beside the list: the programme's still, the channel, what is on
+/// with its time and progress, what is next, and the overview.
+private struct ChannelPreview: View {
+    let channel: Channel
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 10)) { context in
+            let program = channel.program(at: context.date)
+            VStack(alignment: .leading, spacing: 18) {
+                ProgrammeStill(program: program, maxPixelSize: 1400)
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                HStack(spacing: 16) {
+                    Text(verbatim: channel.label)
+                        .font(Theme.Typography.meta)
+                        .foregroundStyle(Theme.Colors.label2)
+                        .lineLimit(1)
+                    if program?.isOnAir(at: context.date) == true { LiveBadge() }
+                }
+                .padding(.top, 8)
+                if let program {
+                    Text(verbatim: program.fullTitle)
+                        .font(Theme.Typography.sectionTitle)
+                        .foregroundStyle(Theme.Colors.label)
+                        .lineLimit(2)
+                    HStack(spacing: 18) {
+                        Text(verbatim: program.timeRange(locale))
+                            .monospacedDigit()
+                        if program.isOnAir(at: context.date) {
+                            LiveProgressBar(value: program.progress(at: context.date))
+                                .frame(width: 200)
+                            Text(verbatim: program.untilLine(locale))
+                                .monospacedDigit()
+                        }
+                    }
+                    .font(Theme.Typography.meta)
+                    .foregroundStyle(Theme.Colors.label2)
+                    if let next = channel.upNext(at: context.date) {
+                        Text(verbatim: next.nextLine(locale))
+                            .font(Theme.Typography.meta)
+                            .foregroundStyle(Theme.Colors.label3)
+                            .lineLimit(1)
+                    }
+                    if !program.overview.isEmpty {
+                        Text(verbatim: program.overview)
+                            .font(Theme.Typography.meta)
+                            .foregroundStyle(Theme.Colors.label2)
+                            .lineLimit(3)
+                            .padding(.top, 4)
+                    }
+                } else {
+                    Text("Nothing on now")
+                        .font(Theme.Typography.sectionTitle)
+                        .foregroundStyle(Theme.Colors.label)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

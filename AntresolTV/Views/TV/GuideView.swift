@@ -200,8 +200,9 @@ struct GuideView: View {
             Text(verbatim: row.name)
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(isCurrent ? Theme.Colors.label : Theme.Colors.label2)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
+                // One clean line: a long name ends in an ellipsis, never hyphenated.
+                .lineLimit(1)
+                .truncationMode(.tail)
             Spacer(minLength: 0)
             if row.favorite {
                 Image(systemName: "star.fill")

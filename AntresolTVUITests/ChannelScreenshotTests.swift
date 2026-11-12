@@ -31,6 +31,46 @@ final class ChannelScreenshotTests: XCTestCase {
     private var profile = ""
     private var password = ""
 
+    /// The device in English, the profile's interface language Russian
+    /// (`GET /api/me/ui-language` effective "ru"): after sign-in everything is Russian,
+    /// with 24-hour times. Sign-in runs in English (the device's language).
+    func testInterfaceLanguageFromProfile() {
+        let server = ProcessInfo.processInfo.environment["CHANNELS_SERVER"] ?? ""
+        app.launchArguments = ["-AntresolResetSession", "YES", "-AntresolServerURL", server, "-app.language", "system", "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-tv.mode", "channels", "-tv.filter", "all"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 40), "the picker is in the device's English")
+        shot("r4-50-picker-device-english", delay: 1)
+        let entry = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", profile)).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 10))
+        moveFocus(.right, to: entry, limit: 8)
+        remote.press(.select)
+        let field = app.secureTextFields.firstMatch
+        if field.waitForExistence(timeout: 10) {
+            sleep(1)
+            if !field.hasFocus { moveFocus(.down, to: field, limit: 4) }
+            remote.press(.select)
+            sleep(2)
+            app.typeText(password)
+            sleep(1)
+            remote.press(.menu)
+            sleep(2)
+            moveFocus(.down, to: app.buttons["Sign In"], limit: 4)
+            remote.press(.select)
+        }
+        XCTAssertTrue(app.buttons["Подробнее"].waitForExistence(timeout: 40), "not Russian after sign-in")
+        shot("r4-51-home-profile-russian", delay: 3)
+        XCTAssertTrue(openSection("ТВ", showing: app.buttons["Каналы"]) || openSection("ТВ", showing: app.buttons["Каналы"]), "no ТВ tab")
+        shot("r4-52-tv-profile-russian", delay: 4)
+        remote.press(.select, forDuration: 1.6)
+        sleep(1)
+        remote.press(.menu)
+        sleep(1)
+        remote.press(.select)
+        shot("r4-53-player-profile-russian", delay: 10)
+        remote.press(.menu)
+        sleep(2)
+    }
+
     /// Launches with the TV tab's view and filter set (`tv.mode`, `tv.filter`) and signs in.
     private func launch(mode: String = "channels", filter: String = "all") {
         app.launchArguments += ["-tv.mode", mode, "-tv.filter", filter]
