@@ -52,6 +52,9 @@ jobs:
   archive-tvos:
     name: Release archive (tvOS device)
     runs-on: xcode-27
+    env:
+      # The build number the archive is stamped with (CURRENT_PROJECT_VERSION).
+      BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
       - name: Check App Store metadata
@@ -66,7 +69,7 @@ jobs:
         run: |
           if ! xcodebuild archive -project Antresol.xcodeproj -scheme AntresolTV \
             -destination 'generic/platform=tvOS' -archivePath build/Antresol.xcarchive \
-            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }} > archive.log 2>&1; then
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION="$BUILD_NUMBER" > archive.log 2>&1; then
             grep -E 'error:' archive.log | sort -u | head -n 150
             tail -n 40 archive.log
             exit 1
@@ -75,16 +78,28 @@ jobs:
           tail -n 3 archive.log
       - name: Verify the archive
         run: |
+          # The expected version is project.yml's MARKETING_VERSION; the build number is
+          # the one the archive step passed as CURRENT_PROJECT_VERSION.
+          VERSION=$(sed -nE 's/^[[:space:]]*MARKETING_VERSION:[[:space:]]*"?([^"[:space:]]+)"?.*/\1/p' project.yml | head -n 1)
+          test -n "$VERSION" || { echo "::error::MARKETING_VERSION not found in project.yml"; exit 1; }
+          expect() {
+            local actual
+            actual=$(plutil -extract "$2" raw "$1/Info.plist")
+            if [ "$actual" != "$3" ]; then
+              echo "::error::$(basename "$1") $2 is '$actual', expected '$3'"
+              return 1
+            fi
+          }
           APP=build/Antresol.xcarchive/Products/Applications/AntresolTV.app
           EXT=$APP/PlugIns/TopShelf.appex
           for BUNDLE in "$APP" "$EXT"; do
             plutil -lint "$BUNDLE/PrivacyInfo.xcprivacy"
-            test "$(plutil -extract CFBundleShortVersionString raw "$BUNDLE/Info.plist")" = 1.0.0
-            test "$(plutil -extract CFBundleVersion raw "$BUNDLE/Info.plist")" = "${{ github.run_number }}"
+            expect "$BUNDLE" CFBundleShortVersionString "$VERSION"
+            expect "$BUNDLE" CFBundleVersion "$BUILD_NUMBER"
             lipo -info "$BUNDLE/$(plutil -extract CFBundleExecutable raw "$BUNDLE/Info.plist")"
           done
-          test "$(plutil -extract ITSAppUsesNonExemptEncryption raw "$APP/Info.plist")" = false
-          echo "AntresolTV $(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist") (${{ github.run_number }}) archived with the Top Shelf extension"
+          expect "$APP" ITSAppUsesNonExemptEncryption false
+          echo "AntresolTV $VERSION ($BUILD_NUMBER) archived with the Top Shelf extension"
 
   ui-screenshots:
     name: UI screenshots (tvOS Simulator)
