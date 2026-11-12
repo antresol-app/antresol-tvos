@@ -296,3 +296,8 @@
 "Options" = "Параметры";
 "Cleaned" = "Очищено";
 "Ended at %@" = "Закончилась в %@";
+
+/* Round 4: the profile's interface language */
+"Interface Language" = "Язык интерфейса";
+"As the Profile" = "Как у профиля";
+"Also the language the server uses for titles, channels and descriptions." = "На этом языке сервер отдаёт и названия, каналы и описания.";

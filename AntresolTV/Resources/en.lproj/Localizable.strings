@@ -296,3 +296,8 @@
 "Options" = "Options";
 "Cleaned" = "Cleaned";
 "Ended at %@" = "Ended at %@";
+
+/* Round 4: the profile's interface language */
+"Interface Language" = "Interface Language";
+"As the Profile" = "As the Profile";
+"Also the language the server uses for titles, channels and descriptions." = "Also the language the server uses for titles, channels and descriptions.";

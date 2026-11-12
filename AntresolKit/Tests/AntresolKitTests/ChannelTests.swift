@@ -159,6 +159,20 @@ final class ChannelTests: XCTestCase {
         XCTAssertNil(requests[2].httpBody)
     }
 
+    func testInterfaceLanguage() async throws {
+        let transport = MockTransport { request in
+            request.httpMethod == "PUT" ? .json(#"{"language":"en","effective":"en"}"#) : .json(#"{"language":"","effective":"ru"}"#)
+        }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        let current = try await client.uiLanguage()
+        XCTAssertEqual(current, UILanguage(language: "", effective: "ru"))
+        let chosen = try await client.setUILanguage("en")
+        XCTAssertEqual(chosen.effective, "en")
+        XCTAssertEqual(transport.requests.map { "\($0.httpMethod ?? "") \($0.pathAndQuery)" }, ["GET /api/me/ui-language", "PUT /api/me/ui-language"])
+        XCTAssertEqual(transport.requests[1].bodyJSON?["language"] as? String, "en")
+        XCTAssertEqual(try JSONDecoder().decode(UILanguage.self, from: Data("{}".utf8)), UILanguage())
+    }
+
     func testEveryRequestSaysItListsExternalAudio() async throws {
         let transport = MockTransport { _ in .json(#"{"channels":[]}"#) }
         let client = APIClient(baseURL: base, token: "t", transport: transport)

@@ -65,3 +65,40 @@ extension APIClient {
         try await send(.get, "/api/library/status")
     }
 }
+
+/// `GET/PUT /api/me/ui-language`: the profile's interface language. `language` is what
+/// the profile chose ("" none: follow the profile's audio languages, then the
+/// household's); `effective` is what the apps use for their whole interface ("" follow
+/// the device).
+public struct UILanguage: Codable, Hashable, Sendable {
+    public var language: String
+    public var effective: String
+
+    public init(language: String = "", effective: String = "") {
+        self.language = language
+        self.effective = effective
+    }
+
+    enum CodingKeys: String, CodingKey { case language, effective }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        language = c.value(.language, default: "")
+        effective = c.value(.effective, default: "")
+    }
+}
+
+private struct UILanguageBody: Encodable {
+    let language: String
+}
+
+extension APIClient {
+    public func uiLanguage() async throws -> UILanguage {
+        try await send(.get, "/api/me/ui-language")
+    }
+
+    /// Chooses the profile's interface language ("ru", "en", or "" for "as the profile").
+    public func setUILanguage(_ language: String) async throws -> UILanguage {
+        try await send(.put, "/api/me/ui-language", json: UILanguageBody(language: language))
+    }
+}

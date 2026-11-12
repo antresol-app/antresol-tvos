@@ -171,23 +171,33 @@ private struct SettingsPage: View {
 
     // MARK: Language
 
+    /// «Язык интерфейса»: kept for the profile on the server, so every device of the
+    /// profile shows the same language. "As the Profile" follows the profile's audio
+    /// languages, then the household's.
     private var languageSection: some View {
-        SettingsSection("Language", footnote: "Some text changes language the next time Antresol is opened.") {
+        SettingsSection("Language") {
             NavigationLink {
                 SettingsChoiceView(
-                    title: "App Language",
-                    footnote: "Also the language the server uses for titles and descriptions.",
-                    options: AppLanguage.allCases.map { SettingsOption(value: $0, title: languageTitle($0)) },
-                    selection: Binding(get: { appState.language }, set: { appState.language = $0 })
+                    title: "Interface Language",
+                    footnote: "Also the language the server uses for titles, channels and descriptions.",
+                    options: ["", "ru", "en"].map { SettingsOption(value: $0, title: interfaceTitle($0)) },
+                    selection: Binding(
+                        get: { appState.interfaceLanguage?.language ?? "" },
+                        set: { choice in Task { try? await appState.setInterfaceLanguage(choice) } }
+                    )
                 )
             } label: {
-                SettingsRowLabel("App Language", value: languageTitle(appState.language))
+                SettingsRowLabel("Interface Language", value: interfaceTitle(appState.interfaceLanguage?.language ?? ""))
             }
         }
     }
 
-    private func languageTitle(_ language: AppLanguage) -> String {
-        language.nativeName ?? String(localized: "System", bundle: .localized)
+    private func interfaceTitle(_ code: String) -> String {
+        switch code {
+        case "ru": return "Русский"
+        case "en": return "English"
+        default: return String(localized: "As the Profile", bundle: .localized)
+        }
     }
 
     // MARK: Server

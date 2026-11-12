@@ -28,8 +28,15 @@ final class AppState {
     }
 
     private(set) var phase: Phase = .launching {
-        didSet { publishSharedSession() }
+        didSet {
+            publishSharedSession()
+            if case .signedIn = phase { Task { await refreshInterfaceLanguage() } }
+        }
     }
+    /// The profile's interface language as the server keeps it (`GET /api/me/ui-language`):
+    /// its `effective` language runs the whole interface — strings, 24-hour time for
+    /// Russian, and `Accept-Language` of every request; "" follows the device.
+    private(set) var interfaceLanguage: UILanguage?
     /// The app language; changing it also changes the language the server answers in.
     var language: AppLanguage = .stored {
         didSet {
@@ -168,6 +175,23 @@ final class AppState {
         profileClient = server.profileClient(token: response.token)
         settings.lastUserId = profile.id
         phase = .signedIn(response.user)
+    }
+
+    /// Reads the profile's interface language and switches the app to it.
+    func refreshInterfaceLanguage() async {
+        guard let client = profileClient, let value = try? await client.uiLanguage() else { return }
+        applyInterfaceLanguage(value)
+    }
+
+    /// «Язык интерфейса»: "" (as the profile), "ru" or "en", saved for the profile.
+    func setInterfaceLanguage(_ language: String) async throws {
+        guard let client = profileClient else { return }
+        applyInterfaceLanguage(try await client.setUILanguage(language))
+    }
+
+    private func applyInterfaceLanguage(_ value: UILanguage) {
+        interfaceLanguage = value
+        language = AppLanguage(rawValue: value.effective) ?? .system
     }
 
     /// Returns to the profile picker, keeping the current profile's token for later.
