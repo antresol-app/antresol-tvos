@@ -469,25 +469,42 @@ final class ScreenshotTests: XCTestCase {
     /// Opens a section from the sidebar: Left until the sidebar has focus, then up or down
     /// to its entry and select. Entries are the full-width rows at the screen's left edge
     /// (the profile's starts with its name).
+    /// The system sidebar hands the focus to the content after a few idle seconds (right
+    /// after sign-in it starts on Home), so the walk goes back into it whenever it left.
     /// Returns whether `marker`, an element only that section shows, appeared.
     @discardableResult
     private func openSection(_ app: XCUIApplication, _ title: String, showing marker: XCUIElement) -> Bool {
         let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
-        func inSidebar() -> Bool { focused.exists && focused.frame.minX < 1 && focused.frame.width < 600 }
-        for _ in 0..<6 where !inSidebar() {
-            remote.press(.left)
-            pause(1)
+        // An entry row, not the sidebar itself (focused while it opens).
+        func inSidebar() -> Bool {
+            guard focused.exists else { return false }
+            let frame = focused.frame
+            return frame.minX < 1 && frame.width < 600 && frame.height < 150
         }
-        guard inSidebar() else { return false }
-        let candidates = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).allElementsBoundByIndex
-        guard let entry = candidates.first(where: { $0.frame.minX < 1 && $0.frame.width < 600 }) else { return false }
-        for _ in 0..<10 {
-            let delta = entry.frame.midY - focused.frame.midY
+        func enterSidebar() -> Bool {
+            for _ in 0..<6 where !inSidebar() {
+                remote.press(.left)
+                pause(1)
+            }
+            return inSidebar()
+        }
+        // From the focused row to the entry; nil when the sidebar collapsed meanwhile (it
+        // then has no entry rows) and the next try goes back into it.
+        func entryDelta() -> CGFloat? {
+            guard enterSidebar() else { return nil }
+            let candidates = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).allElementsBoundByIndex
+            guard let entry = candidates.first(where: { $0.frame.minX < 1 && $0.frame.width < 600 }),
+                  inSidebar()
+            else { return nil }
+            return entry.frame.midY - focused.frame.midY
+        }
+        for _ in 0..<12 {
+            guard let delta = entryDelta() else { continue }
             if abs(delta) < 4 { break }
             remote.press(delta > 0 ? .down : .up)
             pause(1)
         }
-        guard abs(entry.frame.midY - focused.frame.midY) < 4 else { return false }
+        guard let delta = entryDelta(), abs(delta) < 4 else { return false }
         remote.press(.select)
         guard marker.waitForExistence(timeout: 15) else { return false }
         pause(2)
