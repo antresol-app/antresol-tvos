@@ -29,9 +29,11 @@ struct GuideView: View {
     static let rowHeight: CGFloat = 104
     static let rowSpacing: CGFloat = 8
     static let blockGap: CGFloat = 6
+    /// Between the channel column and the time area.
+    static let columnGap: CGFloat = 24
     private static var rowPitch: CGFloat { rowHeight + rowSpacing }
     /// The time area runs from after the channel column to the screen's right edge.
-    private static var timeAreaWidth: CGFloat { 1920 - Theme.Layout.margin - channelColumn - 24 }
+    private static var timeAreaWidth: CGFloat { 1920 - Theme.Layout.margin - channelColumn - columnGap }
 
     var body: some View {
         switch model.guidePhase {
@@ -82,15 +84,22 @@ struct GuideView: View {
                 let visibleRows = max(1, Int((proxy.size.height - Self.rulerHeight) / Self.rowPitch))
                 TimelineView(.periodic(from: .now, by: 15)) { context in
                     let now = context.date
-                    ZStack(alignment: .topLeading) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ruler(now: now)
-                                .frame(height: Self.rulerHeight)
-                            rowsView(rows, visibleRows: visibleRows, now: now)
-                                .frame(height: proxy.size.height - Self.rulerHeight, alignment: .topLeading)
-                                .clipped()
+                    VStack(alignment: .leading, spacing: 0) {
+                        ruler(now: now)
+                            .frame(height: Self.rulerHeight)
+                        rowsView(rows, visibleRows: visibleRows, now: now)
+                            .frame(height: proxy.size.height - Self.rulerHeight, alignment: .topLeading)
+                            .clipped()
+                    }
+                    // The now line in the same column layout as the ruler and the rows.
+                    .overlay(alignment: .topLeading) {
+                        timeColumn {
+                            nowLine(now: now)
+                        } label: {
+                            Color.clear
                         }
-                        nowLine(now: now, height: proxy.size.height)
+                        .padding(.top, 30)
+                        .allowsHitTesting(false)
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 }
@@ -106,38 +115,57 @@ struct GuideView: View {
 
     // MARK: - Drawing
 
+    /// The guide's columns, the same for the ruler, every row and the now line: the
+    /// channel column, then the time area starting at `viewStart` (x = 0). Keeping one
+    /// layout is what keeps ticks, blocks and the now line on one axis.
+    private func timeColumn<Area: View, Label: View>(@ViewBuilder _ area: () -> Area, @ViewBuilder label: () -> Label) -> some View {
+        HStack(spacing: Self.columnGap) {
+            label()
+                .frame(width: Self.channelColumn, alignment: .leading)
+            ZStack(alignment: .topLeading) {
+                Color.clear
+                area()
+            }
+            .frame(width: Self.timeAreaWidth, alignment: .topLeading)
+        }
+        .padding(.leading, Theme.Layout.margin)
+    }
+
+    /// x of `date` in the time area (GuideScale.x, the one function for all three).
+    private func x(_ date: Date) -> CGFloat {
+        CGFloat(scale.x(date, from: viewStart))
+    }
+
     private func ruler(now: Date) -> some View {
         let scale = scale
         let tick = TimeInterval(scale.tickMinutes * 60)
         let first = scale.tick(atOrBefore: viewStart)
         let ticks = stride(from: first.timeIntervalSince1970, through: viewEnd.timeIntervalSince1970, by: tick).map { Date(timeIntervalSince1970: $0) }
-        return HStack(spacing: 0) {
+        return timeColumn {
+            ForEach(ticks, id: \.self) { date in
+                let x = self.x(date)
+                if x >= -1 {
+                    // The tick mark sits exactly at x; its label follows it.
+                    Rectangle()
+                        .fill(Theme.Colors.hairline)
+                        .frame(width: 2, height: 20)
+                        .offset(x: x - 1, y: 14)
+                    Text(verbatim: date.clock(locale))
+                        .font(.system(size: 22, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Colors.label3)
+                        .fixedSize()
+                        .offset(x: x + 10, y: 10)
+                }
+            }
+        } label: {
             Text(verbatim: viewStart.addingTimeInterval(scale.interval(Self.timeAreaWidth / 3)).dayName(locale, now: now))
                 .font(Theme.Typography.eyebrow)
                 .foregroundStyle(Theme.Colors.label2)
-                .frame(width: Self.channelColumn + 24, alignment: .leading)
-                .padding(.leading, Theme.Layout.margin)
-            ZStack(alignment: .topLeading) {
-                ForEach(ticks, id: \.self) { date in
-                    let x = scale.width(date.timeIntervalSince(viewStart))
-                    if x >= -2 {
-                        HStack(spacing: 10) {
-                            Rectangle()
-                                .fill(Theme.Colors.hairline)
-                                .frame(width: 2, height: 20)
-                            Text(verbatim: date.clock(locale))
-                                .font(.system(size: 22, weight: .semibold))
-                                .monospacedDigit()
-                                .foregroundStyle(Theme.Colors.label3)
-                        }
-                        .offset(x: x)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.top, 14)
-            .clipped()
+                .padding(.top, 14)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .clipped()
     }
 
     /// The rows on screen plus one either side, so Up / Down always have a row to go to.
@@ -147,9 +175,10 @@ struct GuideView: View {
         let shown = lower < upper ? Array(rows[lower..<upper]) : []
         return VStack(alignment: .leading, spacing: Self.rowSpacing) {
             ForEach(shown) { row in
-                HStack(spacing: 24) {
-                    channelCell(row)
+                timeColumn {
                     programmes(row, now: now)
+                } label: {
+                    channelCell(row)
                 }
                 .frame(height: Self.rowHeight)
                 .focusSection()
@@ -157,7 +186,6 @@ struct GuideView: View {
                 .defaultFocus($focused, target(in: row), priority: .userInitiated)
             }
         }
-        .padding(.leading, Theme.Layout.margin)
         .offset(y: -CGFloat(firstRow - lower) * Self.rowPitch)
     }
 
@@ -207,8 +235,8 @@ struct GuideView: View {
                 .focused($focused, equals: Self.emptyKey(row.id))
             }
             ForEach(shown, id: \.key) { program in
-                let x = scale.width(program.start.timeIntervalSince(viewStart))
-                let right = scale.width(program.end.timeIntervalSince(viewStart))
+                let x = self.x(program.start)
+                let right = self.x(program.end)
                 // A block cut by the left edge starts at the edge (its text stays readable);
                 // one wholly before the view stays where it is, off screen (focus can reach
                 // it, and the view then scrolls to it).
@@ -242,8 +270,8 @@ struct GuideView: View {
     }
 
     @ViewBuilder
-    private func nowLine(now: Date, height: CGFloat) -> some View {
-        let x = scale.width(now.timeIntervalSince(viewStart))
+    private func nowLine(now: Date) -> some View {
+        let x = self.x(now)
         if x >= 0, x <= Self.timeAreaWidth {
             VStack(spacing: 0) {
                 Circle()
@@ -253,9 +281,9 @@ struct GuideView: View {
                     .fill(Theme.Colors.red)
                     .frame(width: 3)
             }
-            .frame(height: height - 30)
-            .offset(x: Theme.Layout.margin + Self.channelColumn + 24 + x - 7, y: 30)
-            .allowsHitTesting(false)
+            .frame(maxHeight: .infinity)
+            // Centred on x: the circle is 14 pt wide.
+            .offset(x: x - 7)
             .accessibilityHidden(true)
         }
     }

@@ -86,9 +86,16 @@ extension ChannelProgram {
 }
 
 extension Date {
-    /// The time of day in the app's locale ("23:30", "11:30 PM").
+    /// The time of day in the app's locale ("23:30", "11:30 PM"), rounded to the nearest
+    /// minute: programme times carry seconds (23:50:38 is «23:51», where its block sits),
+    /// and truncating would label a block up to a minute before where it is drawn.
     func clock(_ locale: Locale) -> String {
-        formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale))
+        roundedToMinute.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale))
+    }
+
+    /// The nearest whole minute.
+    var roundedToMinute: Date {
+        Date(timeIntervalSince1970: (timeIntervalSince1970 / 60).rounded() * 60)
     }
 
     /// «Сегодня», «Завтра», «Вчера» or the date, in the app's locale.

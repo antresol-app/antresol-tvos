@@ -159,6 +159,18 @@ public struct GuideScale: Hashable, Sendable {
         return GuideScale(pointsPerMinute: ppm, tickMinutes: tick)
     }
 
+    /// Where `date` is on the time axis that starts at `origin`, in points. The ruler's
+    /// ticks, the programme blocks and the now line all use this, so they cannot drift
+    /// apart.
+    public func x(_ date: Date, from origin: Date) -> Double {
+        width(date.timeIntervalSince(origin))
+    }
+
+    /// The time at `x` points on the axis that starts at `origin`.
+    public func date(atX x: Double, from origin: Date) -> Date {
+        origin.addingTimeInterval(interval(x))
+    }
+
     public func width(_ interval: TimeInterval) -> Double {
         interval / 60 * pointsPerMinute
     }

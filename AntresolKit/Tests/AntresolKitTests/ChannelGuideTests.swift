@@ -128,6 +128,27 @@ final class ChannelGuideTests: XCTestCase {
         XCTAssertEqual(ChannelGuideGrid.typicalLength(of: [ChannelEPG(id: 1, number: 1, name: "", programs: [program("a", 0, 10), program("b", 10, 40), program("c", 40, 100)])]), 30)
     }
 
+    func testTicksBlocksAndNowShareOneAxis() {
+        let scale = GuideScale.fitting(typicalLength: 7 * 60)
+        let origin = t(85_500)  // a tick
+        XCTAssertEqual(scale.tick(atOrBefore: origin), origin)
+        let tick = TimeInterval(scale.tickMinutes * 60)
+        // A tick, a programme starting on it and "now" at the same instant are at one x.
+        let start = origin.addingTimeInterval(2 * tick)
+        XCTAssertEqual(scale.x(start, from: origin), 2 * scale.width(tick), accuracy: 1e-9)
+        XCTAssertEqual(scale.x(origin, from: origin), 0)
+        // 23:47 on an axis from 23:45 at 60 pt/min is 120 pt, not 174.
+        let fine = GuideScale(pointsPerMinute: 60, tickMinutes: 5)
+        XCTAssertEqual(fine.x(t(85_500 + 120), from: origin), 120, accuracy: 1e-9)
+        XCTAssertEqual(fine.date(atX: 120, from: origin), t(85_500 + 120))
+        // A start with seconds (23:47:54.9) sits 0.9 pt short of the 23:48 tick, not at 23:47.
+        let withSeconds = t(85_500 + 174.9)
+        XCTAssertEqual(fine.x(withSeconds, from: origin), 174.9, accuracy: 1e-4)
+        XCTAssertEqual(fine.x(t(85_500 + 180), from: origin) - fine.x(withSeconds, from: origin), 5.1, accuracy: 1e-4)
+        // Before the origin: negative.
+        XCTAssertEqual(fine.x(t(85_500 - 60), from: origin), -60, accuracy: 1e-9)
+    }
+
     // MARK: Live audio and subtitles
 
     private let ru = LiveTrack(slot: "ru", name: "Русский", label: "Русский — LostFilm", lang: "ru")
