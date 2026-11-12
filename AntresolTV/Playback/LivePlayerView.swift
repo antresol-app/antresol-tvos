@@ -330,7 +330,7 @@ private struct TrackMenu: View {
                             .id("")
                         }
                         ForEach(entries) { entry in
-                            row(id: entry.name, title: entry.title, isOn: entry.name == selected) {
+                            row(id: entry.name, title: entry.voiceAndLanguage.voice, detail: entry.voiceAndLanguage.language, isOn: entry.name == selected) {
                                 if kind == .audio { model.selectAudio(entry) } else { model.selectSubtitle(entry) }
                             }
                             .id(entry.name)
@@ -345,7 +345,7 @@ private struct TrackMenu: View {
             }
         }
         .padding(24)
-        .frame(width: 640, alignment: .leading)
+        .frame(width: 720, alignment: .leading)
         .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous))
         .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous), highlighted: false, interactive: false)
         .focusSection()
@@ -359,7 +359,7 @@ private struct TrackMenu: View {
         .onExitCommand { model.openMenu = nil }
     }
 
-    private func row(id: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+    private func row(id: String, title: String, detail: String? = nil, isOn: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 18) {
                 Image(systemName: "checkmark")
@@ -370,7 +370,15 @@ private struct TrackMenu: View {
                     .font(Theme.Typography.headline)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Spacer(minLength: 0)
+                Spacer(minLength: 12)
+                if let detail {
+                    // the language, quiet, on the trailing side (a settings row's value)
+                    Text(verbatim: detail)
+                        .font(Theme.Typography.meta)
+                        .opacity(0.6)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
             }
         }
         .buttonStyle(ListRowButtonStyle())

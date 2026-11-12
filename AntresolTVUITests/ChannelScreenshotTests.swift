@@ -234,30 +234,33 @@ final class ChannelScreenshotTests: XCTestCase {
             moveFocus(.left, to: audio, limit: 4)
             remote.press(.select)
             shot("r5-62-audio-long", delay: 2)
-            for _ in 0..<8 { remote.press(.down); usleep(400_000) }
+            // to the last of the eight voices (one more Down would leave the list)
+            for _ in 0..<7 { remote.press(.down); usleep(400_000) }
             shot("r5-63-audio-scrolled", delay: 1)
             remote.press(.select)
-            sleep(4)
-            remote.press(.select)
-            sleep(2)
-            moveFocus(.left, to: audio, limit: 4)
+            sleep(3)
+            // the list again: the tick on the picked voice
+            if !(audio.exists && audio.hasFocus) { moveFocus(.left, to: audio, limit: 4) }
             remote.press(.select)
             shot("r5-64-audio-picked", delay: 2)
-            remote.press(.menu)
-            sleep(1)
+            // Select on the ticked row keeps it and closes the list
+            remote.press(.select)
+            sleep(2)
         }
         let subtitles = app.buttons["live.subtitles"]
-        if subtitles.exists {
-            moveFocus(.right, to: subtitles, limit: 4)
+        if moveFocus(.right, to: subtitles, limit: 4) {
             remote.press(.select)
             shot("r5-65-subtitles-long", delay: 2)
-            remote.press(.down)
-            remote.press(.down)
+            for _ in 0..<5 { remote.press(.down); usleep(400_000) }
             remote.press(.select)
-            shot("r5-66-subtitles-on", delay: 6)
+            sleep(4)
+            if !(subtitles.exists && subtitles.hasFocus) { moveFocus(.right, to: subtitles, limit: 4) }
+            remote.press(.select)
+            shot("r5-66-subtitles-picked", delay: 2)
+            remote.press(.select)
+            shot("r5-66b-subtitles-on", delay: 4)
         }
-        remote.press(.select)
-        sleep(2)
+        if !app.buttons["live.channels"].exists { remote.press(.select); sleep(2) }
         let channels = app.buttons["live.channels"]
         if moveFocus(.right, to: channels, limit: 5) {
             remote.press(.select)

@@ -128,6 +128,15 @@ public struct LiveTrack: Decodable, Hashable, Sendable, Identifiable {
     public var title: String {
         label.isEmpty ? name : label
     }
+
+    /// The picker's two parts: the voice and, apart, its language («Русский — LostFilm» →
+    /// «LostFilm», «Русский»); a label without « — » is the voice alone.
+    public var voiceAndLanguage: (voice: String, language: String?) {
+        let parts = title.components(separatedBy: " — ")
+        guard parts.count >= 2, let first = parts.first, !first.isEmpty else { return (title, nil) }
+        let rest = parts.dropFirst().joined(separator: " — ")
+        return rest.isEmpty ? (title, nil) : (rest, first)
+    }
 }
 
 /// A programme of a channel: a movie or an episode with its slot on air.

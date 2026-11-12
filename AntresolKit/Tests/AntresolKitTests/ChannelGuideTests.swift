@@ -223,6 +223,13 @@ final class ChannelGuideTests: XCTestCase {
         XCTAssertEqual(LiveRenditions.option(named: "Дубляж", lang: "ru", options: titled, renditions: r.audio), 7)
     }
 
+    func testVoiceAndLanguage() {
+        XCTAssertEqual(LiveTrack(name: "LostFilm", label: "Русский — LostFilm", lang: "ru").voiceAndLanguage.voice, "LostFilm")
+        XCTAssertEqual(LiveTrack(name: "LostFilm", label: "Русский — LostFilm", lang: "ru").voiceAndLanguage.language, "Русский")
+        XCTAssertNil(LiveTrack(name: "English", label: "English", lang: "en").voiceAndLanguage.language)
+        XCTAssertEqual(LiveTrack(name: "x", lang: "").voiceAndLanguage.voice, "x")
+    }
+
     func testTracksAndLogosDecode() throws {
         let json = Data(#"{"id":3,"number":3,"name":"Кино","logoUrl":"/api/channels/3/logo.png?v=1","now":{"itemId":1,"title":"Много голосов","start":"2026-11-12T10:00:00Z","end":"2026-11-12T12:00:00Z","audio":[{"name":"Дубляж","label":"Русский — Дубляж","lang":"ru"},{"slot":"x","name":"LostFilm","lang":"ru"}]}}"#.utf8)
         let channel = try JSONDecoder().decode(Channel.self, from: json)
