@@ -218,6 +218,74 @@ final class ChannelScreenshotTests: XCTestCase {
         sleep(3)
     }
 
+    /// External channels (`CHANNELS_EXT=1`; make «Demo Bipbop Advanced», the first external
+    /// channel, the profile's last channel first, followed in number by «Demo Mux», «Demo
+    /// Bipbop», a channel that never opens and one whose primary fails and fallback plays):
+    /// the list and the guide with them, the player on each, the stream's own audio and
+    /// subtitles, the failure and Up out of it onto the fallback.
+    func testExternalChannels() throws {
+        guard ProcessInfo.processInfo.environment["CHANNELS_EXT"] == "1" else { throw XCTSkip("CHANNELS_EXT not set") }
+        launch()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        shot("r6-70-list-external", delay: 5)
+        remote.press(.select)
+        shot("r6-71-player-bipbop-advanced", delay: 12)
+        // the stream's own subtitles
+        remote.press(.select)
+        sleep(2)
+        let subtitles = app.buttons["live.subtitles"]
+        if moveFocus(.right, to: subtitles, limit: 4) {
+            remote.press(.select)
+            shot("r6-72-subtitles-from-stream", delay: 2)
+            remote.press(.down)
+            sleep(1)
+            remote.press(.select)
+            shot("r6-73-subtitles-picked", delay: 6)
+        } else {
+            XCTFail("no Subtitles control on «Demo Bipbop Advanced»")
+        }
+        let audio = app.buttons["live.audio"]
+        if audio.exists, moveFocus(.left, to: audio, limit: 4) {
+            remote.press(.select)
+            shot("r6-74-audio-from-stream", delay: 2)
+            remote.press(.menu)
+            sleep(1)
+        }
+        remote.press(.menu)
+        sleep(2)
+        remote.press(.up)
+        shot("r6-75-player-mux", delay: 12)
+        remote.press(.up)
+        shot("r6-76-player-bipbop", delay: 12)
+        remote.press(.up)
+        let failed = app.staticTexts[t("This channel won’t open right now", "Канал сейчас не открывается")]
+        XCTAssertTrue(failed.waitForExistence(timeout: 45), "no failure message")
+        shot("r6-77-failed", delay: 1)
+        remote.press(.up)
+        sleep(15)
+        XCTAssertFalse(failed.exists, "the next channel did not open on its fallback")
+        shot("r6-78-fallback-playing", delay: 0)
+        remote.press(.menu)
+        sleep(3)
+    }
+
+    /// The guide with the external rows (the last channel's row first in view) and an
+    /// external programme's details (no item page behind it).
+    func testExternalGuide() throws {
+        guard ProcessInfo.processInfo.environment["CHANNELS_EXT"] == "1" else { throw XCTSkip("CHANNELS_EXT not set") }
+        launch(mode: "guide")
+        if openTV() {
+            remote.press(.down)
+            sleep(1)
+            remote.press(.down)
+            shot("r6-79-guide-external", delay: 4)
+            remote.press(.select)
+            shot("r6-80-external-programme", delay: 3)
+            remote.press(.menu)
+            sleep(1)
+        }
+    }
+
     /// A channel with many voices and subtitles (make it the profile's last channel first):
     /// the list, the banner and the mini-guide with its logo; the Audio list scrolls to its
     /// last entry and plays it; the Subtitles list with every language.

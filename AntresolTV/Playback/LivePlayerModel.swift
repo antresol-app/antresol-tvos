@@ -295,7 +295,7 @@ final class LivePlayerModel {
 
     func subtitleEntries(at date: Date = Date()) -> [LiveTrack] {
         if channel.external {
-            return ExternalTracks.entries(options: subtitleOptions.map { ($0.name, $0.language) }, renditions: renditions[front].subtitles)
+            return ExternalTracks.entries(options: subtitleOptions.map { ($0.menuName, $0.language) }, renditions: renditions[front].subtitles)
         }
         if let subtitles = onAir(at: date).now?.subtitles {
             return subtitles.filter { entry in
@@ -841,8 +841,14 @@ struct StreamOption: Equatable {
     /// The extended language tag ("ru", "en", "mul").
     let language: String
     let isForcedOnly: Bool
+    /// CEA-608/708 captions carried in the video, not a subtitle rendition.
+    let isClosedCaptions: Bool
+
+    /// The name an external stream's menu shows: captions marked «(CC)».
+    var menuName: String { isClosedCaptions ? "\(name) (CC)" : name }
 
     init(_ option: AVMediaSelectionOption, title: String? = nil) {
+        isClosedCaptions = option.mediaType == .closedCaption
         name = title ?? option.displayName
         language = option.extendedLanguageTag ?? option.locale?.language.languageCode?.identifier ?? ""
         isForcedOnly = option.hasMediaCharacteristic(.containsOnlyForcedSubtitles)
