@@ -4,7 +4,7 @@ import XCTest
 /// has no live streams). Skipped unless `CHANNELS_SERVER` (the server's address),
 /// `CHANNELS_PROFILE` (a profile's name) and `CHANNELS_PASSWORD` are set, as
 /// `TEST_RUNNER_CHANNELS_…` for `xcodebuild test`; `CHANNELS_SHOTS_DIR` also gets the PNGs.
-/// Runs in Russian, the channels' own language.
+/// Runs in Russian; `CHANNELS_LANGUAGE=en` runs it in English.
 final class ChannelScreenshotTests: XCTestCase {
     private let remote = XCUIRemote.shared
     private let app = XCUIApplication()
@@ -21,151 +21,243 @@ final class ChannelScreenshotTests: XCTestCase {
             "-AntresolResetSession", "YES", "-AntresolServerURL", server,
             // Russian through the app's own language setting: the system stays English, so
             // the keyboard types the Latin password.
-            "-app.language", "ru", "-AppleLanguages", "(en)", "-AppleLocale", "ru_RU",
+            "-app.language", env["CHANNELS_LANGUAGE"] ?? "ru", "-AppleLanguages", "(en)",
+            "-AppleLocale", env["CHANNELS_LANGUAGE"] == "en" ? "en_GB" : "ru_RU",
         ]
+        self.profile = profile
+        password = env["CHANNELS_PASSWORD"] ?? ""
+    }
+
+    private var profile = ""
+    private var password = ""
+
+    /// Launches with the TV tab's view and filter set (`tv.mode`, `tv.filter`) and signs in.
+    private func launch(mode: String = "channels", filter: String = "all") {
+        app.launchArguments += ["-tv.mode", mode, "-tv.filter", filter]
         app.launch()
-        signIn(profile, password: env["CHANNELS_PASSWORD"] ?? "")
+        signIn(profile, password: password)
     }
 
-    func testChannelsAndLivePlayer() {
-        XCTAssertTrue(openSection("ТВ", showing: app.buttons["Все"]), "no TV tab: \(focusedLabel)")
-        // All sections (the pill remembers the last one).
-        XCTAssertTrue(moveFocus(.up, to: app.buttons["Все"], limit: 4))
-        remote.press(.select)
-        shot("1-tv-all", delay: 4)
+    /// The channel list: focus starts on the last channel; a long press offers the star.
+    func testList() {
+        launch()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        shot("r3-01-list", delay: 4)
         remote.press(.down)
-        shot("2-tv-all-focused", delay: 2)
-
-        // The second section of the pill: its channels in a grid.
-        XCTAssertTrue(moveFocus(.up, to: app.buttons["Все"], limit: 4))
-        remote.press(.right)
-        sleep(1)
-        remote.press(.right)
-        sleep(1)
-        let section = focusedLabel
-        remote.press(.select)
-        shot("3-tv-section", delay: 3)
-
-        // The section's first channel: the live player.
-        remote.press(.down)
-        sleep(1)
-        let channel = focusedLabel
-        remote.press(.select)
-        shot("4-player-starting", delay: 1)
-        shot("5-player-playing", delay: 10)
-        shot("6-player-playing-later", delay: 5)
-
-        // Select brings the panel back.
-        remote.press(.select)
-        shot("7-player-info", delay: 2)
-
-        // Channel up: the next channel by number, with the panel; then back down.
-        remote.press(.up)
-        shot("8-player-channel-up", delay: 2)
-        shot("9-player-channel-up-playing", delay: 10)
-        remote.press(.down)
-        shot("10-player-channel-down", delay: 10)
-
+        shot("r3-02-list-moved", delay: 2)
+        remote.press(.select, forDuration: 1.6)
+        shot("r3-03-list-context", delay: 2)
         remote.press(.menu)
-        sleep(3)
-        XCTAssertTrue(app.buttons["Все"].waitForExistence(timeout: 10), "Menu should leave the player (\(section), \(channel))")
-        shot("11-back-to-section", delay: 1)
+        sleep(1)
     }
 
-    /// The second round: «Продолжить» after watching, the next programme on the cards, the
-    /// banner on a zap with the old picture held, the mini-guide, and the Top Shelf.
-    func testContinueZapAndMiniGuide() {
-        // The sidebar sometimes takes a moment to settle: one more try.
-        let opened = openSection("ТВ", showing: app.buttons["Все"]) || openSection("ТВ", showing: app.buttons["Все"])
-        XCTAssertTrue(opened, "no TV tab: \(focusedLabel)")
-        // Focus may stay in the sidebar after choosing the tab: into the page first.
-        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
-        for _ in 0..<3 where focused.exists && focused.frame.minX < 1 && focused.frame.width < 600 {
+    /// The Favourites filter.
+    func testFavourites() {
+        launch(filter: "favorites")
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        shot("r3-04-favourites", delay: 4)
+    }
+
+    /// The guide: the cursor moves keeping the time, a programme opens, «Смотреть» tunes in.
+    func testGuide() {
+        launch(mode: "guide")
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        sleep(3)
+        shot("r3-05-guide-header", delay: 1)
+        // Down from the header into the grid: the last channel's programme on air.
+        remote.press(.down)
+        sleep(1)
+        remote.press(.down)
+        sleep(1)
+        shot("r3-06-guide", delay: 2)
+        // The programme on air: details with «Смотреть».
+        remote.press(.select)
+        shot("r3-09b-programme-on-air", delay: 3)
+        remote.press(.menu)
+        sleep(2)
+        remote.press(.down)
+        sleep(1)
+        remote.press(.right)
+        shot("r3-07-guide-moved", delay: 2)
+        remote.press(.right)
+        sleep(1)
+        remote.press(.down)
+        shot("r3-08-guide-down", delay: 2)
+        for _ in 0..<4 {
+            remote.press(.down)
+            sleep(1)
+        }
+        shot("r3-08b-guide-scrolled", delay: 2)
+        remote.press(.left)
+        sleep(1)
+        remote.press(.left)
+        sleep(1)
+        remote.press(.select)
+        shot("r3-09-programme", delay: 3)
+        remote.press(.menu)
+        sleep(2)
+        // Back to the programme on air of the first row: «Смотреть» tunes in.
+        for _ in 0..<6 {
+            remote.press(.up)
+            sleep(1)
+        }
+        remote.press(.down)
+        sleep(2)
+        remote.press(.select)
+        sleep(3)
+        let watch = app.buttons[t("Watch", "Смотреть")]
+        if watch.waitForExistence(timeout: 3) {
+            focusByGeometry(watch)
+            remote.press(.select)
+            shot("r3-10-guide-watch", delay: 10)
+            remote.press(.menu)
+            sleep(3)
+        }
+    }
+
+    /// The player: banner, options row, audio and subtitle lists, star, zap and the
+    /// mini-guide.
+    func testLivePlayer() {
+        launch()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        remote.press(.select)
+        shot("r3-20-player-starting", delay: 1)
+        shot("r3-21-player-banner", delay: 9)
+        shot("r3-22-player-clean", delay: 6)
+        // Select: the options row, focus on Audio.
+        remote.press(.select)
+        shot("r3-23-player-options", delay: 2)
+        let audio = app.buttons["live.audio"]
+        if audio.exists {
+            moveFocus(.left, to: audio, limit: 4)
+            remote.press(.select)
+            shot("r3-24-player-audio", delay: 2)
+            // Another voice: the second entry.
+            remote.press(.down)
+            sleep(1)
+            remote.press(.select)
+            shot("r3-24b-player-audio-picked", delay: 4)
+        }
+        let subtitles = app.buttons["live.subtitles"]
+        if subtitles.exists {
+            moveFocus(.right, to: subtitles, limit: 4)
+            remote.press(.select)
+            shot("r3-25-player-subtitles", delay: 2)
+            remote.press(.down)
+            sleep(1)
+            remote.press(.select)
+            shot("r3-25b-player-subtitles-on", delay: 6)
+        }
+        // The star.
+        let star = app.buttons["live.favorite"]
+        if moveFocus(.right, to: star, limit: 4) {
+            remote.press(.select)
+            shot("r3-25c-player-starred", delay: 2)
+        }
+        remote.press(.menu)
+        sleep(2)
+        // Zap up and down: the held picture and the banner.
+        remote.press(.up)
+        shot("r3-26-zap-held", delay: 0)
+        shot("r3-27-zapped", delay: 9)
+        remote.press(.down)
+        sleep(9)
+        // The mini-guide (from the options row).
+        remote.press(.select)
+        shot("r3-27b-options-again", delay: 2)
+        let channels = app.buttons["live.channels"]
+        if moveFocus(.right, to: channels, limit: 5) {
+            remote.press(.select)
+            shot("r3-28-mini-guide", delay: 2)
             remote.press(.right)
+            shot("r3-29-mini-guide-moved", delay: 1)
+            remote.press(.menu)
             sleep(2)
         }
-        // Up from the Continue card lands on the pill's option nearest it; Left to All.
+        remote.press(.menu)
+        sleep(3)
+    }
+
+    /// The film player's Audio menu lists the voice-over file beside the video and plays it
+    /// (`CHANNELS_FILM_ID`, «Тихий дом» of the test library by default).
+    func testFilmVoiceOver() {
+        launch()
+        // Movies, newest first: the film is the first card.
+        let film = ProcessInfo.processInfo.environment["CHANNELS_FILM"] ?? "Тихий дом"
+        XCTAssertTrue(openSection(t("Movies", "Фильмы"), showing: app.staticTexts[t("Movies", "Фильмы")]), "no Movies tab")
+        sleep(2)
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", film)).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10), "no \(film)")
+        XCTAssertTrue(focusByGeometry(card), "card not focused: \(focusedLabel)")
+        remote.press(.select)
+        sleep(3)
+        let play = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", t("Play", "Смотреть"), t("Resume", "Продолжить"))).firstMatch
+        if play.waitForExistence(timeout: 5) { focusByGeometry(play) }
+        shot("r3-38-film-page", delay: 1)
+        remote.press(.select)
+        shot("r3-39-film-playing", delay: 12)
+        // The transport bar, then its Audio menu.
+        remote.press(.select)
+        shot("r3-39b-film-transport", delay: 2)
+        // Up from the scrubber to the menu buttons; the Audio menu is the leftmost.
         remote.press(.up)
         sleep(1)
-        XCTAssertTrue(moveFocus(.left, to: app.buttons["Все"], limit: 6), "pill not focused: \(focusedLabel)")
+        for _ in 0..<4 {
+            remote.press(.left)
+            sleep(1)
+        }
+        shot("r3-40-film-transport", delay: 1)
+        remote.press(.select)
+        shot("r3-41-film-audio-menu", delay: 2)
+        // The voice-over file is the last entry (after the file's own tracks).
+        for _ in 0..<3 {
+            remote.press(.down)
+            sleep(1)
+        }
+        shot("r3-41b-film-voice-over-focused", delay: 1)
+        remote.press(.select)
+        shot("r3-42-film-voice-over-playing", delay: 12)
         remote.press(.select)
         sleep(2)
-
-        // Watch a channel (the first card under the pill), then come back.
-        remote.press(.down)
-        sleep(1)
-        remote.press(.select)
-        shot("r2-01-player-starting", delay: 1)
-        shot("r2-02-player-playing", delay: 10)
-        remote.press(.menu)
-        XCTAssertTrue(app.staticTexts["Продолжить"].waitForExistence(timeout: 15), "no Continue card")
-        shot("r2-03-tv-continue", delay: 3)
-
-        // The Continue card, then a channel card of the first row.
-        XCTAssertTrue(moveFocusToWide(limit: 4), "Continue card not focused: \(focusedLabel)")
-        shot("r2-04-continue-focused", delay: 2)
-        remote.press(.down)
-        shot("r2-05-card-focused", delay: 2)
-
-        // Continue resumes the channel.
-        XCTAssertTrue(moveFocusToWide(limit: 4))
-        remote.press(.select)
-        shot("r2-06-continue-playing", delay: 12)
-
-        // Channel up: the old picture holds, dimmed, under the banner until the new one.
         remote.press(.up)
-        shot("r2-07-zap-held", delay: 0)
-        shot("r2-08-zap-banner", delay: 1)
-        shot("r2-09-zapped", delay: 9)
-        shot("r2-10-banner-faded", delay: 7)
-        // Select brings the banner back over the moving picture.
+        sleep(1)
+        for _ in 0..<4 {
+            remote.press(.left)
+            sleep(1)
+        }
         remote.press(.select)
-        shot("r2-10b-banner-select", delay: 2)
-        remote.press(.select)
-        sleep(2)
-
-        // Down: the mini-guide with focus on the channel on screen; Right and Select zap.
-        remote.press(.down)
-        shot("r2-11-guide", delay: 2)
-        remote.press(.right)
-        shot("r2-12-guide-moved", delay: 1)
-        remote.press(.select)
-        shot("r2-13-guide-zap", delay: 1)
-        shot("r2-14-guide-zapped", delay: 10)
-
-        // Menu closes the mini-guide first, then leaves the player.
-        remote.press(.down)
+        shot("r3-43-film-audio-menu-after", delay: 2)
+        remote.press(.menu)
+        sleep(1)
+        remote.press(.menu)
         sleep(2)
         remote.press(.menu)
-        shot("r2-15-guide-closed", delay: 2)
-        remote.press(.menu)
-        XCTAssertTrue(app.staticTexts["Продолжить"].waitForExistence(timeout: 10), "Menu should leave the player")
-        shot("r2-16-back-to-tv", delay: 2)
-
-        topShelf("r2-17-top-shelf")
+        sleep(2)
     }
 
     /// The Top Shelf alone (after `testContinueZapAndMiniGuide` or any sign-in).
     func testTopShelf() {
+        launch()
         sleep(5)
-        topShelf("r2-18-top-shelf")
+        topShelf("r3-30-top-shelf")
     }
 
     /// `antresol://channel/{id}` (the Top Shelf's link) opens the channel's live player. The
     /// system asks before opening a URL from outside; Select confirms. `CHANNELS_LINK_ID` picks
     /// the channel (3 by default).
     func testChannelLink() {
+        launch()
         let id = ProcessInfo.processInfo.environment["CHANNELS_LINK_ID"] ?? "3"
         remote.press(.home)
         sleep(3)
         XCUIDevice.shared.system.open(URL(string: "antresol://channel/\(id)")!)
         sleep(2)
         remote.press(.select)
-        shot("r2-19-link-opening", delay: 2)
-        shot("r2-20-link-playing", delay: 10)
+        shot("r3-31-link-opening", delay: 2)
+        shot("r3-32-link-playing", delay: 10)
         // Menu leaves the player onto the TV tab.
         remote.press(.menu)
-        shot("r2-21-link-back", delay: 3)
+        shot("r3-33-link-back", delay: 3)
     }
 
     // MARK: - Helpers
@@ -183,19 +275,73 @@ final class ChannelScreenshotTests: XCTestCase {
         shot(name, delay: 15)
     }
 
-    /// Up until the wide Continue card has focus.
-    private func moveFocusToWide(limit: Int) -> Bool {
+    private var english: Bool {
+        ProcessInfo.processInfo.environment["CHANNELS_LANGUAGE"] == "en"
+    }
+
+    /// The English or the Russian title, by the run's language.
+    private func t(_ en: String, _ ru: String) -> String {
+        english ? en : ru
+    }
+
+    /// Opens the TV tab and waits for the list.
+    private func openTV() -> Bool {
+        let marker = app.buttons[t("Channels", "Каналы")]
+        let opened = openSection(t("TV", "ТВ"), showing: marker) || openSection(t("TV", "ТВ"), showing: marker)
+        guard opened else { return false }
+        // Focus may stay in the sidebar after choosing the tab: into the page.
         let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
-        for _ in 0..<limit {
-            if focused.exists, focused.frame.width > 1500 { return true }
-            remote.press(.up)
+        for _ in 0..<3 where focused.exists && focused.frame.minX < 1 && focused.frame.width < 600 {
+            remote.press(.right)
+            sleep(2)
+        }
+        return true
+    }
+
+    /// Moves focus towards `element` by where it is on screen.
+    private func focusByGeometry(_ element: XCUIElement, limit: Int = 10) -> Bool {
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        for _ in 0..<limit where !(element.exists && element.hasFocus) {
+            guard focused.exists else {
+                remote.press(.down)
+                sleep(1)
+                continue
+            }
+            let from = focused.frame, to = element.frame
+            if to.maxY < from.minY {
+                remote.press(.up)
+            } else if to.minY > from.maxY {
+                remote.press(.down)
+            } else {
+                remote.press(to.midX < from.midX ? .left : .right)
+            }
             sleep(1)
         }
-        return focused.exists && focused.frame.width > 1500
+        return element.exists && element.hasFocus
+    }
+
+    /// Up to the filters, then sideways to `title`.
+    private func focusFilter(_ title: String) -> Bool {
+        let button = app.buttons[title]
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        for _ in 0..<8 where !(button.exists && button.hasFocus) {
+            if focused.exists, abs(focused.frame.midY - button.frame.midY) > 20 {
+                remote.press(.up)
+            } else {
+                remote.press(focused.frame.midX < button.frame.midX ? .right : .left)
+            }
+            sleep(1)
+        }
+        return button.exists && button.hasFocus
+    }
+
+    /// Up to the view switch, then sideways to `title`.
+    private func focusMode(_ title: String) -> Bool {
+        focusFilter(title)
     }
 
     private func signIn(_ profile: String, password: String) {
-        XCTAssertTrue(app.staticTexts["Кто смотрит?"].waitForExistence(timeout: 40), "no profile picker")
+        XCTAssertTrue(app.staticTexts[t("Who's watching?", "Кто смотрит?")].waitForExistence(timeout: 40), "no profile picker")
         let entry = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", profile)).firstMatch
         XCTAssertTrue(entry.waitForExistence(timeout: 10), "no profile \(profile)")
         XCTAssertTrue(moveFocus(.right, to: entry, limit: 8))
@@ -211,10 +357,10 @@ final class ChannelScreenshotTests: XCTestCase {
             sleep(1)
             remote.press(.menu)  // closes the keyboard, the text stays
             sleep(2)
-            moveFocus(.down, to: app.buttons["Войти"], limit: 4)
+            moveFocus(.down, to: app.buttons[t("Sign In", "Войти")], limit: 4)
             remote.press(.select)
         }
-        XCTAssertTrue(app.buttons["Подробнее"].waitForExistence(timeout: 40), "not signed in")
+        XCTAssertTrue(app.buttons[t("Details", "Подробнее")].waitForExistence(timeout: 40), "not signed in")
         sleep(3)
     }
 
