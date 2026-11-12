@@ -246,11 +246,11 @@ final class ScreenshotTests: XCTestCase {
         pause(2)
         snapshot(app, "37-settings")
 
-        // Into the settings list, then the App Language page.
+        // Into the settings list, then the Interface Language page.
         remote.press(.down)
         pause(1)
         moveFocus(.right, to: setting(app, "Video Quality"), limit: 3)
-        XCTAssertTrue(moveFocus(.down, to: setting(app, "App Language"), limit: 6))
+        XCTAssertTrue(moveFocus(.down, to: setting(app, "Interface Language"), limit: 6))
         remote.press(.select)
         pause(3)
         snapshot(app, "38-settings-language")
