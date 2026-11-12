@@ -17,6 +17,14 @@ import UIKit
 /// or scrobbles; the audio and subtitle picks live in this session only. The writes are the
 /// star (favourites) and the last channel (on tune-in).
 ///
+/// An external channel (an admin's M3U / Xtream source) plays the provider's URL
+/// directly, with the User-Agent / Referer its playlist asked for (AVURLAsset options);
+/// only the server's redirect form (`/api/channels/live/ext/…`) carries the media key. A
+/// source that fails, ends at once or does not start in 20 s gives way to the next fallback;
+/// when none plays, «This channel won’t open right now» once (no retry loop; Try Again and
+/// Up / Down are the viewer's). Its audio and subtitles are the stream's own options; the
+/// pick is kept per channel on this device (`ExternalTrackMemory`), never sent.
+///
 /// Zapping never goes black: there are two players, each with its own layer. The new
 /// channel loads into the one underneath while the other holds its last frame (paused,
 /// dimmed by the view); they swap once the new picture's first frame is ready.
@@ -44,8 +52,12 @@ final class LivePlayerModel {
     var openMenu: TrackMenuKind?
     /// The profile's audio and subtitle defaults.
     private(set) var prefs = PlaybackPrefs()
-    /// The viewer's picks of this session (never sent anywhere).
+    /// The viewer's picks of this session on own channels (never sent anywhere).
     private(set) var selection = LiveTrackSelection()
+    /// The viewer's picks on the external channel on screen (kept per channel on the device).
+    private(set) var externalSelection = LiveTrackSelection()
+    /// The picks in force for the channel on screen.
+    private var activeSelection: LiveTrackSelection { channel.external ? externalSelection : selection }
     /// The renditions the stream on screen offers (HLS NAME and language).
     private(set) var audioOptions: [StreamOption] = []
     private(set) var subtitleOptions: [StreamOption] = []
@@ -88,6 +100,15 @@ final class LivePlayerModel {
     /// which tell AVFoundation's options apart.
     @ObservationIgnored private var renditions = [LiveRenditions(), LiveRenditions()]
 
+    /// An external channel: the sources this platform plays, in order, and the one tried.
+    @ObservationIgnored private(set) var externalSources: [StreamSource] = []
+    @ObservationIgnored private(set) var externalAttempt = 0
+    @ObservationIgnored private var externalPlayingSince: Date?
+    @ObservationIgnored private var externalWatch: Task<Void, Never>?
+    @ObservationIgnored private let trackMemory = ExternalTrackMemory()
+    /// How long an external source may take to start before the next one is tried.
+    private static let externalStartTimeout: Duration = .seconds(20)
+
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Antresol", category: "live")
 
     /// How long the banner stays up after a change.
@@ -104,6 +125,7 @@ final class LivePlayerModel {
             channels.sort(by: Channel.byNumber)
         }
         self.channels = channels
+        externalSelection = ExternalTrackMemory().selection(for: request.channel.id)
         layers = players.map { player in
             let layer = AVPlayerLayer(player: player)
             layer.videoGravity = .resizeAspect
@@ -157,6 +179,7 @@ final class LivePlayerModel {
         refreshTask?.cancel()
         hideTask?.cancel()
         swapTask?.cancel()
+        externalWatch?.cancel()
         teardown(0)
         teardown(1)
         nowPlaying.end()
@@ -186,6 +209,9 @@ final class LivePlayerModel {
             return
         }
         channel = channels.first { $0.id == target.id } ?? target
+        externalSelection = trackMemory.selection(for: channel.id)
+        audioOptions = []
+        subtitleOptions = []
         guide = nil
         open()
         Task { await refreshGuide() }
@@ -258,6 +284,9 @@ final class LivePlayerModel {
     /// The audio entries of the programme on air: its own list (labels from the API), else
     /// the stream's renditions.
     func audioEntries(at date: Date = Date()) -> [LiveTrack] {
+        if channel.external {
+            return ExternalTracks.entries(options: audioOptions.map { ($0.name, $0.language) }, renditions: renditions[front].audio)
+        }
         if let audio = onAir(at: date).now?.audio, !audio.isEmpty {
             return audio.filter { entry in audioOptions.isEmpty || optionIndex(for: entry, in: audioOptions, renditions: renditions[front].audio) != nil }
         }
@@ -265,6 +294,9 @@ final class LivePlayerModel {
     }
 
     func subtitleEntries(at date: Date = Date()) -> [LiveTrack] {
+        if channel.external {
+            return ExternalTracks.entries(options: subtitleOptions.map { ($0.name, $0.language) }, renditions: renditions[front].subtitles)
+        }
         if let subtitles = onAir(at: date).now?.subtitles {
             return subtitles.filter { entry in
                 subtitleOptions.isEmpty || optionIndex(for: entry, in: subtitleOptions, renditions: renditions[front].subtitles) != nil
@@ -275,24 +307,34 @@ final class LivePlayerModel {
 
     /// The voice that plays now (nil: none known).
     var audioTrack: LiveTrack? {
-        selection.audio(in: audioEntries(), prefs: prefs)
+        activeSelection.audio(in: audioEntries(), prefs: prefs)
     }
 
     /// The subtitles shown now (nil: off).
     var subtitleTrack: LiveTrack? {
-        selection.subtitle(in: subtitleEntries(), audio: audioTrack, prefs: prefs)
+        activeSelection.subtitle(in: subtitleEntries(), audio: audioTrack, prefs: prefs)
     }
 
     /// The viewer's audio pick: sticks by name across programmes and channels for this session.
     func selectAudio(_ entry: LiveTrack) {
-        selection.audio = .init(entry)
+        if channel.external {
+            externalSelection.audio = .init(entry)
+            trackMemory.save(externalSelection, for: channel.id)
+        } else {
+            selection.audio = .init(entry)
+        }
         openMenu = nil
         applyTracks(force: true)
     }
 
     /// The viewer's subtitle pick (nil: off).
     func selectSubtitle(_ entry: LiveTrack?) {
-        selection.subtitle = .some(entry.map(LiveTrackSelection.Pick.init))
+        if channel.external {
+            externalSelection.subtitle = .some(entry.map(LiveTrackSelection.Pick.init))
+            trackMemory.save(externalSelection, for: channel.id)
+        } else {
+            selection.subtitle = .some(entry.map(LiveTrackSelection.Pick.init))
+        }
         subtitleText = nil
         openMenu = nil
         applyTracks(force: true)
@@ -320,7 +362,8 @@ final class LivePlayerModel {
                 let options = await StreamOption.describe(group.options)
                 if item === self.players[self.front].currentItem { self.audioOptions = options }
                 // the choice once the options are known (a programme without its own list uses them)
-                if let entry = self.audioTrack, let index = self.optionIndex(for: entry, in: options, renditions: master.audio) {
+                if let entry = self.audioTrack, let index = self.optionIndex(for: entry, in: options, renditions: master.audio),
+                   group.options.indices.contains(index) {
                     item.select(group.options[index], in: group)
                 }
                 audioNames = options.map(\.name)
@@ -333,7 +376,8 @@ final class LivePlayerModel {
             if let group = try? await asset.loadMediaSelectionGroup(for: .legible) {
                 let all = await StreamOption.describe(group.options)
                 if item === self.players[self.front].currentItem { self.subtitleOptions = all.filter { !$0.isForcedOnly } }
-                if let entry = self.subtitleTrack, let index = self.optionIndex(for: entry, in: all, renditions: master.subtitles) {
+                if let entry = self.subtitleTrack, let index = self.optionIndex(for: entry, in: all, renditions: master.subtitles),
+                   group.options.indices.contains(index) {
                     item.select(group.options[index], in: group)
                     subtitleLine = "\(entry.name) [option \(index)]"
                 } else {
@@ -353,6 +397,11 @@ final class LivePlayerModel {
     /// within the language), else an option titled so, else the first of its language.
     private func optionIndex(for entry: LiveTrack, in options: [StreamOption], renditions: [HLSRendition]) -> Int? {
         let usable = options.enumerated().filter { !$0.element.isForcedOnly }
+        if channel.external {
+            // the entries are the usable options in order: `o<i>` is the i-th of them
+            guard let i = ExternalTracks.index(of: entry), usable.indices.contains(i) else { return nil }
+            return usable[i].offset
+        }
         let index = LiveRenditions.option(named: entry.name, lang: entry.lang,
                                           options: usable.map { ($0.element.name, $0.element.language) }, renditions: renditions)
         return index.map { usable[$0].offset }
@@ -413,9 +462,134 @@ final class LivePlayerModel {
         state = .connecting(isStarting: false)
         showInfo()
         nowPlaying.update(channel: channel, program: onAir(at: Date()).now)
+        externalWatch?.cancel()
         let id = channel.id
+        if channel.external {
+            openExternal()
+            return
+        }
         startTask = Task { [weak self] in
             await self?.connect(channelId: id)
+        }
+    }
+
+    // MARK: - External channel
+
+    /// The sources this platform plays, from the primary; the channel becomes the last one.
+    private func openExternal() {
+        let id = channel.id
+        externalSources = channel.stream?.playable(on: ChannelStream.tvOSTags) ?? []
+        externalAttempt = 0
+        if let service { Task { await service.setLastChannel(id) } }
+        guard !externalSources.isEmpty else {
+            failExternal(channel.stream == nil
+                ? String(localized: "This channel won’t open right now", bundle: .localized)
+                : String(localized: "This channel doesn’t play on Apple TV", bundle: .localized))
+            return
+        }
+        tryExternal()
+    }
+
+    /// Loads source `externalAttempt` into the player underneath: the provider's URL as
+    /// given with its headers, the server's redirect with the media key.
+    private func tryExternal() {
+        let id = channel.id, attempt = externalAttempt, source = externalSources[attempt], slot = back
+        state = .connecting(isStarting: false)
+        startTask?.cancel()
+        startTask = Task { [weak self] in
+            guard let self, let appState = self.appState, let client = appState.client else { return }
+            var key: String?
+            if source.isServerPath, let coordinator = self.coordinator {
+                key = try? await coordinator.mediaKeyStore(for: client).key()
+            }
+            guard !Task.isCancelled, self.channel.id == id, !self.isStopped else { return }
+            guard let url = client.urls.externalStream(source, mediaKey: key) else {
+                self.externalFailed()
+                return
+            }
+            // never the URL: a provider's may carry credentials
+            Self.log.info("live: external source \(attempt + 1) of \(self.externalSources.count), headers \(source.headers.keys.sorted(), privacy: .public)")
+            self.renditions[slot] = LiveRenditions()
+            self.load(url, headers: source.headers, into: slot)
+            self.watchExternalStart(id: id, attempt: attempt)
+            // the master's renditions name the stream's options (best effort)
+            if let master = await Self.fetchMaster(url, headers: source.headers),
+               !Task.isCancelled, self.channel.id == id, self.externalAttempt == attempt, !self.isStopped {
+                self.renditions[slot] = LiveRenditions(master: master)
+                self.applyTracks(force: true)
+            }
+        }
+    }
+
+    private func watchExternalStart(id: Int, attempt: Int) {
+        externalWatch?.cancel()
+        externalWatch = Task { [weak self] in
+            try? await Task.sleep(for: Self.externalStartTimeout)
+            guard !Task.isCancelled, let self, self.channel.id == id, self.externalAttempt == attempt,
+                  case .connecting = self.state else { return }
+            Self.log.error("live: external source \(attempt + 1) did not start in time")
+            self.externalFailed()
+        }
+    }
+
+    /// The stream's master playlist with the source's headers, nil when it is not one.
+    nonisolated static func fetchMaster(_ url: URL, headers: [String: String]) async -> Data? {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        request.httpShouldHandleCookies = false
+        for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              data.count < 2_000_000, data.starts(with: Data("#EXTM3U".utf8)) else { return nil }
+        return data
+    }
+
+    /// The source failed (an error, no start in time, an end right away): the next
+    /// fallback, else the message, once.
+    private func externalFailed() {
+        guard !isStopped, channel.external else { return }
+        externalWatch?.cancel()
+        if externalAttempt + 1 < externalSources.count {
+            externalAttempt += 1
+            swapTask?.cancel()
+            teardown(0)
+            teardown(1)
+            isHoldingFrame = false
+            tryExternal()
+        } else {
+            failExternal(String(localized: "This channel won’t open right now", bundle: .localized))
+        }
+    }
+
+    private func failExternal(_ message: String) {
+        externalWatch?.cancel()
+        startTask?.cancel()
+        swapTask?.cancel()
+        teardown(0)
+        teardown(1)
+        isHoldingFrame = false
+        hideTask?.cancel()
+        showsInfo = true
+        showsGuide = false
+        showsControls = false
+        openMenu = nil
+        state = .failed(message)
+        nowPlaying.update(channel: channel, program: nil, isPlaying: false)
+    }
+
+    /// An item failed or stopped: an external channel tries its next source.
+    private func itemFailed() {
+        if channel.external { externalFailed() } else { fail(nil) }
+    }
+
+    /// An external stream played to its end (a provider's VOD loop, a dropped live):
+    /// again from the start when it played a while, else it is a broken source.
+    private func itemEnded() {
+        guard channel.external, !isStopped else { return }
+        if Date().timeIntervalSince(externalPlayingSince ?? .distantFuture) >= 10 {
+            open()
+        } else {
+            externalFailed()
         }
     }
 
@@ -441,9 +615,20 @@ final class LivePlayerModel {
         state = .connecting(isStarting: true)
     }
 
-    private func load(_ url: URL, into slot: Int) {
+    /// The AVURLAsset options for an external stream's headers: User-Agent by its public
+    /// key, every header (Referer too) by "AVURLAssetHTTPHeaderFieldsKey" (honoured by
+    /// AVFoundation on tvOS for the playlist, its variants and segments).
+    nonisolated static func assetOptions(headers: [String: String]) -> [String: Any] {
+        guard !headers.isEmpty else { return [:] }
+        var options: [String: Any] = ["AVURLAssetHTTPHeaderFieldsKey": headers]
+        if let ua = headers["User-Agent"] { options[AVURLAssetHTTPUserAgentKey] = ua }
+        return options
+    }
+
+    private func load(_ url: URL, headers: [String: String] = [:], into slot: Int) {
         teardown(slot)
-        let item = AVPlayerItem(url: url)
+        let item = headers.isEmpty ? AVPlayerItem(url: url)
+            : AVPlayerItem(asset: AVURLAsset(url: url, options: Self.assetOptions(headers: headers)))
         // Join at the live edge; there is nothing to catch up on.
         item.automaticallyPreservesTimeOffsetFromLive = true
         let itemID = ObjectIdentifier(item)
@@ -467,7 +652,7 @@ final class LivePlayerModel {
                     case .readyToPlay:
                         self.select(in: item, slot: slot)
                         self.itemIsReady(slot)
-                    case .failed: self.fail(nil)
+                    case .failed: self.itemFailed()
                     default: break
                     }
                 }
@@ -491,7 +676,13 @@ final class LivePlayerModel {
             NotificationCenter.default.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: item, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self, self.isItem(itemID, in: slot) else { return }
-                    self.fail(nil)
+                    self.itemFailed()
+                }
+            },
+            NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: item, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.isItem(itemID, in: slot) else { return }
+                    self.itemEnded()
                 }
             },
         ]
@@ -531,6 +722,10 @@ final class LivePlayerModel {
         isHoldingFrame = false
         isPaused = players[slot].timeControlStatus == .paused
         state = .playing
+        if channel.external {
+            externalWatch?.cancel()
+            externalPlayingSince = Date()
+        }
         if let item = players[slot].currentItem { select(in: item, slot: slot) }
         nowPlaying.update(channel: channel, program: onAir(at: Date()).now, isPlaying: true)
         scheduleHide()

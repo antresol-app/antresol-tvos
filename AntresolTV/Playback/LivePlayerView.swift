@@ -596,10 +596,22 @@ private struct LiveErrorView: View {
                 .font(Theme.Typography.headline)
                 .monospacedDigit()
                 .foregroundStyle(Theme.Colors.label2)
-            Text("The channel can’t be shown")
-                .font(Theme.Typography.sectionTitle)
-                .foregroundStyle(Theme.Colors.label)
-            if message != String(localized: "The channel can’t be shown", bundle: .localized) {
+            if model.channel.external {
+                // an external channel: what happened is the title, what to do under it
+                Text(verbatim: message)
+                    .font(Theme.Typography.sectionTitle)
+                    .foregroundStyle(Theme.Colors.label)
+                Text("The channel’s source isn’t answering. Switch channels or try again later.")
+                    .font(Theme.Typography.body)
+                    .foregroundStyle(Theme.Colors.label2)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 1100)
+            } else {
+                Text("The channel can’t be shown")
+                    .font(Theme.Typography.sectionTitle)
+                    .foregroundStyle(Theme.Colors.label)
+            }
+            if !model.channel.external, message != String(localized: "The channel can’t be shown", bundle: .localized) {
                 Text(verbatim: message)
                     .font(Theme.Typography.body)
                     .foregroundStyle(Theme.Colors.label2)

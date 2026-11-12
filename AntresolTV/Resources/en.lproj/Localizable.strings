@@ -301,3 +301,6 @@
 "Interface Language" = "Interface Language";
 "As the Profile" = "As the Profile";
 "Also the language the server uses for titles, channels and descriptions." = "Also the language the server uses for titles, channels and descriptions.";
+"This channel won’t open right now" = "This channel won’t open right now";
+"This channel doesn’t play on Apple TV" = "This channel doesn’t play on Apple TV";
+"The channel’s source isn’t answering. Switch channels or try again later." = "The channel’s source isn’t answering. Switch channels or try again later.";

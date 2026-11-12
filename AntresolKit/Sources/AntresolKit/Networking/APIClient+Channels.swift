@@ -27,6 +27,13 @@ extension APIClient {
 
     /// `PUT /api/channels/last`: the channel just tuned in, the profile's «last channel».
     /// It is not media progress: the server keeps one id per profile and nothing else.
+    /// `POST /api/channels/opened`: «ТВ» opened (the server refreshes the external sources
+    /// marked «при открытии» whose last refresh is over an hour old). Writes nothing about
+    /// the profile.
+    public func channelsOpened() async throws {
+        try await sendWithoutResponse(.post, "/api/channels/opened")
+    }
+
     public func setLastChannel(id: Int) async throws {
         try await sendWithoutResponse(.put, "/api/channels/last", json: LastChannelBody(channelId: id))
     }

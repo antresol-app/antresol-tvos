@@ -30,6 +30,17 @@ public struct ChannelService: Sendable {
         try await client.playbackPrefs()
     }
 
+    /// «ТВ» opened: lets the server refresh external sources marked «при открытии».
+    public func opened() async {
+        try? await client.channelsOpened()
+    }
+
+    /// The profile's last channel (an external channel's tune-in: the app plays the
+    /// provider's stream itself, so this is said apart).
+    public func setLastChannel(_ channelId: Int) async {
+        try? await client.setLastChannel(id: channelId)
+    }
+
     public func setFavorite(channelId: Int, _ favorite: Bool) async throws {
         try await client.setChannelFavorite(id: channelId, favorite)
     }
@@ -57,6 +68,8 @@ public struct ChannelService: Sendable {
     public static func isAllowedWrite(method: String, path: String) -> Bool {
         let parts = path.split(separator: "/").map(String.init)
         switch method {
+        case "POST":
+            return parts == ["api", "channels", "opened"]
         case "PUT":
             return parts == ["api", "channels", "last"]
                 || (parts.count == 4 && parts[0] == "api" && parts[1] == "channels" && Int(parts[2]) != nil && parts[3] == "favorite")

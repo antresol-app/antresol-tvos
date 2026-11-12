@@ -38,6 +38,8 @@ struct TVView: View {
         // Again in a new interface language: channel and theme names come from the server.
         .task(id: appState.language) {
             model.attach(appState)
+            // «ТВ» opened: the server refreshes external sources marked «при открытии»
+            if let client = appState.client { Task { await ChannelService(client: client).opened() } }
             if model.grid.loadedFrom != nil { await model.reloadGuide() }
             while !Task.isCancelled {
                 await model.refresh()

@@ -24,13 +24,20 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     public var next: ChannelProgram?
     /// The uploaded logo (`/api/channels/{id}/logo.png?v=…`); "" when there is none.
     public var logoUrl: String
+    /// A channel of an admin's external source (M3U / Xtream): the app plays `stream`
+    /// itself; its programmes have no item page.
+    public var external: Bool
+    /// How to play an external channel (nil for the server's own channels).
+    public var stream: ChannelStream?
 
     public init(
         id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, personal: Bool = false,
         auto: Bool = false, enabled: Bool = true, now: ChannelProgram? = nil, next: ChannelProgram? = nil,
-        logoUrl: String = ""
+        logoUrl: String = "", external: Bool = false, stream: ChannelStream? = nil
     ) {
         self.logoUrl = logoUrl
+        self.external = external || stream != nil
+        self.stream = stream
         self.id = id
         self.number = number
         self.name = name
@@ -44,7 +51,7 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, number, name, category, favorite, personal, auto, enabled, now, next, logoUrl
+        case id, number, name, category, favorite, personal, auto, enabled, now, next, logoUrl, external, stream
     }
 
     public init(from decoder: Decoder) throws {
@@ -60,6 +67,8 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
         now = c.optional(.now)
         next = c.optional(.next)
         logoUrl = c.value(.logoUrl, default: "")
+        stream = c.optional(.stream)
+        external = c.value(.external, default: false) || stream != nil
     }
 
     /// What is on at `date`: `now`, or `next` once `now` has ended (the list is refreshed
