@@ -306,7 +306,10 @@ struct ChannelRow: View {
                     .font(.system(size: 34, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(secondary)
-                    .frame(width: 64, alignment: .trailing)
+                    // external channels start at 100: room for three digits, a fourth fits by shrinking
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(width: 84, alignment: .trailing)
                 ProgrammeStill(program: program, maxPixelSize: Self.stillWidth * 2, cornerRadius: Theme.Radius.smallCard)
                     .frame(width: Self.stillWidth, height: Self.stillWidth * 9 / 16)
                 VStack(alignment: .leading, spacing: 8) {

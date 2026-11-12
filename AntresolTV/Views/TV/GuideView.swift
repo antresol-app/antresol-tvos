@@ -196,7 +196,10 @@ struct GuideView: View {
                 .font(.system(size: 30, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(Theme.Colors.label3)
-                .frame(width: 64, alignment: .trailing)
+                // external channels start at 100: room for three digits, a fourth fits by shrinking
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(width: 76, alignment: .trailing)
             ChannelLogo(path: row.logoUrl, height: 36)
             Text(verbatim: row.name)
                 .font(.system(size: 26, weight: .semibold))

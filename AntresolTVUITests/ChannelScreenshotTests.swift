@@ -279,6 +279,9 @@ final class ChannelScreenshotTests: XCTestCase {
             sleep(1)
             remote.press(.down)
             shot("r6-79-guide-external", delay: 4)
+            // onto the first external row (its programme on air)
+            let external = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "100 · ")).firstMatch
+            if external.exists { focusByGeometry(external) } else { remote.press(.down); sleep(1) }
             remote.press(.select)
             shot("r6-80-external-programme", delay: 3)
             remote.press(.menu)
