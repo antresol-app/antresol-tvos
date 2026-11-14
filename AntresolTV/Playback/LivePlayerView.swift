@@ -309,8 +309,14 @@ private struct TrackMenu: View {
     static let visibleRows = 6
 
     var body: some View {
-        let entries = kind == .audio ? model.audioEntries() : model.subtitleEntries()
-        let selected = kind == .audio ? (model.audioTrack?.name ?? "") : (model.subtitleTrack?.name ?? "")
+        let all = kind == .audio ? model.audioEntries() : model.subtitleEntries()
+        // a cleaned voice is not a row: «Clean voice-over» under the voices (the film player's switch)
+        let current = kind == .audio ? all.first { $0.name == model.audioTrack?.name } : nil
+        let cleanedOn = current?.cleanedOf != nil
+        let entries = all.filter { $0.cleanedOf == nil }
+        let selected = kind == .audio ? (current?.cleanedOf ?? model.audioTrack?.name ?? "") : (model.subtitleTrack?.name ?? "")
+        let twin = { (name: String) in all.first { $0.cleanedOf == name } }
+        let cleanedTwin = kind == .audio ? twin(selected) : nil
         let count = entries.count + (kind == .subtitles ? 1 : 0)
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -338,9 +344,16 @@ private struct TrackMenu: View {
                         }
                         ForEach(entries) { entry in
                             row(id: entry.name, title: entry.voiceAndLanguage.voice, detail: entry.voiceAndLanguage.language, isOn: entry.name == selected) {
-                                if kind == .audio { model.selectAudio(entry) } else { model.selectSubtitle(entry) }
+                                if kind == .audio { model.selectAudio((cleanedOn ? twin(entry.name) : nil) ?? entry) } else { model.selectSubtitle(entry) }
                             }
                             .id(entry.name)
+                        }
+                        if let tw = cleanedTwin {
+                            row(id: "clean", title: String(localized: "Clean voice-over", bundle: .localized),
+                                detail: String(localized: "Without the original speech under it", bundle: .localized), isOn: cleanedOn) {
+                                model.selectAudio(cleanedOn ? (all.first { $0.name == selected } ?? tw) : tw)
+                            }
+                            .id("clean")
                         }
                     }
                     // room for the focused row's lift

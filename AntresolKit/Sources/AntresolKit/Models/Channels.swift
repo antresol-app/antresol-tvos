@@ -111,17 +111,21 @@ public struct LiveTrack: Decodable, Hashable, Sendable, Identifiable {
     public var name: String
     public var label: String
     public var lang: String
+    /// A cleaned voice-over: the `name` of the voice-over it is the cleaned
+    /// version of in this programme (nil: none).
+    public var cleanedOf: String?
 
     public var id: String { name }
 
-    public init(slot: String = "", name: String, label: String = "", lang: String = "") {
+    public init(slot: String = "", name: String, label: String = "", lang: String = "", cleanedOf: String? = nil) {
         self.slot = slot.isEmpty ? name : slot
         self.name = name
         self.label = label
         self.lang = lang
+        self.cleanedOf = cleanedOf
     }
 
-    enum CodingKeys: String, CodingKey { case slot, name, label, lang }
+    enum CodingKeys: String, CodingKey { case slot, name, label, lang, cleanedOf }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -131,6 +135,8 @@ public struct LiveTrack: Decodable, Hashable, Sendable, Identifiable {
         self.slot = slot.isEmpty ? self.name : slot
         label = c.value(.label, default: "")
         lang = c.value(.lang, default: "")
+        let of: String = c.value(.cleanedOf, default: "")
+        cleanedOf = of.isEmpty ? nil : of
     }
 
     /// What the picker shows: the label, else the rendition's name.

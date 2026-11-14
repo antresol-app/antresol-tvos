@@ -6,8 +6,9 @@ import UIKit
 enum PlayerMenus {
     static func make(_ state: PlayerMenuState, model: VideoPlayerModel) -> [UIMenuElement] {
         var menus: [UIMenuElement] = []
-        if state.audio.count > 1 {
-            menus.append(audioMenu(state, model: model))
+        let cleaned = CleanedSwitch(audio: state.audio, audioIndex: state.audioIndex)
+        if cleaned.rows.count > 1 || cleaned.toggle != nil {
+            menus.append(audioMenu(cleaned, model: model))
         }
         if !state.subtitles.isEmpty {
             menus.append(subtitleMenu(state, model: model))
@@ -16,20 +17,29 @@ enum PlayerMenus {
         return menus
     }
 
-    private static func audioMenu(_ state: PlayerMenuState, model: VideoPlayerModel) -> UIMenu {
-        let actions = state.audio.map { track in
-            let label = TrackLabels.menuLabel(track)
-            let action = UIAction(title: label.title, state: track.index == state.audioIndex ? .on : .off) { [weak model] _ in
-                model?.selectAudio(track.index)
+    /// The voices, a cleaned one not a row of its own: «Clean voice-over»
+    /// under them turns it on for the chosen voice (CleanedSwitch).
+    private static func audioMenu(_ cleaned: CleanedSwitch, model: VideoPlayerModel) -> UIMenu {
+        let actions: [UIMenuElement] = cleaned.rows.map { row in
+            let label = TrackLabels.menuLabel(row.track)
+            let action = UIAction(title: label.title, state: row.checked ? .on : .off) { [weak model] _ in
+                model?.selectAudio(row.plays)
             }
             if !label.detail.isEmpty { action.subtitle = label.detail }
             return action
         }
+        var children: [UIMenuElement] = [UIMenu(options: [.displayInline, .singleSelection], children: actions)]
+        if let toggle = cleaned.toggle {
+            let sw = UIAction(title: String(localized: "Clean voice-over", bundle: .localized), state: toggle.on ? .on : .off) { [weak model] _ in
+                model?.selectAudio(toggle.target)
+            }
+            sw.subtitle = String(localized: "Without the original speech under it", bundle: .localized)
+            children.append(UIMenu(options: .displayInline, children: [sw]))
+        }
         return UIMenu(
             title: String(localized: "Audio", bundle: .localized),
             image: UIImage(systemName: "speaker.wave.2"),
-            options: .singleSelection,
-            children: actions
+            children: children
         )
     }
 
