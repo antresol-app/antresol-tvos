@@ -65,25 +65,33 @@ public struct PairingSession: Sendable {
     }
 
     /// Runs until a terminal state (returned) or cancellation (throws `CancellationError`).
-    /// `update` gets every state as it happens.
+    /// `update` gets every state as it happens. `initial` is a code already started (TV
+    /// setup by phone starts one before this screen shows): it is polled first instead of
+    /// starting another, which would cancel it.
     @discardableResult
-    public func run(update: @escaping @Sendable (PairingState) async -> Void) async throws -> PairingState {
-        await update(.starting)
+    public func run(initial: PairingTicket? = nil, update: @escaping @Sendable (PairingState) async -> Void) async throws -> PairingState {
+        var pending = initial.flatMap { now() < $0.expiresAt ? $0 : nil }
+        if pending == nil { await update(.starting) }
         while true {
             try Task.checkCancellation()
             let ticket: PairingTicket
-            do {
-                ticket = try await api.pairStart(device: device, now: now())
-            } catch let error as APIError where error.statusCode == 404 || error.statusCode == 405 {
-                await update(.unsupported)
-                return .unsupported
-            } catch {
-                try Task.checkCancellation()
-                if error is CancellationError { throw error }
-                let wait = Self.delay(after: error)
-                await update(.failed(message: describe(error), retryIn: wait))
-                try await sleep(wait)
-                continue
+            if let started = pending {
+                pending = nil
+                ticket = started
+            } else {
+                do {
+                    ticket = try await api.pairStart(device: device, now: now())
+                } catch let error as APIError where error.statusCode == 404 || error.statusCode == 405 {
+                    await update(.unsupported)
+                    return .unsupported
+                } catch {
+                    try Task.checkCancellation()
+                    if error is CancellationError { throw error }
+                    let wait = Self.delay(after: error)
+                    await update(.failed(message: describe(error), retryIn: wait))
+                    try await sleep(wait)
+                    continue
+                }
             }
             await update(.waiting(ticket))
             if let done = try await poll(ticket, update: update) {

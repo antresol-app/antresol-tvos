@@ -100,7 +100,7 @@ struct PairingView: View {
     /// "Scan … or open <host>/pair and type the code".
     private var hint: String {
         let page = ticket?.pairPage ?? appState.server.map { ServerAddress.displayName($0.url) + "/pair" } ?? "/pair"
-        return String(localized: "Scan the code with your phone's camera or the Antresol app. Or open \(page) on a phone signed in to Antresol and type the code.", bundle: .localized)
+        return String(localized: "Scan the code with your phone's camera or in the Antresol app (Sign In on a TV). Or open \(page) on a phone signed in to Antresol and type the code.", bundle: .localized)
     }
 
     @ViewBuilder
@@ -193,7 +193,7 @@ struct PairingView: View {
         guard let session = appState.makePairingSession() else { return }
         finishError = nil
         do {
-            let result = try await session.run { new in
+            let result = try await session.run(initial: appState.takePendingPairingTicket()) { new in
                 await MainActor.run { state = new }
             }
             switch result {

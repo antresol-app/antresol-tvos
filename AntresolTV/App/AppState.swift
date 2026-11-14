@@ -79,6 +79,8 @@ final class AppState {
     /// The connected server has QR sign-in (`POST /api/auth/pair/start` exists); an older
     /// one shows the profile picker only.
     private(set) var supportsPairing = true
+    /// A sign-in code started by a phone setup, waiting for the sign-in screen.
+    @ObservationIgnored private var pendingPairingTicket: PairingTicket?
 
     private let settings: AppSettings
     private let tokens: TokenStore
@@ -201,6 +203,64 @@ final class AppState {
         profileClient = server.profileClient(token: token)
         settings.lastUserId = user.id
         phase = .signedIn(user)
+    }
+
+    /// Set up from a phone (`POST /setup` on this TV): checks `url` with `/api/health`
+    /// (and that it is the server `serverId` names, when the phone sent one), starts QR
+    /// sign-in on it, then saves it as this TV's server, as a typed address would be, and
+    /// shows the sign-in screen with that code; the phone approves it next. Throws
+    /// `TVSetupFailure`; nothing changes on a failure.
+    func setUpFromPhone(server url: URL, serverId: String?) async throws -> TVSetupAnswer {
+        let connection: ServerConnection
+        do {
+            connection = try await ServerConnection.connect(to: url, language: language.serverCode)
+        } catch {
+            throw TVSetupFailure.classify(error)
+        }
+        guard !connection.serverId.isEmpty else { throw TVSetupFailure.notAntresol }
+        if let serverId, serverId.lowercased() != connection.serverId.lowercased() {
+            throw TVSetupFailure.serverMismatch
+        }
+        // A fresh server without profiles: nobody could approve the sign-in.
+        if let status = try? await connection.client.setupStatus(), status.needsSetup {
+            throw TVSetupFailure.notSetUp
+        }
+        let ticket: PairingTicket
+        do {
+            ticket = try await connection.client.pairStart(device: device.info)
+        } catch let error as APIError where error.statusCode == 404 || error.statusCode == 405 {
+            // An Antresol server older than QR sign-in: keep it, the picker is the way in.
+            adopt(connection, url: url)
+            pairingUnsupported()
+            phase = .needsProfile
+            throw TVSetupFailure.pairingUnsupported
+        } catch {
+            throw TVSetupFailure.classify(error)
+        }
+        adopt(connection, url: url)
+        pendingPairingTicket = ticket
+        phase = .needsProfile
+        return TVSetupAnswer(code: ticket.code, sid: ticket.serverId.isEmpty ? connection.serverId : ticket.serverId,
+                             server: url.absoluteString, device: device.info.name)
+    }
+
+    /// Makes `connection` this TV's server for a sign-in by phone: whoever the phone
+    /// approves signs in, so the previous profile is left.
+    private func adopt(_ connection: ServerConnection, url: URL) {
+        settings.serverURL = url
+        settings.serverId = connection.serverId
+        settings.lastUserId = nil
+        server = connection
+        profileClient = nil
+        supportsPairing = true
+        signInMethod = .phone
+        phaseBeforeServerChange = nil
+    }
+
+    /// The code a phone setup started, for the sign-in screen to poll (once).
+    func takePendingPairingTicket() -> PairingTicket? {
+        defer { pendingPairingTicket = nil }
+        return pendingPairingTicket
     }
 
     /// The TV's side of QR sign-in on the connected server (nil before a server is).

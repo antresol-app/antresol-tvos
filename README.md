@@ -11,9 +11,13 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   sidebar on tvOS 18 and later: profile and time at the top, Search, Home, Movies, TV Shows,
   TV and Music, collapsing to a chip naming the section. Earlier systems keep the top tab
   bar and flat dark-glass fills.
-- **Onboarding**: servers on the home network are found with Bonjour (`_antresol._tcp`, server
-  with LAN discovery) and listed above the address field; or enter the server as a host,
-  `host:port` or URL (port 8420 by default). Then "Sign in with your phone": a QR code and a
+- **Onboarding**: "Set up with your phone" first: a QR code of a small setup endpoint the Apple
+  TV opens on its home-network address while the screen is up (`/setup`, one-time key, home
+  network clients only). The Antresol app on a signed-in phone sends its server there and
+  approves the sign-in at once; a phone camera opens a page to type the server address. The
+  remote stays a fallback: servers on the home network found with Bonjour (`_antresol._tcp`,
+  server with LAN discovery), or "Enter Address with the Remote": a host, `host:port` or URL
+  (port 8420 by default). Then "Sign in with your phone": a QR code and a
   6-character code that a signed-in phone approves (the Antresol app or the server's `/pair`
   page), renewed when it expires; or "Sign In with the Remote": the "Who's watching?" profile picker with avatar gradients, password entry for protected profiles,
   and kid profiles. Tokens are kept per server and profile in the Keychain, and the session is
