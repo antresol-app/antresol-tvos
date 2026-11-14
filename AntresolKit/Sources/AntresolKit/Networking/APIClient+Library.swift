@@ -20,6 +20,13 @@ extension APIClient {
         try await send(.get, "/api/items/\(id)")
     }
 
+    /// `GET /api/tracking/{series|movie}/{tmdbId}/episodes` (server 0.5.0+): every episode
+    /// of the title, downloaded or not. Older servers answer 404 or 405, as does a title the
+    /// profile's age filter hides; callers then keep the library's list.
+    public func trackingEpisodes(kind: ItemKind, tmdbId: Int) async throws -> TrackingEpisodes {
+        try await send(.get, "/api/tracking/\(kind == .movie ? "movie" : "series")/\(tmdbId)/episodes")
+    }
+
     /// `GET /api/search?q=`.
     public func search(_ text: String) async throws -> SearchResults {
         try await send(.get, "/api/search", query: [URLQueryItem(name: "q", value: text)])

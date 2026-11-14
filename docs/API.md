@@ -36,6 +36,7 @@ Conventions:
 10. [Admin and other endpoints (brief)](#10-other-endpoints)
 11. [Client implementation notes](#11-client-implementation-notes)
 12. [Live channels («ТВ»)](#12-live-channels)
+13. [Episode guide (server 0.5.0+)](#13-episode-guide)
 
 ---
 
@@ -1178,3 +1179,33 @@ the server appends the key to every segment line, so AVPlayer and ExoPlayer need
   gone or not visible), `503` with `Retry-After: 30` (too many channels are on at once),
   `503` without `Retry-After` (nothing to show on the channel now).
 
+---
+
+## 13. Episode guide
+
+### 13.1 `GET /api/tracking/{series|movie}/{tmdbId}/episodes` (server 0.5.0+)
+
+Every episode of a title as TMDB lists it, downloaded or not, with the sources the profile may
+use. `tmdbId` is the series' `tmdbId` from `GET /api/items/{id}` (§4.3).
+
+```json
+{ "title": {"kind": "series", "tmdbId": int, "name": string, "poster": string, "status": string, "itemId"?: int},
+  "episodes": [{"season": int, "number": int, "name": string, "airDate": "YYYY-MM-DD" | "",
+                "watched": bool, "positionSec"?: int, "new": bool,
+                "sources": [{"kind": "library" | "pinned" | "torrent" | "online", "ref": string,
+                             "provider"?: string, "quality"?: string, "labels": string[],
+                             "firstSeen": string, "meta": {"itemId"?: int, "fileId"?: int, ...}}]}] }
+```
+
+- A source of kind `library` is a downloaded file; its `meta.itemId` is the episode item, played
+  as any episode (§11). The other kinds are not app features: the TV app shows such an episode
+  as not downloaded.
+- Library episodes TMDB lacks (absolute numbering, specials) are added with `airDate: ""`.
+- `watched` and `positionSec` are the profile's marks. Kids get `library` sources only.
+- `404` when the age filter hides the title; servers before 0.5.0 answer `404` or `405`. Either
+  way the client keeps the library's seasons from `GET /api/items/{id}`.
+
+The TV app's series page shows this list when the server answers (and it has episodes): every
+episode marked downloaded, not downloaded (dimmed; selecting it says it is not in the library)
+or upcoming (`airDate` after today or not known yet, greyed with the date). Library episodes
+the answer does not name keep their place. Sample: `tracking-episodes.json`.

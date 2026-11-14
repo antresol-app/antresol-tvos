@@ -29,7 +29,7 @@ struct VideoDetailView: View {
             VStack(alignment: .leading, spacing: Theme.Layout.shelfSpacing) {
                 header
                 if let detail = model.detail {
-                    if detail.kind == .series, !detail.seasons.isEmpty {
+                    if detail.kind == .series, model.guide?.seasons.isEmpty == false {
                         SeasonSection(model: model)
                     }
                     if !detail.cast.isEmpty {

@@ -127,6 +127,15 @@ public struct EpisodeCard: Decodable, Hashable, Identifiable, Sendable {
 
     public var id: Int { card.id }
 
+    public init(card: Card, seasonNo: Int, episodeNo: Int, overview: String? = nil, durationMs: Int? = nil, watched: Bool = false) {
+        self.card = card
+        self.seasonNo = seasonNo
+        self.episodeNo = episodeNo
+        self.overview = overview
+        self.durationMs = durationMs
+        self.watched = watched
+    }
+
     public subscript<T>(dynamicMember keyPath: KeyPath<Card, T>) -> T {
         card[keyPath: keyPath]
     }

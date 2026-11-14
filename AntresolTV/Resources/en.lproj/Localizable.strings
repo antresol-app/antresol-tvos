@@ -87,6 +87,12 @@
 "Play from Beginning" = "Play from Beginning";
 "Season %lld" = "Season %lld";
 "E%lld" = "E%lld";
+"Specials" = "Specials";
+"Downloaded" = "Downloaded";
+"Not downloaded" = "Not downloaded";
+"Upcoming" = "Upcoming";
+"Airs %@" = "Airs %@";
+"Not in the library" = "Not in the library";
 "Cast" = "Cast";
 "About" = "About";
 "Original Title" = "Original Title";

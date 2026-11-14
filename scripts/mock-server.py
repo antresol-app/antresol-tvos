@@ -210,7 +210,7 @@ def subtitles():
 HERO_EXTRAS = {
     19: {"genres": ["Animation", "Comedy"], "rating": "PG",
          "overview": "A gentle giant rabbit takes on three bullies in a sunny meadow."},
-    2: {"genres": ["Drama", "Mystery"], "rating": "12+",
+    2: {"genres": ["Drama", "Mystery"], "rating": "12+", "tmdbId": 1399,
         "overview": "A small test crew follows a signal nobody else can hear."},
     22: {"genres": ["Documentary"], "rating": "0+",
          "overview": "Ten seconds of plain footage, shot for the player tests."},
@@ -231,6 +231,16 @@ def item_with_extras(item_id, sample):
     item = json.loads((SAMPLES / sample).read_text())
     item.update(HERO_EXTRAS.get(item_id, {}))
     return item
+
+
+def tracking_episodes():
+    """The full episode list of the test show, its upcoming episode a month from today."""
+    data = json.loads((SAMPLES / "tracking-episodes.json").read_text())
+    soon = (datetime.date.today() + datetime.timedelta(days=30)).isoformat()
+    for episode in data["episodes"]:
+        if episode["airDate"] > "2026-11-01":
+            episode["airDate"] = soon
+    return data
 
 
 def on_air_now(sample):
@@ -336,6 +346,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, json.dumps(item_with_extras(item_id, "item-movie.json")).encode(), "application/json")
         if method == "GET" and path == "/api/items/2":
             return self.send(200, json.dumps(item_with_extras(2, "item-series.json")).encode(), "application/json")
+        if method == "GET" and path == "/api/tracking/series/1399/episodes":
+            return self.send(200, json.dumps(tracking_episodes()).encode(), "application/json")
         if method == "GET" and path == "/api/items" and "kind=series" in query:
             return self.send(200, (SAMPLES / "items-series.json").read_bytes(), "application/json")
         for (verb, pattern), sample in ROUTES.items():

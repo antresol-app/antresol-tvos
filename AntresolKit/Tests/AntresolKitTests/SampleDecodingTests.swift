@@ -62,6 +62,7 @@ final class SampleDecodingTests: XCTestCase {
             "search-music.json": d(SearchResults.self),
             "search.json": d(SearchResults.self),
             "setup-get.json": d(SetupStatus.self),
+            "tracking-episodes.json": d(TrackingEpisodes.self),
             "users-create.json": d(User.self),
             "users-list.json": d([User].self),
         ]

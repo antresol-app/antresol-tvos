@@ -18,8 +18,16 @@ final class VideoDetailModel {
     private(set) var state: State = .loading
     /// Saved position of a movie or episode (`GET /api/progress`).
     private(set) var progress: PlaybackProgress?
-    /// The season shown on a series page.
-    var selectedSeasonId: Int?
+    /// A series' full episode list (`/api/tracking/.../episodes`), nil when the server
+    /// has none for it (older than 0.5.0, the title hidden by the age filter, an error).
+    private(set) var tracking: TrackingEpisodes?
+    /// The seasons and episodes of a series page: every episode when the server has the
+    /// full list, the library's otherwise.
+    private(set) var guide: EpisodeGuide?
+    /// The season number shown on a series page.
+    var selectedSeasonNumber: Int?
+    /// The season item the page was opened with, chosen once the seasons are known.
+    private var openedSeasonId: Int?
     /// Actions in flight, so their buttons can be disabled.
     private(set) var busy: Set<Action> = []
     /// The last action error, shown under the buttons.
@@ -33,7 +41,7 @@ final class VideoDetailModel {
     init(card: Card) {
         self.card = card
         if card.kind == .season {
-            selectedSeasonId = card.id
+            openedSeasonId = card.id
         }
     }
 
@@ -47,9 +55,9 @@ final class VideoDetailModel {
         return nil
     }
 
-    var selectedSeason: SeasonInfo? {
-        guard let detail else { return nil }
-        return detail.seasons.first { $0.id == selectedSeasonId } ?? detail.seasons.first
+    var selectedSeason: GuideSeason? {
+        guard let guide else { return nil }
+        return guide.seasons.first { $0.number == selectedSeasonNumber } ?? guide.seasons.first
     }
 
     /// Whether a movie or episode has a saved position to resume from.
@@ -78,18 +86,35 @@ final class VideoDetailModel {
             if detail.kind == .movie || detail.kind == .episode {
                 progress = try? await client.progress(itemId: detail.id)
             }
-            if let selectedSeasonId, !detail.seasons.contains(where: { $0.id == selectedSeasonId }) {
-                self.selectedSeasonId = nil
-            }
-            if selectedSeasonId == nil {
-                selectedSeasonId = Self.initialSeason(of: detail)
-            }
             state = .loaded(detail)
+            guard detail.kind == .series else {
+                guide = nil
+                return
+            }
+            // The library's seasons show at once (with the last full list on a refresh);
+            // the full list replaces them when the server has one. Any failure (404/405
+            // from servers before 0.5.0, a title the age filter hides) keeps the library's.
+            updateGuide(detail)
+            if let tmdbId = detail.tmdbId {
+                let full = try? await client.trackingEpisodes(kind: .series, tmdbId: tmdbId)
+                guard !Task.isCancelled, self.detail?.id == detail.id else { return }
+                tracking = full
+                updateGuide(detail)
+            }
         } catch {
             guard !Task.isCancelled else { return }
             let message = appState.message(for: error)
             if detail == nil, let message { state = .failed(message) }
         }
+    }
+
+    private func updateGuide(_ detail: ItemDetail) {
+        let guide = EpisodeGuide(library: detail.seasons, tracking: tracking, today: EpisodeGuide.day(Date()))
+        self.guide = guide
+        if !guide.seasons.contains(where: { $0.number == selectedSeasonNumber }) {
+            selectedSeasonNumber = guide.initialSeason(preferredItemId: openedSeasonId ?? detail.next?.id)
+        }
+        openedSeasonId = nil
     }
 
     func toggleWatchlist(using appState: AppState) async {
@@ -119,14 +144,5 @@ final class VideoDetailModel {
         } catch {
             actionError = appState.message(for: error)
         }
-    }
-
-    /// The season of the episode to play next, else the first season.
-    private static func initialSeason(of detail: ItemDetail) -> Int? {
-        if let next = detail.next,
-           let season = detail.seasons.first(where: { $0.episodes.contains { $0.id == next.id } }) {
-            return season.id
-        }
-        return detail.seasons.first?.id
     }
 }

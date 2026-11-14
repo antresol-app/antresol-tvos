@@ -23,7 +23,9 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 - **Movies and TV Shows**: poster grids with sort pills (recent, title, year) and paging.
 - **Details**: movie, show and episode pages offer Play, Resume and Restart, plus watchlist and
   watched toggles. Show pages have seasons and episodes; all of them list cast, versions,
-  tracks and file info.
+  tracks and file info. With server 0.5.0 or newer a show lists every aired episode, marked
+  downloaded or not (only downloaded ones play), and the known upcoming ones greyed with their
+  date.
 - **Video player**: AVKit with the native transport bar and Info panel.
   - Direct play when Apple TV can decode the file; otherwise the server remuxes or transcodes
     to HLS, and the whole timeline stays seekable.

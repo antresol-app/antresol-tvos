@@ -424,6 +424,42 @@ final class ScreenshotTests: XCTestCase {
         snapshot(app, "58-device-signed-out")
     }
 
+    /// A show's full episode list: downloaded episodes as before, one not downloaded
+    /// (selecting it only says so) and upcoming ones greyed with their date.
+    func test12EpisodeGuide() {
+        let app = signInAsKid()
+
+        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        pause(2)
+        XCTAssertTrue(moveFocus(.down, to: card(app, "Test Show"), limit: 3))
+        remote.press(.select)
+        pause(4)
+        let downloaded = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Downloaded")).firstMatch
+        let missing = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Not downloaded")).firstMatch
+        let upcoming = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Airs ")).firstMatch
+        XCTAssertTrue(missing.waitForExistence(timeout: 20), hierarchy(app, mentioning: "E3"))
+        XCTAssertTrue(downloaded.exists)
+        XCTAssertTrue(upcoming.exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Upcoming")).firstMatch.exists, "no date yet")
+
+        XCTAssertTrue(moveFocus(.down, to: downloaded, limit: 3))
+        pause(1)
+        snapshot(app, "59-episode-guide")
+        XCTAssertTrue(moveFocus(.right, to: missing, limit: 3))
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Not in the library"].waitForExistence(timeout: 5))
+        pause(1)
+        snapshot(app, "60-episode-not-downloaded")
+        XCTAssertTrue(moveFocus(.right, to: upcoming, limit: 2))
+        pause(1)
+        snapshot(app, "61-episode-upcoming")
+
+        // A downloaded episode still opens its page.
+        XCTAssertTrue(moveFocus(.left, to: downloaded, limit: 4))
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Go to Show"].waitForExistence(timeout: 20), "the episode page")
+    }
+
     /// The poster card whose title starts with `title`.
     private func card(_ app: XCUIApplication, _ title: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch

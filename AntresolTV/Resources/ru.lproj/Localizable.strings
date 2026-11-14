@@ -87,6 +87,12 @@
 "Play from Beginning" = "Смотреть сначала";
 "Season %lld" = "Сезон %lld";
 "E%lld" = "Эп. %lld";
+"Specials" = "Спецвыпуски";
+"Downloaded" = "Скачано";
+"Not downloaded" = "Не скачано";
+"Upcoming" = "Скоро";
+"Airs %@" = "Выйдет %@";
+"Not in the library" = "Серии нет в медиатеке";
 "Cast" = "В ролях";
 "About" = "Подробности";
 "Original Title" = "Оригинальное название";

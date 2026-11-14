@@ -1,0 +1,16 @@
+{
+  "title": {"kind": "series", "tmdbId": 1399, "name": "Example Show", "poster": "/api/images/2/poster?v=1", "status": "Returning Series", "itemId": 2},
+  "episodes": [
+    {"season": 1, "number": 1, "name": "Pilot", "airDate": "2026-09-01", "watched": true, "new": false,
+     "sources": [{"kind": "library", "ref": "item:4", "labels": ["1080p"], "firstSeen": "2026-09-02T10:00:00Z", "meta": {"itemId": 4, "fileId": 40}}]},
+    {"season": 1, "number": 2, "name": "Second", "airDate": "2026-09-08", "watched": false, "positionSec": 610, "new": false,
+     "sources": [{"kind": "library", "ref": "item:5", "labels": [], "firstSeen": "2026-09-09T10:00:00Z", "meta": {"itemId": 5, "fileId": 50}},
+                 {"kind": "torrent", "ref": "t:abc", "provider": "example", "quality": "2160p", "labels": ["HDR"], "firstSeen": "2026-09-09T11:00:00Z", "meta": {"sourceId": "abc", "voice": "Studio"}}]},
+    {"season": 1, "number": 3, "name": "Third", "airDate": "2026-09-15", "watched": false, "new": true,
+     "sources": [{"kind": "online", "ref": "o:1", "provider": "balancer", "labels": [], "firstSeen": "2026-09-16T00:00:00Z", "meta": {"providerId": "b1", "lang": "ru"}}]},
+    {"season": 1, "number": 4, "name": "Fourth", "airDate": "2026-12-01", "watched": false, "new": false, "sources": []},
+    {"season": 1, "number": 5, "name": "TBA", "airDate": "", "watched": false, "new": false, "sources": []},
+    {"season": 2, "number": 1, "name": "Return", "airDate": "2026-10-01", "watched": false, "new": false,
+     "sources": [{"kind": "library", "ref": "item:12", "labels": [], "firstSeen": "2026-10-02T00:00:00Z", "meta": {"itemId": 12, "fileId": 120}}]}
+  ]
+}
