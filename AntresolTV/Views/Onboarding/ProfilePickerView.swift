@@ -29,6 +29,8 @@ struct ProfilePickerView: View {
         }
         .animation(Theme.Motion.easeOut, value: passwordProfile)
         .task { await load() }
+        // Menu goes back to the QR code when that is where the picker was opened from.
+        .onExitCommand(perform: passwordProfile == nil && appState.supportsPairing ? { appState.signInMethod = .phone } : nil)
     }
 
     private var picker: some View {
@@ -51,12 +53,22 @@ struct ProfilePickerView: View {
                 }
                 // Shown once loading ends, so the focus engine starts on a profile tile.
                 if !isLoading || !profiles.isEmpty {
-                    Button {
-                        appState.changeServer()
-                    } label: {
-                        Label("Change Server", systemImage: "server.rack")
+                    HStack(spacing: 28) {
+                        if appState.supportsPairing {
+                            Button {
+                                appState.signInMethod = .phone
+                            } label: {
+                                Label("Sign In with Your Phone", systemImage: "qrcode")
+                            }
+                            .buttonStyle(PillButtonStyle(kind: .glass))
+                        }
+                        Button {
+                            appState.changeServer()
+                        } label: {
+                            Label("Change Server", systemImage: "server.rack")
+                        }
+                        .buttonStyle(PillButtonStyle(kind: .glass))
                     }
-                    .buttonStyle(PillButtonStyle(kind: .glass))
                 }
             }
             .focusSection()

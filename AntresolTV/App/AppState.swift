@@ -20,6 +20,14 @@ final class AppState {
         case signedIn(User)
     }
 
+    /// How the sign-in screen signs a profile in.
+    enum SignInMethod: Equatable {
+        /// A QR code a signed-in phone approves (the default on a new server).
+        case phone
+        /// The profile picker and the password, with the remote.
+        case remote
+    }
+
     /// What picking a profile led to.
     enum ProfileSelection {
         case signedIn
@@ -65,6 +73,12 @@ final class AppState {
     private var profileClient: APIClient?
     /// Where "Cancel" on the server screen returns to.
     private var phaseBeforeServerChange: Phase?
+    /// The sign-in screen's method: the QR code first, the profile picker after
+    /// "Sign in with the remote" (and after Switch Profile, where the household is at the TV).
+    var signInMethod: SignInMethod = .phone
+    /// The connected server has QR sign-in (`POST /api/auth/pair/start` exists); an older
+    /// one shows the profile picker only.
+    private(set) var supportsPairing = true
 
     private let settings: AppSettings
     private let tokens: TokenStore
@@ -119,6 +133,8 @@ final class AppState {
         settings.serverURL = url
         settings.serverId = connection.serverId
         server = connection
+        supportsPairing = true
+        signInMethod = .phone
         phaseBeforeServerChange = nil
         await restoreProfile(on: connection)
     }
@@ -177,6 +193,28 @@ final class AppState {
         phase = .signedIn(response.user)
     }
 
+    /// Finishes a QR sign-in: the token a phone approved is a normal device token, kept
+    /// like one from the password sign-in.
+    func signIn(pairedToken token: String, user: User) throws {
+        guard let server else { throw APIError.invalidURL("") }
+        try tokens.setToken(token, for: CredentialKey(serverId: server.serverId, userId: user.id))
+        profileClient = server.profileClient(token: token)
+        settings.lastUserId = user.id
+        phase = .signedIn(user)
+    }
+
+    /// The TV's side of QR sign-in on the connected server (nil before a server is).
+    func makePairingSession() -> PairingSession? {
+        guard let server else { return nil }
+        return PairingSession(api: server.client, device: device.info, describe: { AppState.userMessage(for: $0) })
+    }
+
+    /// The server turned out to have no QR sign-in: the picker is the only way in.
+    func pairingUnsupported() {
+        supportsPairing = false
+        signInMethod = .remote
+    }
+
     /// Reads the profile's interface language and switches the app to it.
     func refreshInterfaceLanguage() async {
         guard let client = profileClient, let value = try? await client.uiLanguage() else { return }
@@ -198,6 +236,7 @@ final class AppState {
     func switchProfile() {
         guard server != nil else { return }
         leaveProfile()
+        signInMethod = .remote
     }
 
     /// Revokes the current token on the server and forgets it.
@@ -249,7 +288,7 @@ final class AppState {
 
     /// A localized, non-technical description of a failure: the server's own message
     /// when it sent one (in the app language), otherwise a plain explanation.
-    static func userMessage(for error: Error) -> String {
+    nonisolated static func userMessage(for error: Error) -> String {
         if let error = error as? APIError {
             switch error {
             case .unauthorized(let message):

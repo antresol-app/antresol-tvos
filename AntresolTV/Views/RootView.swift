@@ -20,7 +20,13 @@ struct RootView: View {
             case .needsServer:
                 ServerEntryView()
             case .needsProfile:
-                ProfilePickerView()
+                if appState.signInMethod == .phone && appState.supportsPairing {
+                    PairingView()
+                        .transition(.opacity)
+                } else {
+                    ProfilePickerView()
+                        .transition(.opacity)
+                }
             case .signedIn(let user):
                 MainShellView(user: user)
                     // A different profile gets a fresh shell (tabs, stacks, loaded data).
@@ -28,5 +34,6 @@ struct RootView: View {
             }
         }
         .animation(Theme.Motion.easeOut, value: appState.phase)
+        .animation(Theme.Motion.easeOut, value: appState.signInMethod)
     }
 }

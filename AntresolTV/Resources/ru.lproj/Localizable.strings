@@ -5,7 +5,7 @@
 
 /* Server address */
 "Connect to your server" = "Подключитесь к серверу";
-"Enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Введите адрес компьютера, на котором работает Antresol, например 192.168.1.10 или nas.local. По умолчанию используется порт 8420.";
+"Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Выберите сервер, найденный в вашей сети, или введите адрес компьютера, на котором работает Antresol, например 192.168.1.10 или nas.local. По умолчанию используется порт 8420.";
 "Server address" = "Адрес сервера";
 "Connect" = "Подключиться";
 "Cancel" = "Отмена";
@@ -314,3 +314,18 @@
 
 "Clean voice-over" = "Очищенный перевод";
 "Without the original speech under it" = "Без оригинальной речи под переводом";
+
+/* Servers on the network and sign-in with a phone */
+"On This Network" = "В этой сети";
+"Looking for servers…" = "Ищем серверы…";
+"No servers found. A server in Docker is found only with host networking: enter its address below." = "Серверы не найдены. Сервер в Docker находится, только если у него сеть хоста (network_mode: host): введите его адрес ниже.";
+"Antresol can't look for servers: local network access is off. Turn it on in Settings > General > Privacy & Security > Local Network, or enter the address below." = "Antresol не может искать серверы: доступ к локальной сети выключен. Включите его в Настройках > Основные > Конфиденциальность и безопасность > Локальная сеть или введите адрес ниже.";
+"Sign in with your phone" = "Войдите с телефона";
+"Scan the code with your phone's camera or the Antresol app. Or open %@ on a phone signed in to Antresol and type the code." = "Отсканируйте код камерой телефона или в приложении Antresol. Или откройте %@ на телефоне, где выполнен вход в Antresol, и введите код.";
+"Code expires in %@" = "Код действует ещё %@";
+"Approved on the phone. Signing in…" = "Вход подтверждён на телефоне. Входим…";
+"Sign-in was declined on the phone." = "Вход отклонён на телефоне.";
+"Get a New Code" = "Новый код";
+"Sign In with the Remote" = "Войти с пульта";
+"Sign In with Your Phone" = "Войти с телефона";
+"QR code" = "QR-код";

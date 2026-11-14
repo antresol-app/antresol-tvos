@@ -106,6 +106,12 @@ public final class APIClient: Sendable {
 
     /// Performs a request and returns the body of a 2xx response.
     func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        try await perform(request, accepting: [])
+    }
+
+    /// Like `perform(_:)`, but the statuses in `accepted` come back as answers instead of
+    /// errors (pairing's `410` carries a status in its body).
+    func perform(_ request: URLRequest, accepting accepted: Set<Int>) async throws -> (Data, HTTPURLResponse) {
         let data: Data
         let response: HTTPURLResponse
         do {
@@ -120,7 +126,7 @@ public final class APIClient: Sendable {
             }
             throw APIError.transport(error.localizedDescription)
         }
-        guard (200..<300).contains(response.statusCode) else {
+        guard (200..<300).contains(response.statusCode) || accepted.contains(response.statusCode) else {
             throw APIClient.error(status: response.statusCode, data: data, response: response)
         }
         return (data, response)

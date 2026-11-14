@@ -5,7 +5,7 @@
 
 /* Server address */
 "Connect to your server" = "Connect to your server";
-"Enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420.";
+"Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420.";
 "Server address" = "Server address";
 "Connect" = "Connect";
 "Cancel" = "Cancel";
@@ -314,3 +314,18 @@
 
 "Clean voice-over" = "Clean voice-over";
 "Without the original speech under it" = "Without the original speech under it";
+
+/* Servers on the network and sign-in with a phone */
+"On This Network" = "On This Network";
+"Looking for servers…" = "Looking for servers…";
+"No servers found. A server in Docker is found only with host networking: enter its address below." = "No servers found. A server in Docker is found only with host networking: enter its address below.";
+"Antresol can't look for servers: local network access is off. Turn it on in Settings > General > Privacy & Security > Local Network, or enter the address below." = "Antresol can't look for servers: local network access is off. Turn it on in Settings > General > Privacy & Security > Local Network, or enter the address below.";
+"Sign in with your phone" = "Sign in with your phone";
+"Scan the code with your phone's camera or the Antresol app. Or open %@ on a phone signed in to Antresol and type the code." = "Scan the code with your phone's camera or the Antresol app. Or open %@ on a phone signed in to Antresol and type the code.";
+"Code expires in %@" = "Code expires in %@";
+"Approved on the phone. Signing in…" = "Approved on the phone. Signing in…";
+"Sign-in was declined on the phone." = "Sign-in was declined on the phone.";
+"Get a New Code" = "Get a New Code";
+"Sign In with the Remote" = "Sign In with the Remote";
+"Sign In with Your Phone" = "Sign In with Your Phone";
+"QR code" = "QR code";

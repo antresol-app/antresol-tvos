@@ -27,6 +27,9 @@ enum Theme {
         static let segmentFocusTint = Color.white.opacity(0.78)
         /// Lyric lines other than the current one, over the artwork colour.
         static let lyricInactive = Color.white.opacity(0.4)
+        /// A QR code's plate and modules: pure white and black, which every camera reads.
+        static let qrBackground = Color.white
+        static let qrModule = Color.black
     }
 
     enum Gradients {
@@ -86,6 +89,8 @@ enum Theme {
         static let lyricPlainLine = Font.system(size: 52, weight: .bold)
         /// The song title under the artwork on the lyrics page.
         static let lyricsTrackTitle = Font.system(size: 28, weight: .semibold)
+        /// The TV sign-in code ("ABC 234"), read off the screen and typed on a phone.
+        static let pairingCode = Font.system(size: 96, weight: .bold, design: .rounded).monospacedDigit()
 
         static func avatarInitial(size: CGFloat) -> Font {
             .system(size: size * 0.44, weight: .semibold, design: .rounded)

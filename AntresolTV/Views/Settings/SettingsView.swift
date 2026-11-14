@@ -251,8 +251,9 @@ private struct SettingsPage: View {
     }
 }
 
-/// A titled group of rows, with an optional note underneath.
-private struct SettingsSection<Content: View>: View {
+/// A titled group of rows, with an optional note underneath (Settings, and the servers
+/// found on the network on the server screen).
+struct SettingsSection<Content: View>: View {
     let title: LocalizedStringKey
     let footnote: LocalizedStringKey?
     @ViewBuilder let content: () -> Content

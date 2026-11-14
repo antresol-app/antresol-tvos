@@ -49,8 +49,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_antresol._tcp</string>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Antresol connects to your media server on the local network.</string>
+	<string>Antresol finds your media server on the local network and connects to it.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
