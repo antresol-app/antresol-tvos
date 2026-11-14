@@ -271,6 +271,11 @@ private struct LiveControls: View {
         .onMoveCommand { direction in
             if direction == .up, model.openMenu == nil { model.closeControls() }
         }
+        // Menu (Back) on an open list closes it: focus goes back to the button that opened it.
+        .onChange(of: model.openMenu) { old, new in
+            guard new == nil, let old else { return }
+            focused = old == .audio ? .audio : .subtitles
+        }
     }
 
     /// Audio when there is a choice, else subtitles, else the star.
