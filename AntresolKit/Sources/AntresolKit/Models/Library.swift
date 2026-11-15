@@ -61,13 +61,22 @@ public struct ItemDetail: Decodable, Hashable, Identifiable, Sendable {
 public struct CastMember: Decodable, Hashable, Sendable {
     public var name: String
     public var character: String?
+    /// Server image path of the actor's portrait (`/api/images/cast/<name>`), or `""`.
+    public var photo: String
 
-    enum CodingKeys: String, CodingKey { case name, character }
+    public init(name: String, character: String? = nil, photo: String = "") {
+        self.name = name
+        self.character = character
+        self.photo = photo
+    }
+
+    enum CodingKeys: String, CodingKey { case name, character, photo }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = c.value(.name, default: "")
         character = c.optional(.character)
+        photo = c.value(.photo, default: "")
     }
 }
 
@@ -133,7 +142,9 @@ public struct EpisodeCard: Decodable, Hashable, Identifiable, Sendable {
         self.episodeNo = episodeNo
         self.overview = overview
         self.durationMs = durationMs
-        self.watched = watched
+        // One answer for both: the card decodes the same `watched` field.
+        self.watched = watched || card.watched
+        self.card.watched = self.watched
     }
 
     public subscript<T>(dynamicMember keyPath: KeyPath<Card, T>) -> T {

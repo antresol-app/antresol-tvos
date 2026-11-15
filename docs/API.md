@@ -329,6 +329,8 @@ Almost every list in the API returns **Cards**.
 | season | int *(opt)* | Exists in the schema; not seen populated. |
 | episode | int *(opt)* | Exists in the schema; not seen populated. |
 | resumeSec | float *(opt)* | Exists in the schema; not seen populated. For resume, use [`GET /api/progress/{id}`](#61-get-apiprogressitemid). |
+| watched | bool *(opt)* | The profile finished it: a movie or episode watched to the end; a series or season with every library episode finished. Left out when false. Sent on every card list (home shelves, grids, search, detail seasons). |
+| thumb | string *(opt)* | Episode cards only: a 16:9 still of this episode, its own stored still or `/api/images/frame/{episodeItemId}` (a frame of its first file, 404 without a file). Left out when empty. Episode tiles show it before `backdrop` / `poster`. |
 | online, tmdbKind, tmdbId | *(opt)* | Online-discovery fields. They are not used in library-only builds. |
 
 ### 3.2 Images
@@ -405,7 +407,7 @@ flattened at the top level**, plus these fields:
 | genres | string[] | |
 | runtime | int *(opt)* | Minutes. |
 | rating | string *(opt)* | Age rating, for example `"16+"`. |
-| cast | `{name: string, character?: string}[]` | |
+| cast | `{name: string, character?: string, photo?: string}[]` | `photo`: the actor's portrait, `/api/images/cast/<name>` (Bearer like every image), or left out. |
 | seasons | SeasonInfo[] | Filled for a series: all seasons. For a season id: that season only. Otherwise `[]`. |
 | files | FileInfo[] | Filled for a movie or episode. `[]` for a series or season. |
 | next | EpisodeCard *(opt)* | Series only: the episode to play next (resume or next unwatched). |
@@ -468,6 +470,18 @@ SubTrack:
 | burnIn | `true` means the track can only be shown by burning it in (image subtitles); see `burnSubtitle` in [§5.1](#51-post-apiplayfileid). |
 
 Samples: `item-movie.json`, `item-series.json`, `item-season.json`, `item-episode.json`.
+
+### 4.3.1 `GET /api/items/{id}/trailers`
+
+A movie's or series' trailers (a season or episode answers with its series'): TMDB videos on
+YouTube, types Trailer and Teaser, ordered for the viewer (their language first, then English;
+official first; trailers before teasers). Cached by the server for 24 h. An empty list, never an
+error, when there is no TMDB id, key or network.
+
+```json
+{"trailers": [{"name": "Official Trailer", "site": "YouTube", "key": "abc", "type": "Trailer",
+               "lang": "ru", "official": true, "url": "https://www.youtube.com/watch?v=abc"}]}
+```
 
 ### 4.4 `GET /api/search?q=<text>`
 

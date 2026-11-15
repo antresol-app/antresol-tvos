@@ -27,6 +27,14 @@ extension APIClient {
         try await send(.get, "/api/tracking/\(kind == .movie ? "movie" : "series")/\(tmdbId)/episodes")
     }
 
+    /// `GET /api/items/{id}/trailers`: a movie's or series' trailers (a season or episode
+    /// answers with its series'). The server answers an empty list, not an error, when it
+    /// has none; older servers answer 404, which callers treat as none.
+    public func trailers(itemId: Int) async throws -> [Trailer] {
+        let list: TrailerList = try await send(.get, "/api/items/\(itemId)/trailers")
+        return list.trailers
+    }
+
     /// `GET /api/search?q=`.
     public func search(_ text: String) async throws -> SearchResults {
         try await send(.get, "/api/search", query: [URLQueryItem(name: "q", value: text)])
