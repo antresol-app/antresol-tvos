@@ -344,6 +344,13 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET" and re.fullmatch(r"/api/items/\d+/trailers", path):
             item_id = int(path.split("/")[3])
             return self.send(200, json.dumps({"trailers": TRAILERS.get(item_id, [])}).encode(), "application/json")
+        # A busy server answers some frames 503 (the app shows the series' picture instead).
+        if method == "GET" and path == "/api/images/frame/5":
+            self.send_response(503)
+            self.send_header("Retry-After", "5")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if method == "GET" and path.startswith("/api/images/"):
             return self.send(200, image_for(path), "image/png")
         if method == "POST" and path == "/api/logout":

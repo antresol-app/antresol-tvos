@@ -1,3 +1,4 @@
+import AntresolKit
 import SwiftUI
 import UIKit
 
@@ -49,19 +50,38 @@ struct RemoteImage: View {
         urls.lazy.compactMap { ImagePipeline.shared.cachedImage(for: $0, maxPixelSize: maxPixelSize) }.first
     }
 
+    /// How long a fallback shows before the better path is tried once more (a busy server
+    /// answers frames with 503 and `Retry-After: 5`).
+    private static let retryDelay: Duration = .seconds(6)
+
     private func load() async {
         image = nil
         guard let client = appState.client else { return }
-        for url in urls {
+        let urls = urls
+        // Any failure (404, 503, offline, undecodable) moves on to the next path. Nothing
+        // remembers a failure: the next time the view loads, the best path is asked again.
+        guard let shown = await firstImage(in: urls, client: client) else { return }
+        guard shown > 0 else { return }
+        // A fallback is showing: try the better paths once more after the server's pause.
+        try? await Task.sleep(for: Self.retryDelay)
+        guard !Task.isCancelled else { return }
+        _ = await firstImage(in: Array(urls.prefix(shown)), client: client)
+    }
+
+    /// Loads the first path of `urls` that answers with an image and shows it; its index, or
+    /// nil when none did (or the view went away).
+    private func firstImage(in urls: [URL], client: APIClient) async -> Int? {
+        for (index, url) in urls.enumerated() {
             let loaded = await ImagePipeline.shared.image(
                 for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: maxPixelSize
             )
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { return nil }
             if let loaded {
                 withAnimation(Theme.Motion.easeOut) { image = loaded }
                 onLoad?(loaded)
-                return
+                return index
             }
         }
+        return nil
     }
 }
