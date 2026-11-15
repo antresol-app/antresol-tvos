@@ -77,7 +77,7 @@ final class ScreenshotTests: XCTestCase {
         // Focus starts on the sort pill: down into the grid, left to the first poster.
         remote.press(.down)
         pause(1)
-        XCTAssertTrue(moveFocus(.left, to: card(app, "Big Buck Demo"), limit: 2))
+        XCTAssertTrue(moveFocus(.left, to: card(app, "Big Buck Demo"), limit: 6))
         remote.press(.select)
         pause(4)
         snapshot(app, "10-movie-detail")
@@ -259,9 +259,11 @@ final class ScreenshotTests: XCTestCase {
 
         XCTAssertTrue(moveFocus(.down, to: setting(app, "Acknowledgements"), limit: 8))
         pause(1)
-        snapshot(app, "39-settings-server-about")
-        // The mock's second profile is a kid profile, which cannot change the server.
-        XCTAssertFalse(setting(app, "Change Server").exists)
+        snapshot(app, "39-settings-about")
+        // The server is the web app's business: no address, devices or server change here.
+        for title in ["Address", "Version", "Devices", "Change Server"] {
+            XCTAssertFalse(setting(app, title).exists, title)
+        }
         remote.press(.select)
         pause(2)
         snapshot(app, "40-acknowledgements")
@@ -394,36 +396,6 @@ final class ScreenshotTests: XCTestCase {
         snapshot(app, "55-playlist-deleted")
     }
 
-    func test11Devices() {
-        let app = signInAsKid()
-
-        XCTAssertTrue(openSection(app, "Kiddo", showing: app.buttons["Switch Profile"]))
-        XCTAssertTrue(app.buttons["Switch Profile"].waitForExistence(timeout: 20))
-        remote.press(.down)
-        pause(1)
-        moveFocus(.right, to: setting(app, "Video Quality"), limit: 3)
-        XCTAssertTrue(moveFocus(.down, to: setting(app, "Devices"), limit: 8))
-        remote.press(.select)
-        let other = setting(app, "Kitchen iPad")
-        XCTAssertTrue(other.waitForExistence(timeout: 20))
-        XCTAssertTrue(setting(app, "Living Room Apple TV").exists, "this device is listed")
-        pause(2)
-        snapshot(app, "56-devices")
-
-        XCTAssertTrue(moveFocus(.down, to: other, limit: 4))
-        remote.press(.select)
-        let signOut = menuItem(app, "Sign Out Device")
-        XCTAssertTrue(signOut.waitForExistence(timeout: 10), hierarchy(app, mentioning: "Sign Out Device"))
-        pause(1)
-        snapshot(app, "57-device-sign-out")
-        if moveFocus(.right, to: signOut, limit: 2) {
-            remote.press(.select)
-        }
-        pause(3)
-        XCTAssertFalse(other.exists, "the signed-out device left the list")
-        snapshot(app, "58-device-signed-out")
-    }
-
     /// A show's full episode list: downloaded episodes as before, one not downloaded
     /// (selecting it only says so) and upcoming ones greyed with their date.
     func test12EpisodeGuide() {
@@ -440,7 +412,6 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(missing.waitForExistence(timeout: 20), hierarchy(app, mentioning: "E3"))
         XCTAssertTrue(downloaded.exists)
         XCTAssertTrue(upcoming.exists)
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Upcoming")).firstMatch.exists, "no date yet")
 
         XCTAssertTrue(moveFocus(.down, to: downloaded, limit: 3))
         pause(1)
@@ -453,11 +424,223 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(moveFocus(.right, to: upcoming, limit: 2))
         pause(1)
         snapshot(app, "61-episode-upcoming")
+        // The last one has no date yet; the lazy row lays it out once scrolled near it.
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Upcoming")).firstMatch.exists, "no date yet")
 
         // A downloaded episode still opens its page.
         XCTAssertTrue(moveFocus(.left, to: downloaded, limit: 4))
         remote.press(.select)
         XCTAssertTrue(app.buttons["Go to Show"].waitForExistence(timeout: 20), "the episode page")
+    }
+
+    /// Continue Watching: a long press offers the details page (a movie's, an episode's);
+    /// a click still resumes.
+    func test13ContinueWatchingLongPress() {
+        let app = signInAsKid()
+        remote.press(.right)
+        pause(2)
+        let movie = card(app, "Big Buck Demo")
+        XCTAssertTrue(moveFocus(.down, to: movie, limit: 2))
+        remote.press(.select, forDuration: 1.6)
+        XCTAssertTrue(menuItem(app, "Play from Beginning").waitForExistence(timeout: 10), hierarchy(app, mentioning: "Beginning"))
+        pause(1)
+        snapshot(app, "62-continue-long-press")
+        chooseMenuItem(at: 0)
+        XCTAssertTrue(app.buttons["Watchlist"].waitForExistence(timeout: 20), "the movie's page")
+        pause(3)
+        snapshot(app, "63-continue-details-movie")
+        remote.press(.menu)
+        pause(2)
+
+        // The episode in Continue Watching shows its own still. (Back from a page, focus
+        // lands on the hero.)
+        XCTAssertTrue(moveFocus(.down, to: movie, limit: 2), focusedLabel(app))
+        let episode = card(app, "Episode 1")
+        XCTAssertTrue(moveFocus(.right, to: episode, limit: 3), focusedLabel(app))
+        pause(2)
+        snapshot(app, "64-continue-episode-still")
+        remote.press(.select, forDuration: 1.6)
+        XCTAssertTrue(menuItem(app, "Play from Beginning").waitForExistence(timeout: 10))
+        chooseMenuItem(at: 0)
+        XCTAssertTrue(app.buttons["Go to Show"].waitForExistence(timeout: 20), "the episode's page")
+        pause(3)
+        snapshot(app, "65-continue-details-episode")
+        remote.press(.menu)
+        pause(2)
+
+        // A plain click resumes (the resume prompt).
+        if !moveFocus(.down, to: movie, limit: 2) {
+            moveFocus(.left, to: movie, limit: 3)
+        }
+        XCTAssertTrue(movie.hasFocus, focusedLabel(app))
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Start Over"].waitForExistence(timeout: 20))
+        remote.press(.menu)
+        pause(2)
+    }
+
+    /// Watched marks on posters and episodes, episode stills, cast portraits and trailers
+    /// (no YouTube app on the simulator: the QR code).
+    func test14WatchedStillsCastTrailers() {
+        let app = signInAsKid()
+
+        XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Recently Added"]))
+        pause(3)
+        snapshot(app, "66-movies-watched")
+
+        remote.press(.down)
+        pause(1)
+        XCTAssertTrue(moveFocus(.left, to: card(app, "Big Buck Demo"), limit: 6), focusedLabel(app))
+        remote.press(.select)
+        let trailer = app.buttons["Trailer"]
+        XCTAssertTrue(trailer.waitForExistence(timeout: 20))
+        pause(2)
+        XCTAssertTrue(moveFocus(.right, to: trailer, limit: 4), focusedLabel(app))
+        pause(1)
+        snapshot(app, "67-movie-trailer-button")
+        // One trailer: straight to the QR code.
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Open on Your Phone"].waitForExistence(timeout: 10))
+        pause(2)
+        snapshot(app, "68-trailer-qr")
+        remote.press(.menu)
+        pause(2)
+        XCTAssertFalse(app.staticTexts["Open on Your Phone"].exists, "Menu closes the code")
+        for _ in 0..<2 {
+            remote.press(.down)
+            pause(1)
+        }
+        pause(2)
+        snapshot(app, "69-movie-cast")
+        remote.press(.menu)
+        pause(2)
+
+        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(moveFocus(.down, to: card(app, "Test Show"), limit: 3))
+        remote.press(.select)
+        XCTAssertTrue(trailer.waitForExistence(timeout: 20))
+        pause(2)
+        XCTAssertTrue(moveFocus(.right, to: trailer, limit: 4), focusedLabel(app))
+        // Two trailers: the chooser.
+        remote.press(.select)
+        XCTAssertTrue(menuItem(app, "Season 2 Teaser").waitForExistence(timeout: 10), hierarchy(app, mentioning: "Teaser"))
+        pause(1)
+        snapshot(app, "70-trailer-chooser")
+        chooseMenuItem(at: 1)
+        XCTAssertTrue(app.staticTexts["Open on Your Phone"].waitForExistence(timeout: 10))
+        pause(2)
+        snapshot(app, "71-trailer-qr-teaser")
+        remote.press(.menu)
+        pause(2)
+
+        let firstEpisode = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Episode 1")).firstMatch
+        XCTAssertTrue(moveFocus(.down, to: firstEpisode, limit: 3), focusedLabel(app))
+        pause(2)
+        snapshot(app, "72-episodes-stills-watched")
+        XCTAssertTrue(moveFocus(.right, to: app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Episode 2")).firstMatch, limit: 2))
+        pause(2)
+        snapshot(app, "72b-episode-still-focused")
+        for _ in 0..<2 {
+            remote.press(.down)
+            pause(1)
+        }
+        pause(2)
+        snapshot(app, "73-series-cast")
+    }
+
+    /// The Movies grid: equal margins, and rows scrolled up stay below the title and the
+    /// sidebar's chip.
+    func test18GridMarginsAndScrolling() {
+        let app = signInAsKid()
+        XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Recently Added"]))
+        pause(3)
+        snapshot(app, "78-movies-grid")
+        for _ in 0..<3 {
+            remote.press(.down)
+            pause(1)
+        }
+        pause(2)
+        snapshot(app, "79-movies-scrolled")
+        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        pause(2)
+        snapshot(app, "80-shows-grid")
+    }
+
+    /// A tab left on a pushed page goes back to its root after five seconds away.
+    func test15TabResetAfterFiveSeconds() {
+        let app = signInAsKid()
+        XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Recently Added"]))
+        remote.press(.down)
+        pause(1)
+        XCTAssertTrue(moveFocus(.left, to: card(app, "Big Buck Demo"), limit: 6))
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Watchlist"].waitForExistence(timeout: 20))
+        pause(2)
+
+        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        pause(8)
+        XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Recently Added"]), "Movies is back at its grid")
+        XCTAssertFalse(app.buttons["Watchlist"].exists, "the movie page was popped")
+        pause(1)
+        snapshot(app, "74-tab-reset")
+    }
+
+    /// Coming back before the delay keeps the page (the delay is stretched so the walk
+    /// through the sidebar fits in it).
+    func test16TabKeptWhenBackQuickly() {
+        let app = signInAsKid(extraArguments: ["-AntresolTabResetSeconds", "40"])
+        XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Recently Added"]))
+        remote.press(.down)
+        pause(1)
+        XCTAssertTrue(moveFocus(.left, to: card(app, "Big Buck Demo"), limit: 6))
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Watchlist"].waitForExistence(timeout: 20))
+        pause(2)
+        let started = Date()
+        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Watchlist"]), "the movie page is still there")
+        print("Round trip through the sidebar: \(Int(Date().timeIntervalSince(started))) s")
+        snapshot(app, "75-tab-kept")
+    }
+
+    /// Entering and leaving the same show and movie ten times stays responsive (Android TV
+    /// froze doing this).
+    func test17RepeatedEnterAndLeave() {
+        let app = signInAsKid()
+        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        let show = card(app, "Test Show")
+        XCTAssertTrue(moveFocus(.down, to: show, limit: 3))
+        let watchlist = app.buttons["Watchlist"]
+        for round in 1...10 {
+            let started = Date()
+            remote.press(.select)
+            XCTAssertTrue(watchlist.waitForExistence(timeout: 10), "show, round \(round)")
+            print("Show page \(round): \(String(format: "%.1f", Date().timeIntervalSince(started))) s")
+            remote.press(.menu)
+            XCTAssertTrue(show.waitForExistence(timeout: 10))
+            let focused = expectation(for: NSPredicate(format: "hasFocus == true"), evaluatedWith: show)
+            wait(for: [focused], timeout: 10)
+        }
+        snapshot(app, "76-show-after-ten-visits")
+
+        XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Recently Added"]))
+        remote.press(.down)
+        pause(1)
+        let movie = card(app, "Big Buck Demo")
+        XCTAssertTrue(moveFocus(.left, to: movie, limit: 6))
+        for round in 1...10 {
+            let started = Date()
+            remote.press(.select)
+            XCTAssertTrue(watchlist.waitForExistence(timeout: 10), "movie, round \(round)")
+            print("Movie page \(round): \(String(format: "%.1f", Date().timeIntervalSince(started))) s")
+            remote.press(.menu)
+            let focused = expectation(for: NSPredicate(format: "hasFocus == true"), evaluatedWith: movie)
+            wait(for: [focused], timeout: 10)
+        }
+        remote.press(.select)
+        XCTAssertTrue(watchlist.waitForExistence(timeout: 10))
+        pause(2)
+        snapshot(app, "77-movie-after-ten-visits")
     }
 
     /// The poster card whose title starts with `title`.
