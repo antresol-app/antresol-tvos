@@ -136,7 +136,6 @@ enum Theme {
         static let episodeWidth: CGFloat = 420
         /// Poster grid cell width; six columns fit the 1760 pt content width.
         static let gridPosterWidth: CGFloat = 248
-        static let gridSpacing: CGFloat = 46
         static let gridRowSpacing: CGFloat = 60
         /// Width between the page margins (1920 - 2 x 80).
         static let contentWidth: CGFloat = 1760
