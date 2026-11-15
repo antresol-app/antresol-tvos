@@ -16,6 +16,7 @@ struct SearchView: View {
             content
                 .padding(.bottom, 100)
         }
+        .reportsTabScroll()
         .scrollClipDisabled()
         .ignoresSafeArea(edges: .horizontal)
         .background(Theme.Colors.background.ignoresSafeArea())
