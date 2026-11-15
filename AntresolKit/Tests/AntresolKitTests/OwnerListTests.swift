@@ -42,6 +42,15 @@ final class OwnerListTests: XCTestCase {
         XCTAssertTrue(marked.card.watched)
     }
 
+    func testTopShelfEpisodeTileUsesItsStillFirst() {
+        let episode = Card(id: 12, kind: .episode, title: "E1", poster: "/p", backdrop: "/b", progress: 0.5, thumb: "/api/images/frame/12")
+        let wide = TopShelfPlan.entry(episode, shape: .wide)
+        XCTAssertEqual(wide.imagePaths, ["/api/images/frame/12", "/b", "/p"])
+        XCTAssertEqual(wide.imagePath, "/api/images/frame/12")
+        XCTAssertEqual(TopShelfPlan.entry(episode, shape: .poster).imagePath, "/p", "posters stay posters")
+        XCTAssertNil(TopShelfPlan.entry(Card(id: 1, kind: .movie, title: "M"), shape: .wide).imagePath)
+    }
+
     func testCastPhoto() throws {
         let json = #"{"id":19,"kind":"movie","title":"M","cast":[{"name":"Ann Example","character":"Lead","photo":"/api/images/cast/Ann%20Example"},{"name":"Bo"}]}"#
         let detail = try JSONDecoder().decode(ItemDetail.self, from: Data(json.utf8))
