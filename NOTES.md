@@ -1004,3 +1004,35 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
 - The Top Shelf extension still exits on the tvOS 27.2 simulator before running, so the
   On Air Now tiles (and the placeholder picture) were not seen.
 - Swipes on a real Siri Remote were not exercised (the UI tests send clicks).
+
+## Owner list, 2026-11-15 (trailers, watched marks, stills, cast, settings, tab reset)
+
+### What exists
+- **Kit**: `Card.watched` and `Card.thumb` (episode still; `wideArtwork` = thumb, backdrop,
+  poster), `CastMember.photo`, `Trailer` / `TrailerList` and `APIClient.trailers(itemId:)`
+  (`GET /api/items/{id}/trailers`; entries without a key or not on YouTube are dropped).
+- **Watched**: `WatchedMark` + `watchedDimming(_:isFocused:)` on `PosterCard`, `WideCard` and
+  `EpisodeCardView` (replaces the old checkmark); focus lifts most of the dimming. Marking
+  watched on a page bumps `libraryRevision`, so grids and Home redraw their marks.
+- **Stills**: episode tiles, Continue Watching and the Up Next offer use `wideArtwork`;
+  `RemoteImage` takes fallbacks, so a 404 frame gives way to the series' backdrop.
+- **Cast**: portraits over the initials (the initials stay as the placeholder and fallback).
+- **Trailers**: `TrailerButton` on movie and series pages (fetched once per page, beside the
+  detail load). `youtube://watch/<key>` when `canOpenURL` says the YouTube app is there
+  (`LSApplicationQueriesSchemes`: youtube); else a sheet with the https URL as a QR code.
+- **Settings**: the Server section (address, version, Devices, Change Server) is gone, with
+  `DevicesView`, `ServerEntryView`'s `close` and their strings. The kit keeps its device API.
+- **Tab reset** (`TabResetCoordinator`): the shell owns every tab's path; leaving a tab that
+  has a page pushed or was scrolled (`reportsTabScroll`, tvOS 18+) starts a 5 s timer, after
+  which its path is emptied and its root rebuilt (`.id`). Settings always resets (cheap).
+  `-AntresolTabResetSeconds` stretches the delay for UI tests.
+- **Movies / TV Shows**: column spacing fills the content width (was 46 pt, leaving the right
+  margin 42 pt wider); the header no longer scrolls, the grid scrolls below it with a fade.
+- **Mock server**: watched marks, thumbs, cast portraits, trailers for items 19 and 2, and 22
+  generated movies so the grid scrolls.
+
+### Known gaps
+- The YouTube app path is unverified: the simulator has no YouTube app, so only the QR sheet
+  was seen. Top Shelf still uses the backdrop for episode tiles (one image, no fallback).
+- The TV tab is reset only after a pushed page, not after scrolling the channel list (its
+  first state is the last channel, which a scroll check cannot tell apart).

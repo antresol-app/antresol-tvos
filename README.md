@@ -24,12 +24,20 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   restored at launch.
 - **Home**: a full-screen hero carousel like the TV app's (title, kind and genres with the age
   rating, a one-line description, Play and round watchlist, info and next buttons, page dots),
-  Continue Watching rising into it (plays at once), and the server's shelves: recently added,
+  Continue Watching rising into it (a click resumes, a long press offers the movie's or
+  episode's page or a fresh start), and the server's shelves: recently added,
   new episodes, Want to Watch, recently played. The server's books, audiobooks and comics are
   left out: the TV app does not offer them.
-- **Movies and TV Shows**: poster grids with sort pills (recent, title, year) and paging.
+- **Movies and TV Shows**: poster grids with sort pills (recent, title, year) and paging; the
+  title and pill stay put while the grid scrolls below them.
+- **Cards**: watched movies, episodes and fully watched shows are dimmed with an eye mark;
+  episode tiles show the episode's own still (a frame of its video when it has none).
+- **Tabs**: a tab left for five seconds goes back to its first page, scrolled to the top;
+  coming back sooner keeps it as it was.
 - **Details**: movie, show and episode pages offer Play, Resume and Restart, plus watchlist and
-  watched toggles. Show pages have seasons and episodes; all of them list cast, versions,
+  watched toggles, and Trailer when the server knows one (the YouTube app plays it; without
+  it, a QR code opens it on a phone; several trailers offer a choice). Show pages have seasons
+  and episodes; all of them list cast with portraits, versions,
   tracks and file info. With server 0.5.0 or newer a show lists every aired episode, marked
   downloaded or not (only downloaded ones play), and the known upcoming ones greyed with their
   date.
@@ -68,8 +76,7 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - The film player lists voice-over files beside the video and their cleaned versions
     ("Cleaned"), each cleaned one under the track it was made from.
   - App language: System, English or Русский.
-  - Server address and version, and Change Server (hidden for kid profiles).
-  - Devices signed in to the profile, with sign-out of other devices.
+  - No server settings: the address, devices and library are managed in the web app.
   - Version and acknowledgements.
 - **Top Shelf**: when the app is in the top row, the Home screen shows the profile's Continue
   Watching, the channels On Air Now and Recently Added. Selecting a tile opens its page; Play
