@@ -30,6 +30,10 @@ enum Theme {
         /// A QR code's plate and modules: pure white and black, which every camera reads.
         static let qrBackground = Color.white
         static let qrModule = Color.black
+        /// The watched mark's disc, and how far watched artwork is dimmed (at rest, focused).
+        static let watchedMarkFill = Color.black.opacity(0.62)
+        static let watchedDim: Double = 0.5
+        static let watchedDimFocused: Double = 0.15
     }
 
     enum Gradients {
@@ -142,6 +146,9 @@ enum Theme {
         /// Inner padding of list rows (tracks, queue); lists are outdented by it
         /// so the row text lines up with the page's headings.
         static let listRowInset: CGFloat = 28
+        /// The watched mark's disc and its eye symbol.
+        static let watchedMark: CGFloat = 44
+        static let watchedMarkSymbol: CGFloat = 20
     }
 
     enum Motion {

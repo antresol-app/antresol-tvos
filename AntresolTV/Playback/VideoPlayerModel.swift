@@ -496,8 +496,9 @@ final class VideoPlayerModel {
                   let next = UpNext.episode(after: item.id, in: series.seasons)
             else { return }
             var image: UIImage?
-            let path = next.card.backdrop.isEmpty ? next.card.poster : next.card.backdrop
-            if !path.isEmpty, let url = client.urls.image(path) {
+            // The next episode's own still first; the series' backdrop or poster otherwise.
+            for path in next.card.wideArtwork where !path.isEmpty && image == nil {
+                guard let url = client.urls.image(path) else { continue }
                 image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800)
             }
             guard !Task.isCancelled, let self, self.item?.id == item.id else { return }

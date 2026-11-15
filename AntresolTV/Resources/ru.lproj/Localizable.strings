@@ -335,3 +335,11 @@
 "Scan the code with your phone's camera or in the Antresol app." = "Отсканируйте код камерой телефона или в приложении Antresol.";
 "Apple TV isn't connected to a home network, so the phone can't reach it. Choose a server below or enter its address with the remote." = "Apple TV не подключена к домашней сети, и телефон не может с ней связаться. Выберите сервер ниже или введите адрес пультом.";
 "Enter Address with the Remote" = "Ввести адрес пультом";
+
+/* Trailers */
+"Trailer" = "Трейлер";
+"Teaser" = "Тизер";
+"Trailers" = "Трейлеры";
+"Open on Your Phone" = "Откройте на телефоне";
+"YouTube isn't installed on this Apple TV. Point your phone's camera at the code to watch the trailer there." = "На этом Apple TV нет YouTube. Наведите камеру телефона на код, чтобы посмотреть трейлер на нём.";
+"Done" = "Готово";

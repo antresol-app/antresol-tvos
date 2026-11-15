@@ -51,6 +51,10 @@ struct LibraryView: View {
         .onChange(of: playback.completedSessions) {
             Task { await model.reload(sort: sort.wrappedValue, using: appState) }
         }
+        .onChange(of: appState.libraryRevision) {
+            // Watched marks changed on a page.
+            Task { await model.reload(sort: sort.wrappedValue, using: appState) }
+        }
     }
 
     private var header: some View {

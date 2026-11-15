@@ -7,6 +7,9 @@ import UIKit
 struct RemoteImage: View {
     /// A server image field (`poster`, `backdrop`, `cover`...). `""` draws nothing.
     let path: String
+    /// Paths tried in order when `path` does not load (an episode's frame may be gone with
+    /// the media disk, then the series' backdrop shows).
+    var fallbacks: [String] = []
     /// Longest side to decode, in pixels. Keep it near the on-screen size.
     var maxPixelSize: CGFloat = 600
     /// Fit inside the frame (a logo) instead of filling it (artwork).
@@ -28,28 +31,37 @@ struct RemoteImage: View {
                 }
             }
             .clipped()
-            .task(id: path) { await load() }
+            .task(id: candidates) { await load() }
     }
 
-    private var url: URL? {
-        appState.client?.urls.image(path)
+    /// `path`, then the fallbacks, without empty or repeated ones.
+    private var candidates: [String] {
+        var seen = Set<String>()
+        return ([path] + fallbacks).filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
+    private var urls: [URL] {
+        guard let client = appState.client else { return [] }
+        return candidates.compactMap { client.urls.image($0) }
     }
 
     private var cachedImage: UIImage? {
-        url.flatMap { ImagePipeline.shared.cachedImage(for: $0, maxPixelSize: maxPixelSize) }
+        urls.lazy.compactMap { ImagePipeline.shared.cachedImage(for: $0, maxPixelSize: maxPixelSize) }.first
     }
 
     private func load() async {
         image = nil
-        guard let url, let client = appState.client else {
-            image = nil
-            return
+        guard let client = appState.client else { return }
+        for url in urls {
+            let loaded = await ImagePipeline.shared.image(
+                for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: maxPixelSize
+            )
+            guard !Task.isCancelled else { return }
+            if let loaded {
+                withAnimation(Theme.Motion.easeOut) { image = loaded }
+                onLoad?(loaded)
+                return
+            }
         }
-        let loaded = await ImagePipeline.shared.image(
-            for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: maxPixelSize
-        )
-        guard !Task.isCancelled else { return }
-        withAnimation(Theme.Motion.easeOut) { image = loaded }
-        if let loaded { onLoad?(loaded) }
     }
 }
