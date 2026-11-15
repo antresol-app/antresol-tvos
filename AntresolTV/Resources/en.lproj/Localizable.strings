@@ -36,7 +36,6 @@
 "Kid profile" = "Kid profile";
 "Kid profile · up to %@" = "Kid profile · up to %@";
 "Profile" = "Profile";
-"Server" = "Server";
 "Switch Profile" = "Switch Profile";
 "Sign Out" = "Sign Out";
 "Sign out of this profile?" = "Sign out of this profile?";
@@ -205,8 +204,6 @@
 "App Language" = "App Language";
 "Also the language the server uses for titles and descriptions." = "Also the language the server uses for titles and descriptions.";
 "System" = "System";
-"Address" = "Address";
-"Version" = "Version";
 "Antresol for Apple TV" = "Antresol for Apple TV";
 "Acknowledgements" = "Acknowledgements";
 "This Apple TV is removed from the profile's devices. You can sign in again from the profile picker." = "This Apple TV is removed from the profile's devices. You can sign in again from the profile picker.";
@@ -253,15 +250,6 @@
 "Deleted “%@”" = "Deleted “%@”";
 "Choose New Playlist, or long-press a song and choose Add to Playlist." = "Choose New Playlist, or long-press a song and choose Add to Playlist.";
 "%@, Profile and Settings" = "%@, Profile and Settings";
-"Devices" = "Devices";
-"Apps signed in to this profile. Signing a device out means it has to sign in again; the web app is not listed." = "Apps signed in to this profile. Signing a device out means it has to sign in again; the web app is not listed.";
-"Sign out “%@”?" = "Sign out “%@”?";
-"Sign Out Device" = "Sign Out Device";
-"The device stops playing and has to sign in to this profile again." = "The device stops playing and has to sign in to this profile again.";
-"This Apple TV" = "This Apple TV";
-"Signs this device out" = "Signs this device out";
-"Last seen %@" = "Last seen %@";
-"Unnamed device" = "Unnamed device";
 
 /* TV (live channels) */
 "TV" = "TV";

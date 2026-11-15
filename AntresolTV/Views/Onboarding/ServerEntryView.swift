@@ -8,13 +8,7 @@ import SwiftUI
 /// home network (Bonjour), or "Enter Address with the Remote", which shows the address
 /// field (a host, `host:port` or a full http(s) URL, port 8420 by default, checked with
 /// `/api/health` before continuing; a found server connects the same way).
-///
-/// Opened from Settings while signed in, it is presented over the shell with `close`: the
-/// signed-in session (tabs, playback) is untouched until another server connects.
 struct ServerEntryView: View {
-    /// Dismisses the screen when it was presented over a signed-in session.
-    var close: (() -> Void)?
-
     @Environment(AppState.self) private var appState
     @State private var browser = ServerBrowser()
     @State private var setup = PhoneSetup()
@@ -279,15 +273,11 @@ struct ServerEntryView: View {
     }
 
     private var canCancel: Bool {
-        close != nil || appState.canCancelServerChange
+        appState.canCancelServerChange
     }
 
     private func cancel() {
-        if let close {
-            close()
-        } else {
-            appState.cancelServerChange()
-        }
+        appState.cancelServerChange()
     }
 
     @ViewBuilder
@@ -330,7 +320,6 @@ struct ServerEntryView: View {
         Task {
             do {
                 try await appState.connect(to: address)
-                close?()
             } catch {
                 errorMessage = Self.describe(error)
                 focus = serverId.map(Field.server) ?? (entersAddress ? .address : .enterAddress)

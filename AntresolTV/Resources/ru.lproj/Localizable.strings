@@ -36,7 +36,6 @@
 "Kid profile" = "Детский профиль";
 "Kid profile · up to %@" = "Детский профиль · до %@";
 "Profile" = "Профиль";
-"Server" = "Сервер";
 "Switch Profile" = "Сменить профиль";
 "Sign Out" = "Выйти";
 "Sign out of this profile?" = "Выйти из этого профиля?";
@@ -205,8 +204,6 @@
 "App Language" = "Язык приложения";
 "Also the language the server uses for titles and descriptions." = "На этом же языке сервер показывает названия и описания.";
 "System" = "Системный";
-"Address" = "Адрес";
-"Version" = "Версия";
 "Antresol for Apple TV" = "Antresol для Apple TV";
 "Acknowledgements" = "Благодарности и лицензии";
 "This Apple TV is removed from the profile's devices. You can sign in again from the profile picker." = "Этот Apple TV будет удалён из устройств профиля. Войти снова можно на экране выбора профиля.";
@@ -253,15 +250,6 @@
 "Deleted “%@”" = "Плейлист «%@» удалён";
 "Choose New Playlist, or long-press a song and choose Add to Playlist." = "Выберите «Новый плейлист» или удерживайте кнопку на песне и выберите «Добавить в плейлист».";
 "%@, Profile and Settings" = "%@, профиль и настройки";
-"Devices" = "Устройства";
-"Apps signed in to this profile. Signing a device out means it has to sign in again; the web app is not listed." = "Приложения, в которых выполнен вход в этот профиль. Устройству, из которого вы выйдете, придётся войти снова; веб-приложение здесь не показано.";
-"Sign out “%@”?" = "Выйти на устройстве «%@»?";
-"Sign Out Device" = "Выйти на устройстве";
-"The device stops playing and has to sign in to this profile again." = "Воспроизведение на устройстве остановится, и в профиль придётся войти снова.";
-"This Apple TV" = "Эта Apple TV";
-"Signs this device out" = "Выполняет выход на этом устройстве";
-"Last seen %@" = "В сети %@";
-"Unnamed device" = "Устройство без названия";
 
 /* TV (live channels) */
 "TV" = "ТВ";
