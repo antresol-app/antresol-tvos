@@ -63,7 +63,7 @@ ROUTES = {
 
 
 class Library:
-    """Playlists and device sessions that the app can change, kept in memory."""
+    """Playlists that the app can change, kept in memory."""
 
     def __init__(self):
         detail = json.loads((SAMPLES / "playlist.json").read_text())
@@ -74,10 +74,6 @@ class Library:
                 self.tracks[track["id"]] = track
         self.playlists = {detail["playlist"]["id"]: {"playlist": detail["playlist"], "tracks": [t["id"] for t in detail["tracks"]]}}
         self.next_playlist = max(self.playlists) + 1
-        self.devices = json.loads((SAMPLES / "me-devices.json").read_text())["items"] + [
-            {"id": 11, "name": "Kitchen iPad", "model": "iPad13,1", "version": "1.0.0",
-             "createdAt": "2026-11-02T09:00:00Z", "lastSeen": "2026-11-03T18:30:00Z", "current": False},
-        ]
 
     def summary(self, playlist_id):
         entry = self.playlists[playlist_id]
@@ -92,7 +88,7 @@ class Library:
         return {"playlist": self.summary(playlist_id), "tracks": tracks}
 
     def handle(self, method, path, body):
-        """(status, json) for a playlist or device request, or None for other paths."""
+        """(status, json) for a playlist request, or None for other paths."""
         if path == "/api/music/playlists":
             if method == "GET":
                 return 200, {"items": [self.summary(i) for i in sorted(self.playlists)]}
@@ -129,13 +125,6 @@ class Library:
                     tracks = [tracks[n] for n in body["order"]]
                 entry["tracks"] = tracks + list(body.get("append") or [])
                 return 200, self.summary(playlist_id)
-        if path == "/api/me/devices" and method == "GET":
-            return 200, {"items": self.devices}
-        match = re.fullmatch(r"/api/me/devices/(\d+)", path)
-        if match and method == "DELETE":
-            before = len(self.devices)
-            self.devices = [d for d in self.devices if d["id"] != int(match.group(1))]
-            return (204, None) if len(self.devices) < before else (404, {"error": "Device not found"})
         return None
 
 
@@ -164,7 +153,7 @@ def image_for(path):
         digest = hashlib.sha1(path.encode()).digest()
         top = (digest[0], digest[1] // 2, digest[2])
         bottom = (digest[3] // 4, digest[4] // 4, digest[5] // 3)
-        size = (960, 540) if path.endswith("backdrop") else (400, 600)
+        size = (960, 540) if path.endswith("backdrop") or "/frame/" in path else (400, 600)
         _images[path] = png(*size, top, bottom)
     return _images[path]
 
@@ -233,6 +222,59 @@ def item_with_extras(item_id, sample):
     return item
 
 
+# Fields of newer servers the recorded samples predate: watched marks on cards, each
+# episode's own still (`thumb`, a frame of its video), cast portraits and trailers.
+WATCHED = {1, 4, 25}
+CAST = [
+    {"name": "Ada Example", "character": "Captain", "photo": "/api/images/cast/Ada%20Example"},
+    {"name": "Ben Sample", "character": "Engineer", "photo": "/api/images/cast/Ben%20Sample"},
+    {"name": "Cy Placeholder", "character": "Navigator"},
+    {"name": "Dee Fixture", "character": "Doctor", "photo": "/api/images/cast/Dee%20Fixture"},
+    {"name": "Eli Stand-In", "character": "Pilot", "photo": "/api/images/cast/Eli%20Stand-In"},
+]
+TRAILERS = {
+    19: [{"name": "Official Trailer", "site": "YouTube", "key": "aqz-KE-bpKQ", "type": "Trailer", "lang": "en",
+          "official": True, "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ"}],
+    2: [{"name": "Official Trailer", "site": "YouTube", "key": "tst-trailer1", "type": "Trailer", "lang": "en",
+         "official": True, "url": "https://www.youtube.com/watch?v=tst-trailer1"},
+        {"name": "Season 2 Teaser", "site": "YouTube", "key": "tst-teaser02", "type": "Teaser", "lang": "en",
+         "official": True, "url": "https://www.youtube.com/watch?v=tst-teaser02"}],
+}
+
+
+def movie_grid(query):
+    """The recorded movies plus generated ones, so the grid has rows to scroll."""
+    page = json.loads((SAMPLES / "items-movies.json").read_text())
+    if "offset=" in query and not re.search(r"offset=0(&|$)", query):
+        return {"items": [], "total": page["total"] + 22}
+    for n in range(1, 23):
+        page["items"].append({"id": 100 + n, "kind": "movie", "title": f"Sample Movie {n}", "year": 2000 + n,
+                              "poster": f"/api/images/local/{100 + n}/poster", "progress": 0.4 if n == 5 else 0,
+                              "badges": ["1080p"], "onServer": True, "watched": n in (2, 9, 10)})
+    page["total"] = len(page["items"])
+    return page
+
+
+def enrich(value):
+    """Adds the newer card fields to every card in a response, in place."""
+    if isinstance(value, list):
+        for entry in value:
+            enrich(entry)
+    elif isinstance(value, dict):
+        if isinstance(value.get("id"), int) and isinstance(value.get("kind"), str):
+            if value["id"] in WATCHED and value["kind"] in ("movie", "episode"):
+                value["watched"] = True
+            if value["kind"] == "episode" and not value.get("thumb"):
+                value["thumb"] = f"/api/images/frame/{value['id']}"
+            if value["kind"] == "series" and value["id"] == 2 and not value.get("backdrop"):
+                value["backdrop"] = "/api/images/local/2/backdrop"
+            if "cast" in value and not value["cast"] and value["kind"] in ("movie", "series"):
+                value["cast"] = CAST
+        for entry in value.values():
+            enrich(entry)
+    return value
+
+
 def tracking_episodes():
     """The full episode list of the test show, its upcoming episode a month from today."""
     data = json.loads((SAMPLES / "tracking-episodes.json").read_text())
@@ -299,6 +341,16 @@ class Handler(BaseHTTPRequestHandler):
         if handled:
             status, payload = handled
             return self.send(status, json.dumps(payload).encode() if payload is not None else b"", "application/json")
+        if method == "GET" and re.fullmatch(r"/api/items/\d+/trailers", path):
+            item_id = int(path.split("/")[3])
+            return self.send(200, json.dumps({"trailers": TRAILERS.get(item_id, [])}).encode(), "application/json")
+        # A busy server answers some frames 503 (the app shows the series' picture instead).
+        if method == "GET" and path == "/api/images/frame/5":
+            self.send_response(503)
+            self.send_header("Retry-After", "5")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if method == "GET" and path.startswith("/api/images/"):
             return self.send(200, image_for(path), "image/png")
         if method == "POST" and path == "/api/logout":
@@ -348,6 +400,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, json.dumps(item_with_extras(2, "item-series.json")).encode(), "application/json")
         if method == "GET" and path == "/api/tracking/series/1399/episodes":
             return self.send(200, json.dumps(tracking_episodes()).encode(), "application/json")
+        if method == "GET" and path == "/api/items" and "kind=movie" in query:
+            return self.send(200, json.dumps(movie_grid(query)).encode(), "application/json")
         if method == "GET" and path == "/api/items" and "kind=series" in query:
             return self.send(200, (SAMPLES / "items-series.json").read_bytes(), "application/json")
         for (verb, pattern), sample in ROUTES.items():
@@ -379,6 +433,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(chunk)
 
     def send(self, status, body, content_type):
+        if content_type == "application/json" and body:
+            body = json.dumps(enrich(json.loads(body))).encode()
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))

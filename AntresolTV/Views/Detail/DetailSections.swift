@@ -1,8 +1,9 @@
 import AntresolKit
 import SwiftUI
 
-/// The cast as a row of initials avatars (the API has no portraits) with the name and
-/// character. Cells are focusable so the row can be scrolled with the remote.
+/// The cast as a row of round portraits (`cast[].photo`, initials on a gradient while it
+/// loads or when there is none) with the name and character. Cells are focusable so the
+/// row can be scrolled with the remote.
 struct CastRow: View {
     let cast: [CastMember]
 
@@ -37,8 +38,13 @@ private struct CastCell: View {
                 Text(verbatim: initials)
                     .font(Theme.Typography.avatarInitial(size: size * 0.8))
                     .foregroundStyle(.white)
+                if !member.photo.isEmpty {
+                    // Covers the initials once it loads; a missing portrait leaves them.
+                    RemoteImage(path: member.photo, maxPixelSize: size * 2)
+                }
             }
             .frame(width: size, height: size)
+            .clipShape(Circle())
             .cardLift(isFocused: isFocused, cornerRadius: size / 2)
             .animation(Theme.Motion.easeOut, value: isFocused)
             VStack(spacing: 4) {

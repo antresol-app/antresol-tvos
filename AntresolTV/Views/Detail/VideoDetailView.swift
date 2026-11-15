@@ -55,6 +55,7 @@ struct VideoDetailView: View {
             focusedButton = .play
         }
         .task(id: card.uniqueKey) { await model.load(using: appState) }
+        .task(id: card.uniqueKey) { await model.loadTrailers(using: appState) }
         .onChange(of: playback.completedSessions) {
             Task { await model.load(using: appState) }
         }
@@ -254,6 +255,7 @@ struct VideoDetailView: View {
         }
 
         if shownCard.kind == .movie {
+            trailerButton
             watchlistButton
         }
 
@@ -291,6 +293,7 @@ struct VideoDetailView: View {
         .focused($focusedButton, equals: .play)
         .disabled(model.detail != nil && next == nil)
 
+        trailerButton
         watchlistButton
 
         if let detail = model.detail {
@@ -302,6 +305,13 @@ struct VideoDetailView: View {
             }
             .buttonStyle(PillButtonStyle(kind: .glass))
             .disabled(model.busy.contains(.watched(detail.id)))
+        }
+    }
+
+    @ViewBuilder
+    private var trailerButton: some View {
+        if !model.trailers.isEmpty {
+            TrailerButton(trailers: model.trailers)
         }
     }
 

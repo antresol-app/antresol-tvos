@@ -36,7 +36,6 @@
 "Kid profile" = "Детский профиль";
 "Kid profile · up to %@" = "Детский профиль · до %@";
 "Profile" = "Профиль";
-"Server" = "Сервер";
 "Switch Profile" = "Сменить профиль";
 "Sign Out" = "Выйти";
 "Sign out of this profile?" = "Выйти из этого профиля?";
@@ -205,8 +204,6 @@
 "App Language" = "Язык приложения";
 "Also the language the server uses for titles and descriptions." = "На этом же языке сервер показывает названия и описания.";
 "System" = "Системный";
-"Address" = "Адрес";
-"Version" = "Версия";
 "Antresol for Apple TV" = "Antresol для Apple TV";
 "Acknowledgements" = "Благодарности и лицензии";
 "This Apple TV is removed from the profile's devices. You can sign in again from the profile picker." = "Этот Apple TV будет удалён из устройств профиля. Войти снова можно на экране выбора профиля.";
@@ -253,15 +250,6 @@
 "Deleted “%@”" = "Плейлист «%@» удалён";
 "Choose New Playlist, or long-press a song and choose Add to Playlist." = "Выберите «Новый плейлист» или удерживайте кнопку на песне и выберите «Добавить в плейлист».";
 "%@, Profile and Settings" = "%@, профиль и настройки";
-"Devices" = "Устройства";
-"Apps signed in to this profile. Signing a device out means it has to sign in again; the web app is not listed." = "Приложения, в которых выполнен вход в этот профиль. Устройству, из которого вы выйдете, придётся войти снова; веб-приложение здесь не показано.";
-"Sign out “%@”?" = "Выйти на устройстве «%@»?";
-"Sign Out Device" = "Выйти на устройстве";
-"The device stops playing and has to sign in to this profile again." = "Воспроизведение на устройстве остановится, и в профиль придётся войти снова.";
-"This Apple TV" = "Эта Apple TV";
-"Signs this device out" = "Выполняет выход на этом устройстве";
-"Last seen %@" = "В сети %@";
-"Unnamed device" = "Устройство без названия";
 
 /* TV (live channels) */
 "TV" = "ТВ";
@@ -335,3 +323,11 @@
 "Scan the code with your phone's camera or in the Antresol app." = "Отсканируйте код камерой телефона или в приложении Antresol.";
 "Apple TV isn't connected to a home network, so the phone can't reach it. Choose a server below or enter its address with the remote." = "Apple TV не подключена к домашней сети, и телефон не может с ней связаться. Выберите сервер ниже или введите адрес пультом.";
 "Enter Address with the Remote" = "Ввести адрес пультом";
+
+/* Trailers */
+"Trailer" = "Трейлер";
+"Teaser" = "Тизер";
+"Trailers" = "Трейлеры";
+"Open on Your Phone" = "Откройте на телефоне";
+"YouTube isn't installed on this Apple TV. Point your phone's camera at the code to watch the trailer there." = "На этом Apple TV нет YouTube. Наведите камеру телефона на код, чтобы посмотреть трейлер на нём.";
+"Done" = "Готово";

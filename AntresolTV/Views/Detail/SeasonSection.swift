@@ -115,7 +115,7 @@ struct SeasonSection: View {
     }
 }
 
-/// A 16:9 episode card: artwork with progress or a watched mark, then "E2 · 20 min",
+/// A 16:9 episode card: its own still with progress, or dimmed with the watched eye, then "E2 · 20 min",
 /// the title and two lines of overview. On a full episode list the meta line carries
 /// "Downloaded", "Not downloaded" or "Airs 1 Dec", and the last two are dimmed.
 struct EpisodeCardView: View {
@@ -138,7 +138,8 @@ struct EpisodeCardView: View {
     /// A library episode.
     init(episode: EpisodeCard, state: GuideEpisode.State? = nil, width: CGFloat = Theme.Layout.episodeWidth) {
         title = episode.title
-        artwork = [episode.backdrop, episode.poster]
+        // The episode's own still: the backdrop and poster are the series' for every episode.
+        artwork = episode.card.wideArtwork
         episodeNo = episode.episodeNo
         durationMs = episode.durationMs
         overview = episode.overview
@@ -182,18 +183,8 @@ struct EpisodeCardView: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
             }
-            .overlay(alignment: .topTrailing) {
-                if watched {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 34, weight: .semibold))
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.black, .white)
-                        .shadow(color: .black.opacity(0.4), radius: 6)
-                        .padding(14)
-                        .accessibilityLabel(Text("Watched"))
-                }
-            }
             .frame(width: width, height: width * 9 / 16)
+            .watchedDimming(watched, isFocused: isFocused)
             .cardLift(isFocused: isFocused)
 
             VStack(alignment: .leading, spacing: 6) {

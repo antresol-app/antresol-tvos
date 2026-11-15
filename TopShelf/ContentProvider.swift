@@ -26,7 +26,15 @@ final class ContentProvider: TVTopShelfContentProvider {
 
         let artwork = TopShelfArtwork(client: client)
         let paths = plan.sections.flatMap { $0.entries.compactMap(\.imagePath) } + live.entries.map(\.imagePath).filter { !$0.isEmpty }
-        let files = await artwork.files(for: paths)
+        var files = await artwork.files(for: paths)
+        // A tile whose best picture failed (an episode frame while the server is busy) gets
+        // its next one.
+        let fallbacks = plan.sections.flatMap(\.entries).compactMap { entry in
+            entry.imagePaths.first { files[$0] != nil } == nil ? entry.imagePaths.dropFirst().first : nil
+        }
+        if !fallbacks.isEmpty {
+            files.merge(await artwork.files(for: fallbacks)) { current, _ in current }
+        }
         let placeholder = live.entries.contains { files[$0.imagePath] == nil } ? artwork.placeholderFile() : nil
 
         var collections = plan.sections.map { section in
@@ -34,7 +42,7 @@ final class ContentProvider: TVTopShelfContentProvider {
                 let item = TVTopShelfSectionedItem(identifier: entry.card.uniqueKey)
                 item.title = entry.card.title
                 item.imageShape = section.shape == .wide ? .hdtv : .poster
-                if let path = entry.imagePath, let file = files[path] {
+                if let file = entry.imagePaths.lazy.compactMap({ files[$0] }).first {
                     item.setImageURL(file, for: [.screenScale1x, .screenScale2x])
                 }
                 if let progress = entry.progress {

@@ -28,6 +28,10 @@ final class VideoDetailModel {
     var selectedSeasonNumber: Int?
     /// The season item the page was opened with, chosen once the seasons are known.
     private var openedSeasonId: Int?
+    /// The movie's or series' trailers (`/api/items/{id}/trailers`), empty until loaded or
+    /// when there are none.
+    private(set) var trailers: [Trailer] = []
+    @ObservationIgnored private var trailersLoaded = false
     /// Actions in flight, so their buttons can be disabled.
     private(set) var busy: Set<Action> = []
     /// The last action error, shown under the buttons.
@@ -108,6 +112,16 @@ final class VideoDetailModel {
         }
     }
 
+    /// Once per page, for a movie or series (a season page is its series'), beside the
+    /// detail load. Any failure (a server without the endpoint) means no trailers.
+    func loadTrailers(using appState: AppState) async {
+        guard !trailersLoaded, [.movie, .series, .season].contains(card.kind), let client = appState.client else { return }
+        let list = (try? await client.trailers(itemId: itemId)) ?? []
+        guard !Task.isCancelled else { return }
+        trailersLoaded = true
+        trailers = list
+    }
+
     private func updateGuide(_ detail: ItemDetail) {
         let guide = EpisodeGuide(library: detail.seasons, tracking: tracking, today: EpisodeGuide.day(Date()))
         self.guide = guide
@@ -131,6 +145,8 @@ final class VideoDetailModel {
         await perform(.watched(itemId), appState: appState) {
             try await client.setWatched(itemId: itemId, watched)
         }
+        // Grids and shelves redraw their watched marks.
+        appState.libraryChanged()
     }
 
     private func perform(_ action: Action, appState: AppState, _ work: () async throws -> Void) async {

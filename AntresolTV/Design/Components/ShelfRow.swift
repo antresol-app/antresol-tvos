@@ -42,6 +42,7 @@ struct ShelfRow<Data: RandomAccessCollection, ID: Hashable, Cell: View>: View {
                 // Room for the focus lift and shadow, which the scroll view would clip.
                 .padding(.vertical, 24)
             }
+            .reportsTabScroll(.horizontal)
             .scrollClipDisabled()
         }
         .focusSection()

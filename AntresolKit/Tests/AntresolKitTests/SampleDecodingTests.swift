@@ -33,6 +33,7 @@ final class SampleDecodingTests: XCTestCase {
             "item-movie.json": d(ItemDetail.self),
             "item-season.json": d(ItemDetail.self),
             "item-series.json": d(ItemDetail.self),
+            "item-trailers.json": d(TrailerList.self),
             "items-movies.json": d(Page<Card>.self),
             "items-series.json": d(Page<Card>.self),
             "library-status.json": d(LibraryStatus.self),

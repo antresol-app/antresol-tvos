@@ -22,12 +22,19 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
     public var season: Int?
     public var episode: Int?
     public var resumeSec: Double?
+    /// The profile finished it: a movie or episode was watched to the end, a series or
+    /// season has every episode in the library watched. The server omits it when false.
+    public var watched: Bool
+    /// Episode cards only: a 16:9 still of this episode (its own stored still, else a frame
+    /// of its video), or `""`. Episode tiles show it before the series' backdrop or poster.
+    public var thumb: String
 
     public init(
         id: Int, kind: ItemKind, title: String, subtitle: String = "", year: Int? = nil,
         poster: String = "", backdrop: String = "", logo: String = "", progress: Double = 0,
         badges: [String] = [], onServer: Bool = true, seriesId: Int? = nil,
-        season: Int? = nil, episode: Int? = nil, resumeSec: Double? = nil
+        season: Int? = nil, episode: Int? = nil, resumeSec: Double? = nil,
+        watched: Bool = false, thumb: String = ""
     ) {
         self.id = id
         self.kind = kind
@@ -44,11 +51,13 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         self.season = season
         self.episode = episode
         self.resumeSec = resumeSec
+        self.watched = watched
+        self.thumb = thumb
     }
 
     enum CodingKeys: String, CodingKey {
         case id, kind, title, subtitle, year, poster, backdrop, logo, progress, badges, onServer
-        case seriesId, season, episode, resumeSec
+        case seriesId, season, episode, resumeSec, watched, thumb
     }
 
     public init(from decoder: Decoder) throws {
@@ -68,6 +77,14 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         season = c.optional(.season)
         episode = c.optional(.episode)
         resumeSec = c.optional(.resumeSec)
+        watched = c.value(.watched, default: false)
+        thumb = c.value(.thumb, default: "")
+    }
+
+    /// Artwork for a 16:9 episode tile, best first: the episode's own still, then the
+    /// backdrop and the poster (empty paths are skipped by the views).
+    public var wideArtwork: [String] {
+        [thumb, backdrop, poster]
     }
 
     /// A key that is unique across kinds (playlist ids live in their own id space).

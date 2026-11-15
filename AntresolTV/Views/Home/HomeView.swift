@@ -98,6 +98,7 @@ struct HomeView: View {
             }
             .padding(.bottom, 100)
         }
+        .reportsTabScroll()
         .ignoresSafeArea(edges: [.top, .horizontal])
     }
 }

@@ -86,11 +86,8 @@ struct SettingsInfoRow: View {
         }
         .font(Theme.Typography.headline)
         .padding(.horizontal, 36)
+        // Clear like the button rows at rest, so a read-only row looks like its neighbours.
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                .fill(Theme.Colors.fillSecondary)
-        )
         .accessibilityElement(children: .combine)
     }
 }

@@ -1,8 +1,9 @@
 import AntresolKit
 import SwiftUI
 
-/// The profile tab: who is signed in, playback and language preferences, the server, and
-/// about. Choices open their own page, like the tvOS Settings app.
+/// The profile tab: who is signed in (switch profile, sign out), playback and language
+/// preferences, and about. Choices open their own page, like the tvOS Settings app. The
+/// server itself is the web app's business: it is not shown here.
 struct SettingsView: View {
     let user: User
 
@@ -23,7 +24,6 @@ private struct SettingsPage: View {
     @AppStorage(PlayerPreferences.Key.subtitleLanguage) private var subtitleLanguage: String?
     @AppStorage(PlayerPreferences.Key.autoplayNext) private var autoplayNext = true
     @State private var isConfirmingSignOut = false
-    @State private var showsServerEntry = false
 
     /// Languages offered for audio and subtitles (two-letter codes, as the player stores them).
     private static let mediaLanguages = ["en", "ru", "uk", "de", "fr", "es", "it", "pt", "pl", "ja", "ko", "zh"]
@@ -39,7 +39,6 @@ private struct SettingsPage: View {
                 VStack(alignment: .leading, spacing: 60) {
                     playbackSection
                     languageSection
-                    serverSection
                     aboutSection
                 }
                 .padding(.vertical, 80)
@@ -68,10 +67,6 @@ private struct SettingsPage: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This Apple TV is removed from the profile's devices. You can sign in again from the profile picker.")
-        }
-        .fullScreenCover(isPresented: $showsServerEntry) {
-            ServerEntryView { showsServerEntry = false }
-                .environment(appState)
         }
     }
 
@@ -197,31 +192,6 @@ private struct SettingsPage: View {
         case "ru": return "Русский"
         case "en": return "English"
         default: return String(localized: "As the Profile", bundle: .localized)
-        }
-    }
-
-    // MARK: Server
-
-    @ViewBuilder
-    private var serverSection: some View {
-        if let server = appState.server {
-            SettingsSection("Server") {
-                SettingsInfoRow(title: "Address", value: server.displayName)
-                SettingsInfoRow(title: "Version", value: server.version)
-                NavigationLink {
-                    DevicesView()
-                } label: {
-                    SettingsRowLabel("Devices")
-                }
-                // A kid profile cannot point the Apple TV at another server.
-                if !user.isKid {
-                    Button {
-                        showsServerEntry = true
-                    } label: {
-                        SettingsRowLabel("Change Server", symbol: "server.rack")
-                    }
-                }
-            }
         }
     }
 

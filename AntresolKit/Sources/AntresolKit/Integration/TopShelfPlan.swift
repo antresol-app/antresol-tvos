@@ -10,7 +10,7 @@ public struct TopShelfPlan: Sendable, Equatable {
 
     /// The artwork shape a section uses.
     public enum Shape: Sendable {
-        /// 16:9, backdrop first.
+        /// 16:9: an episode's own still, else the backdrop.
         case wide
         /// 2:3 poster.
         case poster
@@ -18,8 +18,11 @@ public struct TopShelfPlan: Sendable, Equatable {
 
     public struct Entry: Sendable, Equatable {
         public let card: Card
-        /// Server-relative image path for the section's shape, or nil when the card has none.
-        public let imagePath: String?
+        /// Server-relative image paths for the section's shape, best first (an episode's
+        /// still may fail while the server is busy: the next one stands in).
+        public let imagePaths: [String]
+        /// The best image path, or nil when the card has none.
+        public var imagePath: String? { imagePaths.first }
         /// Watched fraction to draw on the tile, nil when nothing was watched yet.
         public let progress: Double?
         /// Opens the item's page.
@@ -73,13 +76,13 @@ public struct TopShelfPlan: Sendable, Equatable {
     static func entry(_ card: Card, shape: Shape) -> Entry {
         let candidates: [String]
         switch shape {
-        case .wide: candidates = [card.backdrop, card.poster]
+        case .wide: candidates = card.wideArtwork
         case .poster: candidates = [card.poster, card.backdrop]
         }
         let progress = card.progress > 0 ? min(card.progress, 1) : nil
         return Entry(
             card: card,
-            imagePath: candidates.first { !$0.isEmpty },
+            imagePaths: candidates.filter { !$0.isEmpty },
             progress: progress,
             displayURL: DeepLink.item(id: card.id).url,
             playURL: card.kind.isVideo ? DeepLink.play(id: card.id).url : nil

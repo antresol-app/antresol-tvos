@@ -77,6 +77,7 @@ struct PosterCard: View {
                 }
             }
             .frame(width: width, height: width * shape.aspectRatio)
+            .watchedDimming(card.watched, isFocused: isFocused, cornerRadius: cornerRadius)
             .cardLift(isFocused: isFocused, cornerRadius: cornerRadius)
 
             CardCaption(card: card, alignment: shape == .circle ? .center : .leading)
@@ -92,7 +93,7 @@ struct PosterCard: View {
     }
 
     private var showsProgress: Bool {
-        card.progress > 0 && shape != .circle
+        card.progress > 0 && !card.watched && shape != .circle
     }
 }
 
@@ -105,8 +106,8 @@ extension Collection where Element == Card {
     }
 }
 
-/// A 16:9 card for continue-watching rows and episodes: backdrop (or poster) with a
-/// progress bar, title and context line underneath.
+/// A 16:9 card for continue-watching rows and episodes: the episode's own still (else the
+/// backdrop or poster) with a progress bar, title and context line underneath.
 struct WideCard: View {
     let card: Card
     var width: CGFloat = Theme.Layout.wideWidth
@@ -117,12 +118,12 @@ struct WideCard: View {
         VStack(alignment: .leading, spacing: 0) {
             CardArtwork(
                 title: card.title,
-                paths: [card.backdrop, card.poster],
+                paths: card.wideArtwork,
                 maxPixelSize: width * 2,
                 placeholderAlignment: .topLeading
             )
             .overlay {
-                if card.progress > 0 {
+                if card.progress > 0, !card.watched {
                     ZStack(alignment: .bottom) {
                         Theme.Gradients.scrim
                         ProgressBar(value: card.progress)
@@ -133,6 +134,7 @@ struct WideCard: View {
                 }
             }
             .frame(width: width, height: width * 9 / 16)
+            .watchedDimming(card.watched, isFocused: isFocused)
             .cardLift(isFocused: isFocused)
 
             CardCaption(card: card, alignment: .leading, showsBadges: false)

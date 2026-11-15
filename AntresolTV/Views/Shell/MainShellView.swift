@@ -4,7 +4,7 @@ import TVServices
 
 /// The signed-in app: the system sidebar on tvOS 18 and later (the top tab bar before it)
 /// with Search, the library sections, live TV, Now Playing and the profile. Each tab keeps its own
-/// navigation stack.
+/// navigation stack; a tab left for five seconds goes back to its first state (`TabResetCoordinator`).
 struct MainShellView: View {
     let user: User
 
@@ -13,7 +13,7 @@ struct MainShellView: View {
     @State private var audio = AudioPlayer()
     @State private var playlists = PlaylistActions()
     @State private var showsNowPlaying = false
-    @State private var homePath = NavigationPath()
+    @State private var tabReset = TabResetCoordinator()
     /// The profile's avatar, drawn once for the profile tab.
     @State private var avatarImage: UIImage?
     @Environment(AppState.self) private var appState
@@ -58,6 +58,9 @@ struct MainShellView: View {
                         .environment(appState)
                         .environment(playback)
                 }
+        }
+        .onChange(of: selection) { old, new in
+            tabReset.selectionChanged(from: old, to: new)
         }
         .onChange(of: audio.presentationRequests) {
             if selection != .nowPlaying { showsNowPlaying = true }
@@ -189,33 +192,34 @@ struct MainShellView: View {
     }
 
     private var searchTab: some View {
-        TabNavigation {
+        TabNavigation(tab: .search, reset: tabReset) {
             SearchView { selection = $0 }
         }
     }
 
     private var homeTab: some View {
-        TabNavigation(path: $homePath) { HomeView() }
+        TabNavigation(tab: .home, reset: tabReset) { HomeView() }
     }
 
     private var moviesTab: some View {
-        TabNavigation { LibraryView(kind: .movie, title: "Movies") }
+        TabNavigation(tab: .movies, reset: tabReset) { LibraryView(kind: .movie, title: "Movies") }
     }
 
     private var showsTab: some View {
-        TabNavigation { LibraryView(kind: .series, title: "TV Shows") }
+        TabNavigation(tab: .shows, reset: tabReset) { LibraryView(kind: .series, title: "TV Shows") }
     }
 
     private var tvTab: some View {
-        TabNavigation { TVView() }
+        TabNavigation(tab: .tv, reset: tabReset) { TVView() }
     }
 
     private var musicTab: some View {
-        TabNavigation { MusicView() }
+        TabNavigation(tab: .music, reset: tabReset) { MusicView() }
     }
 
     private var accountTab: some View {
         SettingsView(user: user)
+            .id(tabReset.generation(of: .account))
     }
 
     /// The profile's name and avatar: the account tab's label.
@@ -261,7 +265,7 @@ struct MainShellView: View {
         var path = NavigationPath()
         // The app has no pages for books: a link to one just opens Home.
         if !card.kind.isBook { path.append(Route.linkedItem(card)) }
-        homePath = path
+        tabReset.setPath(path, for: .home)
     }
 
     /// `antresol://channel/{id}`: the channel's live player, with the TV tab under it. A
@@ -320,25 +324,19 @@ enum ShellTab: Hashable {
     case search, home, movies, shows, tv, music, nowPlaying, account
 }
 
-/// A tab's navigation stack with the app's routes registered. The stack's path is its
-/// own unless the caller passes one (to open pages from outside, e.g. deep links).
+/// A tab's navigation stack with the app's routes registered. The shell's reset
+/// coordinator keeps the path (so deep links can open pages and a reset can pop it) and
+/// rebuilds the root when the tab is reset.
 struct TabNavigation<Root: View>: View {
-    private let externalPath: Binding<NavigationPath>?
-    private let root: () -> Root
-    @State private var ownPath = NavigationPath()
-
-    init(path: Binding<NavigationPath>? = nil, @ViewBuilder root: @escaping () -> Root) {
-        externalPath = path
-        self.root = root
-    }
-
-    private var path: Binding<NavigationPath> {
-        externalPath ?? $ownPath
-    }
+    let tab: ShellTab
+    let reset: TabResetCoordinator
+    @ViewBuilder let root: () -> Root
 
     var body: some View {
+        let path = reset.path(for: tab)
         NavigationStack(path: path) {
             root()
+                .id(reset.generation(of: tab))
                 .navigationDestination(for: Route.self) { route in
                     Group {
                         switch route {
@@ -357,6 +355,8 @@ struct TabNavigation<Root: View>: View {
                 }
         }
         .environment(\.openRoute, OpenRouteAction { path.wrappedValue.append($0) })
+        .environment(\.shellTab, tab)
+        .environment(\.tabReset, reset)
     }
 }
 

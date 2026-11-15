@@ -28,27 +28,57 @@ struct LibraryView: View {
         )
     }
 
+    /// Six posters spread over the content width, so the grid's right edge lines up with
+    /// the sort pill's and both page margins are equal.
+    private static let columnCount = 6
     private let columns = Array(
-        repeating: GridItem(.fixed(Theme.Layout.gridPosterWidth), spacing: Theme.Layout.gridSpacing, alignment: .top),
-        count: 6
+        repeating: GridItem(
+            .fixed(Theme.Layout.gridPosterWidth),
+            spacing: (Theme.Layout.contentWidth - Theme.Layout.gridPosterWidth * CGFloat(columnCount)) / CGFloat(columnCount - 1),
+            alignment: .top
+        ),
+        count: columnCount
     )
 
+    /// Room above the first row for a focused poster's lift, inside the grid's clip.
+    private static let liftInset: CGFloat = 40
+
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 40) {
-                header
+        // The title and sort pill stay put; the grid scrolls below them and never under
+        // them or the sidebar's chip.
+        VStack(alignment: .leading, spacing: 40 - Self.liftInset) {
+            header
+                .padding(.horizontal, Theme.Layout.margin)
+            ScrollView(.vertical, showsIndicators: false) {
                 content
+                    .padding(.horizontal, Theme.Layout.margin)
+                    .padding(.top, Self.liftInset)
+                    .padding(.bottom, 100)
             }
-            .padding(.horizontal, Theme.Layout.margin)
-            .padding(.bottom, 100)
+            .reportsTabScroll()
+            // Lifted posters may reach past the sides and the bottom; at the top, rows
+            // scrolled up fade out under the header instead of sliding over it.
+            .scrollClipDisabled()
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: Self.liftInset)
+                    Color.black
+                }
+                .padding(.horizontal, -Theme.Layout.margin)
+                .padding(.bottom, -200)
+            }
         }
-        .scrollClipDisabled()
         .ignoresSafeArea(edges: .horizontal)
         .background(Theme.Colors.background.ignoresSafeArea())
         .task(id: sort.wrappedValue) {
             await model.reload(sort: sort.wrappedValue, using: appState)
         }
         .onChange(of: playback.completedSessions) {
+            Task { await model.reload(sort: sort.wrappedValue, using: appState) }
+        }
+        .onChange(of: appState.libraryRevision) {
+            // Watched marks changed on a page.
             Task { await model.reload(sort: sort.wrappedValue, using: appState) }
         }
     }

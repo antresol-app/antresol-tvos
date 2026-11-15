@@ -25,8 +25,10 @@ struct CardArtwork: View {
                     .padding(22)
                     .shadow(color: .black.opacity(0.4), radius: 6)
             }
-            if let path = paths.first(where: { !$0.isEmpty }) {
-                RemoteImage(path: path, maxPixelSize: maxPixelSize)
+            let available = paths.filter { !$0.isEmpty }
+            if let path = available.first {
+                // A path that does not load gives way to the next one.
+                RemoteImage(path: path, fallbacks: Array(available.dropFirst()), maxPixelSize: maxPixelSize)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
