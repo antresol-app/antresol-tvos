@@ -329,5 +329,8 @@
 "Teaser" = "Teaser";
 "Trailers" = "Trailers";
 "Open on Your Phone" = "Open on Your Phone";
+"The trailer couldn’t be played. Check the connection to the server and try again." = "The trailer couldn’t be played. Check the connection to the server and try again.";
+"The server is busy preparing other trailers. Try again in a moment." = "The server is busy preparing other trailers. Try again in a moment.";
+"This trailer is no longer available." = "This trailer is no longer available.";
 "YouTube isn't installed on this Apple TV. Point your phone's camera at the code to watch the trailer there." = "YouTube isn't installed on this Apple TV. Point your phone's camera at the code to watch the trailer there.";
 "Done" = "Done";

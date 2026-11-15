@@ -14,6 +14,8 @@ import hashlib
 import json
 import re
 import struct
+import threading
+import time
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -234,12 +236,36 @@ CAST = [
 ]
 TRAILERS = {
     19: [{"name": "Official Trailer", "site": "YouTube", "key": "aqz-KE-bpKQ", "type": "Trailer", "lang": "en",
-          "official": True, "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ"}],
+          "official": True, "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ", "play": "/api/trailers/aqz-KE-bpKQ/play"}],
     2: [{"name": "Official Trailer", "site": "YouTube", "key": "tst-trailer1", "type": "Trailer", "lang": "en",
-         "official": True, "url": "https://www.youtube.com/watch?v=tst-trailer1"},
+         "official": True, "url": "https://www.youtube.com/watch?v=tst-trailer1", "play": "/api/trailers/tst-trailer1/play"},
         {"name": "Season 2 Teaser", "site": "YouTube", "key": "tst-teaser02", "type": "Teaser", "lang": "en",
-         "official": True, "url": "https://www.youtube.com/watch?v=tst-teaser02"}],
+         "official": True, "url": "https://www.youtube.com/watch?v=tst-teaser02", "play": "/api/trailers/tst-teaser02/play"},
+        # As an older server lists it (no `play`): the app falls back to the QR code.
+        {"name": "Behind the Scenes", "site": "YouTube", "key": "tst-behind03", "type": "Teaser", "lang": "en",
+         "official": False, "url": "https://www.youtube.com/watch?v=tst-behind03"}],
 }
+# `POST play`: each first request of a pair is busy (503 + Retry-After, the app asks again),
+# then the answer comes after a pause, as a first fetch does. The teaser's fetch fails (502).
+TRAILER_FAILS = {"tst-teaser02"}
+TRAILER_PLAYS = {}
+TRAILER_LOCK = threading.Lock()
+
+
+def trailer_play(key):
+    """(status, headers, payload) for `POST /api/trailers/{key}/play`."""
+    listed = {t["key"] for entries in TRAILERS.values() for t in entries if t.get("play")}
+    if key not in listed:
+        return 404, {}, {"error": "Trailer not found"}
+    with TRAILER_LOCK:
+        TRAILER_PLAYS[key] = TRAILER_PLAYS.get(key, 0) + 1
+        attempt = TRAILER_PLAYS[key]
+    if attempt % 2 == 1:
+        return 503, {"Retry-After": "2"}, {"error": "Busy"}
+    time.sleep(3)
+    if key in TRAILER_FAILS:
+        return 502, {}, {"error": "Couldn't get the trailer from the video site. Try again later."}
+    return 200, {}, {"url": f"/api/trailers/{key}.mp4?mk=mock-media-key", "durationMs": 60000}
 
 
 def movie_grid(query):
@@ -344,6 +370,20 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET" and re.fullmatch(r"/api/items/\d+/trailers", path):
             item_id = int(path.split("/")[3])
             return self.send(200, json.dumps({"trailers": TRAILERS.get(item_id, [])}).encode(), "application/json")
+        match = re.fullmatch(r"/api/trailers/([A-Za-z0-9_-]{1,32})/play", path)
+        if method == "POST" and match:
+            status, headers, payload = trailer_play(match.group(1))
+            data = json.dumps(payload).encode()
+            self.send_response(status)
+            for name, value in headers.items():
+                self.send_header(name, value)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        if method == "GET" and re.fullmatch(r"/api/trailers/[A-Za-z0-9_-]{1,32}\.mp4", path):
+            return self.send_file(VIDEO, "video/mp4")
         # A busy server answers some frames 503 (the app shows the series' picture instead).
         if method == "GET" and path == "/api/images/frame/5":
             self.send_response(503)

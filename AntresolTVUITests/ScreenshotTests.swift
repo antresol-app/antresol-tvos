@@ -479,8 +479,10 @@ final class ScreenshotTests: XCTestCase {
         pause(2)
     }
 
-    /// Watched marks on posters and episodes, episode stills, cast portraits and trailers
-    /// (no YouTube app on the simulator: the QR code).
+    /// Watched marks on posters and episodes, episode stills, cast portraits and trailers:
+    /// the movie's trailer plays in the app (the mock is busy once, then slow), the series'
+    /// teaser fails (the error with Try Again), and a trailer without `play` falls back to
+    /// the QR code (no YouTube app on the simulator).
     func test14WatchedStillsCastTrailers() {
         let app = signInAsKid()
 
@@ -498,14 +500,19 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(moveFocus(.right, to: trailer, limit: 4), focusedLabel(app))
         pause(1)
         snapshot(app, "67-movie-trailer-button")
-        // One trailer: straight to the QR code.
+        // One trailer: the player opens at once, loading while the server gets it ready.
         remote.press(.select)
-        XCTAssertTrue(app.staticTexts["Open on Your Phone"].waitForExistence(timeout: 10))
-        pause(2)
-        snapshot(app, "68-trailer-qr")
+        XCTAssertTrue(app.staticTexts["Official Trailer"].waitForExistence(timeout: 5), hierarchy(app, mentioning: "Trailer"))
+        pause(1)
+        snapshot(app, "68-trailer-loading")
+        XCTAssertTrue(app.staticTexts["Official Trailer"].waitForNonExistence(timeout: 20), "the trailer starts")
+        XCTAssertFalse(app.staticTexts["Open on Your Phone"].exists, "no QR code for a trailer the server plays")
+        pause(4)
+        snapshot(app, "68b-trailer-playing")
+        // The transport bar is hidden by now: one Menu closes the player.
         remote.press(.menu)
-        pause(2)
-        XCTAssertFalse(app.staticTexts["Open on Your Phone"].exists, "Menu closes the code")
+        pause(3)
+        XCTAssertTrue(trailer.waitForExistence(timeout: 10), "Menu closes the trailer")
         for _ in 0..<2 {
             remote.press(.down)
             pause(1)
@@ -521,15 +528,33 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(trailer.waitForExistence(timeout: 20))
         pause(2)
         XCTAssertTrue(moveFocus(.right, to: trailer, limit: 4), focusedLabel(app))
-        // Two trailers: the chooser.
+        // Several trailers: the chooser.
         remote.press(.select)
         XCTAssertTrue(menuItem(app, "Season 2 Teaser").waitForExistence(timeout: 10), hierarchy(app, mentioning: "Teaser"))
         pause(1)
         snapshot(app, "70-trailer-chooser")
+        // The teaser's fetch fails on the server: the error, and Try Again asks again.
         chooseMenuItem(at: 1)
+        let tryAgain = app.buttons["Try Again"]
+        XCTAssertTrue(tryAgain.waitForExistence(timeout: 20), hierarchy(app, mentioning: "Teaser"))
+        pause(2)
+        snapshot(app, "71-trailer-error")
+        XCTAssertTrue(tryAgain.hasFocus, focusedLabel(app))
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Season 2 Teaser"].waitForExistence(timeout: 5), "loading again")
+        XCTAssertTrue(tryAgain.waitForExistence(timeout: 20))
+        pause(1)
+        remote.press(.menu)
+        pause(2)
+        XCTAssertTrue(trailer.waitForExistence(timeout: 10), "Menu closes the error")
+        XCTAssertTrue(moveFocus(.right, to: trailer, limit: 4), focusedLabel(app))
+        // A trailer the server does not play (an older server): the QR code.
+        remote.press(.select)
+        XCTAssertTrue(menuItem(app, "Behind the Scenes").waitForExistence(timeout: 10), hierarchy(app, mentioning: "Behind"))
+        chooseMenuItem(at: 2)
         XCTAssertTrue(app.staticTexts["Open on Your Phone"].waitForExistence(timeout: 10))
         pause(2)
-        snapshot(app, "71-trailer-qr-teaser")
+        snapshot(app, "71b-trailer-qr-fallback")
         remote.press(.menu)
         pause(2)
 

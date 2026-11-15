@@ -145,8 +145,10 @@ private struct PlayerViewController: UIViewControllerRepresentable {
 }
 
 /// Artwork-tinted background with a spinner while the stream is being prepared.
-private struct PreparingView: View {
+struct PreparingView: View {
     let card: Card
+    /// What is being prepared, when it is not the card itself (a trailer's name).
+    var title: String?
 
     var body: some View {
         ZStack {
@@ -155,7 +157,7 @@ private struct PreparingView: View {
                 .opacity(0.6)
             VStack(spacing: 28) {
                 ProgressView()
-                Text(verbatim: card.title)
+                Text(verbatim: title ?? card.title)
                     .font(Theme.Typography.headline)
                     .foregroundStyle(Theme.Colors.label2)
             }
@@ -228,8 +230,10 @@ private struct ResumePromptView: View {
 }
 
 /// Why playback could not start or stopped, with Try Again and Close.
-private struct PlaybackErrorView: View {
+struct PlaybackErrorView: View {
     let card: Card
+    /// What could not play, when it is not the card itself (a trailer's name).
+    var title: String?
     let message: String
     let retry: () -> Void
     let close: () -> Void
@@ -243,7 +247,7 @@ private struct PlaybackErrorView: View {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 80))
                     .foregroundStyle(Theme.Colors.label3)
-                Text("Can’t Play “\(card.title)”")
+                Text("Can’t Play “\(title ?? card.title)”")
                     .font(Theme.Typography.sectionTitle)
                     .foregroundStyle(Theme.Colors.label)
                     .multilineTextAlignment(.center)

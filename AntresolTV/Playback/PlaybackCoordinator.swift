@@ -36,8 +36,18 @@ final class PlaybackCoordinator {
         let filter: ChannelFilter
     }
 
+    /// A trailer the server plays itself (`Trailer.play`), over the title it belongs to.
+    struct TrailerRequest: Identifiable, Hashable {
+        let id = UUID()
+        let trailer: Trailer
+        let card: Card
+    }
+
     /// The request the player is showing, if any.
     var presented: Request?
+
+    /// The trailer the trailer player is showing, if any.
+    var presentedTrailer: TrailerRequest?
 
     /// The live channel the live player is showing, if any.
     var presentedChannel: LiveRequest?
@@ -56,6 +66,12 @@ final class PlaybackCoordinator {
     /// `filter`, by number.
     func watch(_ channel: Channel, channels: [Channel], filter: ChannelFilter = .all) {
         presentedChannel = LiveRequest(channel: channel, channels: channels, filter: filter)
+    }
+
+    /// Opens the trailer player. A trailer is not a playback session: no progress, no
+    /// Continue Watching, no Up Next, so `completedSessions` stays as it is.
+    func playTrailer(_ trailer: Trailer, of card: Card) {
+        presentedTrailer = TrailerRequest(trailer: trailer, card: card)
     }
 
     /// The live player closed. `completedSessions` is left alone: a channel is not a

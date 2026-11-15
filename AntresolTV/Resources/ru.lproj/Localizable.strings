@@ -329,5 +329,8 @@
 "Teaser" = "Тизер";
 "Trailers" = "Трейлеры";
 "Open on Your Phone" = "Откройте на телефоне";
+"The trailer couldn’t be played. Check the connection to the server and try again." = "Не удалось воспроизвести трейлер. Проверьте связь с сервером и попробуйте ещё раз.";
+"The server is busy preparing other trailers. Try again in a moment." = "Сервер занят подготовкой других трейлеров. Повторите чуть позже.";
+"This trailer is no longer available." = "Этот трейлер больше недоступен.";
 "YouTube isn't installed on this Apple TV. Point your phone's camera at the code to watch the trailer there." = "На этом Apple TV нет YouTube. Наведите камеру телефона на код, чтобы посмотреть трейлер на нём.";
 "Done" = "Готово";

@@ -3,11 +3,15 @@ import SwiftUI
 import UIKit
 
 /// «Трейлер» on a movie or series page. One trailer opens at once; several open a chooser.
-/// A trailer plays in the YouTube app when it is installed; otherwise a sheet shows the
-/// trailer's QR code, to watch it on a phone.
+/// A trailer the server can play (`play`) opens in the app's trailer player. On an older
+/// server, or with trailers off there, it plays in the YouTube app when it is installed;
+/// otherwise a sheet shows the trailer's QR code, to watch it on a phone.
 struct TrailerButton: View {
     let trailers: [Trailer]
+    /// The movie or series the trailers belong to (the player's backdrop).
+    let card: Card
 
+    @Environment(PlaybackCoordinator.self) private var playback
     @Environment(\.openURL) private var openURL
     @State private var choosing = false
     @State private var qrTrailer: Trailer?
@@ -35,6 +39,10 @@ struct TrailerButton: View {
     }
 
     private func open(_ trailer: Trailer) {
+        if trailer.playsInApp {
+            playback.playTrailer(trailer, of: card)
+            return
+        }
         guard let app = trailer.appURL, UIApplication.shared.canOpenURL(app) else {
             qrTrailer = trailer
             return
@@ -44,12 +52,17 @@ struct TrailerButton: View {
         }
     }
 
-    /// The trailer's name, else "Trailer" or "Teaser", with its language when known.
-    static func title(of trailer: Trailer) -> String {
-        let kind = trailer.isTeaser
+    /// The trailer's name, else "Trailer" or "Teaser".
+    static func name(of trailer: Trailer) -> String {
+        guard trailer.name.isEmpty else { return trailer.name }
+        return trailer.isTeaser
             ? String(localized: "Teaser", bundle: .localized)
             : String(localized: "Trailer", bundle: .localized)
-        let name = trailer.name.isEmpty ? kind : trailer.name
+    }
+
+    /// The trailer's name, else "Trailer" or "Teaser", with its language when known.
+    static func title(of trailer: Trailer) -> String {
+        let name = name(of: trailer)
         guard !trailer.lang.isEmpty else { return name }
         return "\(name) · \(trailer.lang.uppercased())"
     }
