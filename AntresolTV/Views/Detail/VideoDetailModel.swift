@@ -88,7 +88,9 @@ final class VideoDetailModel {
         do {
             let detail = try await client.item(id: itemId)
             if detail.kind == .movie || detail.kind == .episode {
-                progress = try? await client.progress(itemId: detail.id)
+                // A failed request keeps the last known position (Resume stays on a
+                // refresh); "no progress" is a successful, empty answer.
+                if let fresh = try? await client.progress(itemId: detail.id) { progress = fresh }
             }
             state = .loaded(detail)
             guard detail.kind == .series else {

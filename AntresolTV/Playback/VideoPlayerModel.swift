@@ -238,7 +238,10 @@ final class VideoPlayerModel {
             loadArtwork(for: detail, client: client)
             var position: Double = 0
             if start != .beginning {
-                position = ResumePolicy.videoStartSec(try? await client.progress(itemId: detail.id))
+                // A failed request is not "no progress" (the server answers that with an
+                // empty one): playing from 0 would write over the saved position, so the
+                // error is shown with Try Again instead.
+                position = ResumePolicy.videoStartSec(try await client.progress(itemId: detail.id))
             }
             if start == .ask, position >= 5 {
                 isSwitching = false
