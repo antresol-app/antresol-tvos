@@ -1036,3 +1036,37 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   was seen. Top Shelf still uses the backdrop for episode tiles (one image, no fallback).
 - The TV tab is reset only after a pushed page, not after scrolling the channel list (its
   first state is the last channel, which a scroll check cannot tell apart).
+
+## App review round, 2026-11-16 (Menu, resume point, players, speed)
+
+### What changed
+- **Menu**: the QR sign-in screen is the root of the sign-in flow and has no exit command, so
+  Menu there leaves the app. The server screen is opened with Change Server only, and its
+  Menu still comes back.
+- **Resume point**: a failed `GET /api/progress` is no longer "no progress". The player
+  shows the error (Try Again) instead of starting at 0 and writing over the saved position;
+  the detail page keeps the position it had. Progress and the media key are asked for
+  beside the item.
+- **Players**: `playerDidClose(_:)` and `liveChannelDidClose(_:)` take their request and
+  clear only it (a late close no longer dismisses the next player).
+  `PlaybackCoordinator.isPresenting` pauses the hero carousel and the TV tab's refresh
+  under a full-screen player.
+- **Subtitles** (`CaptionStyle`): both self-drawn renderers take the text size, text colour
+  and plate from Settings > Accessibility > Subtitles and Captioning. The app's own look
+  stands for the system default (a value equal to the default domain's is not applied), so
+  nothing changes for a viewer who set nothing. Font and text edge are not applied.
+- **TV tab**: `TVModel` stores `filters`, `activeFilter`, `channels`, `guideRows` and
+  `guideScale`, derived when the list, the guide or the filter changes.
+- **Artwork** (`ImagePipeline`): one download per URL whatever the sizes, one decode per
+  size, the download cancelled with its last waiter. `RemoteImage.maxPixelSize` is in pixels
+  of a 2x screen and is scaled by the display scale.
+- **Smaller**: `LibraryModel` is gone (Movies and TV Shows use `PagedList`), `TimedNotice`
+  replaces three copies of the four-second message, Now Playing's scrub bar is its own view.
+
+### Known gaps
+- Nothing of this round was run on an Apple TV or in the simulator; the kit tests and the
+  simulator build are the only checks. The Menu change, the caption style and the artwork
+  cancellation need a look on a device.
+- Left as they were: the delayed focus assignments (live controls, track menu, TV tab, the
+  two detail pages), the Home refetch behind a shelf's See All, and the song stream probe
+  before the first play.
