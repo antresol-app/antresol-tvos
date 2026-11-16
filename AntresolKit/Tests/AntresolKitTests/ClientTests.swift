@@ -55,6 +55,33 @@ final class ClientTests: XCTestCase {
         XCTAssertNil(transport.requests[0].httpBody)
     }
 
+    /// The player starts at 0 only on the server's "no progress" answer. A failed request
+    /// throws instead of looking like one, so the saved position is not written over.
+    func testFailedProgressRequestIsNotNoProgress() async throws {
+        let transport = MockTransport { request in
+            switch request.url?.path {
+            case "/api/progress/1":
+                return .json(#"{"positionMs":0,"durationMs":0,"finished":false,"locator":"","fraction":0,"updatedAt":null}"#)
+            case "/api/progress/2":
+                return .json(#"{"positionMs":15000,"durationMs":60046,"finished":false,"updatedAt":"2026-11-04T20:04:15.573Z"}"#)
+            default:
+                return .json(#"{"error":"Server is busy"}"#, status: 503)
+            }
+        }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        let none = try await client.progress(itemId: 1)
+        XCTAssertFalse(none.exists)
+        XCTAssertEqual(ResumePolicy.videoStartSec(none), 0)
+        let saved = try await client.progress(itemId: 2)
+        XCTAssertEqual(ResumePolicy.videoStartSec(saved), 15)
+        do {
+            _ = try await client.progress(itemId: 3)
+            XCTFail("a failed request must throw, not read as no progress")
+        } catch let error as APIError {
+            XCTAssertEqual(error.statusCode, 503)
+        }
+    }
+
     func testErrorMapping() async {
         let transport = MockTransport { request in
             switch request.url?.path {
