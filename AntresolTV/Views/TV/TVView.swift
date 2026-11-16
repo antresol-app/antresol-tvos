@@ -164,31 +164,6 @@ private struct TVHeader: View {
     }
 }
 
-/// A small glass pill (icon and a short label) for a secondary action in a header.
-struct QuietPillButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        QuietPillBody(configuration: configuration)
-    }
-}
-
-private struct QuietPillBody: View {
-    let configuration: ButtonStyleConfiguration
-    @Environment(\.isFocused) private var isFocused
-
-    var body: some View {
-        configuration.label
-            .font(Theme.Typography.segment)
-            .lineLimit(1)
-            .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label2)
-            .padding(.horizontal, 30)
-            .frame(minHeight: 72)
-            .glassSurface(in: Capsule(), highlighted: isFocused)
-            .scaleEffect(configuration.isPressed ? 0.97 : (isFocused ? Theme.Motion.focusScale : 1))
-            .shadow(color: .black.opacity(isFocused ? 0.5 : 0), radius: 16, y: 8)
-            .animation(Theme.Motion.easeOut, value: isFocused)
-    }
-}
-
 // MARK: - Channel list
 
 /// The one numbered list: a row per channel with what is on now and next. Select tunes

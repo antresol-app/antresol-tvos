@@ -8,7 +8,6 @@ enum Theme {
         static let background = Color.black
         static let raised = Color(hex: 0x121214)
         static let elevated = Color(hex: 0x1C1C1E)
-        static let identityBackground = Color(hex: 0x0B0B10)
         static let label = Color(hex: 0xF5F5F7)
         static let label2 = Color(hex: 0xEBEBF5).opacity(0.7)
         static let label3 = Color(hex: 0xEBEBF5).opacity(0.45)

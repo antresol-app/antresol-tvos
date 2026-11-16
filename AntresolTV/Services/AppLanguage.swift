@@ -49,15 +49,6 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         Locale(identifier: identifier)
     }
 
-    /// The language's own name, so it can be found whatever the current language is.
-    var nativeName: String? {
-        switch self {
-        case .system: return nil
-        case .english: return "English"
-        case .russian: return "Русский"
-        }
-    }
-
     private var identifier: String {
         self == .system ? Self.systemLanguage : rawValue
     }
