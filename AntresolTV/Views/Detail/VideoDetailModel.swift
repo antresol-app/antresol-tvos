@@ -86,11 +86,15 @@ final class VideoDetailModel {
         guard let client = appState.client else { return }
         if case .failed = state { state = .loading }
         do {
+            // A movie's or episode's position is asked for beside the item, not after it.
+            let asksEarly = card.kind == .movie || card.kind == .episode
+            async let early: PlaybackProgress? = asksEarly ? try? await client.progress(itemId: itemId) : nil
             let detail = try await client.item(id: itemId)
             if detail.kind == .movie || detail.kind == .episode {
                 // A failed request keeps the last known position (Resume stays on a
                 // refresh); "no progress" is a successful, empty answer.
-                if let fresh = try? await client.progress(itemId: detail.id) { progress = fresh }
+                let fresh = asksEarly && detail.id == itemId ? await early : try? await client.progress(itemId: detail.id)
+                if let fresh { progress = fresh }
             }
             state = .loaded(detail)
             guard detail.kind == .series else {

@@ -223,7 +223,16 @@ final class VideoPlayerModel {
         } else {
             state = .preparing
         }
+        // The media key the session will need is fetched beside the item (the store shares
+        // one request), and so is a movie's or episode's saved position; a series' episode
+        // is only known once its item arrived.
+        if let coordinator {
+            let mediaKeys = coordinator.mediaKeyStore(for: client)
+            Task { _ = try? await mediaKeys.key() }
+        }
+        let asksEarly = start != .beginning && (target.kind == .movie || target.kind == .episode)
         do {
+            async let early: PlaybackProgress? = asksEarly ? client.progress(itemId: target.id) : nil
             let detail = try await playableItem(for: target, client: client)
             // The chosen version applies to the requested item, not to later episodes.
             let chosen = detail.id == request.card.id ? request.fileId : nil
@@ -241,7 +250,11 @@ final class VideoPlayerModel {
                 // A failed request is not "no progress" (the server answers that with an
                 // empty one): playing from 0 would write over the saved position, so the
                 // error is shown with Try Again instead.
-                position = ResumePolicy.videoStartSec(try await client.progress(itemId: detail.id))
+                if asksEarly, detail.id == target.id {
+                    position = ResumePolicy.videoStartSec(try await early)
+                } else {
+                    position = ResumePolicy.videoStartSec(try await client.progress(itemId: detail.id))
+                }
             }
             if start == .ask, position >= 5 {
                 isSwitching = false
