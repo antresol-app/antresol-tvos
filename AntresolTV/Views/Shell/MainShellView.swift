@@ -307,7 +307,6 @@ struct MainShellView: View {
     private var bannerMessage: String? {
         playlists.message ?? appState.notice ?? (selection == .nowPlaying ? nil : audio.notice)
     }
-
 }
 
 enum ShellTab: Hashable {
