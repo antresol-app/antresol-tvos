@@ -36,7 +36,7 @@ final class AudioPlayer {
     /// Seconds into the current item.
     private(set) var position: Double = 0
     /// A short message about a failed song or a failed request, shown on Now Playing.
-    private(set) var notice: String?
+    var notice: String? { timedNotice.message }
     /// Stars changed in this session, by track id (the queue keeps the tracks as loaded).
     private(set) var starredTracks: [Int: Bool] = [:]
     /// Incremented when Now Playing should come up (a new queue was started).
@@ -72,7 +72,7 @@ final class AudioPlayer {
     @ObservationIgnored private var timeObserver: Any?
     @ObservationIgnored private var observers: [NSKeyValueObservation] = []
     @ObservationIgnored private var itemObservers: [ObjectIdentifier: [NSKeyValueObservation]] = [:]
-    @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    @ObservationIgnored private let timedNotice = TimedNotice()
     /// Queues the rest of a paged song list behind the current queue (`play(tracks:startAt:continuing:)`).
     @ObservationIgnored private var queueFill: Task<Void, Never>?
     @ObservationIgnored private var nowPlaying: NowPlayingCenter!
@@ -225,7 +225,7 @@ final class AudioPlayer {
         }
         observers.forEach { $0.invalidate() }
         observers = []
-        noticeTask?.cancel()
+        timedNotice.clear()
         nowPlaying.invalidate()
     }
 
@@ -302,7 +302,7 @@ final class AudioPlayer {
     private func start(_ newQueue: PlayQueue<Item>) async {
         consecutiveFailures = 0
         queue = newQueue
-        notice = nil
+        timedNotice.clear()
         presentationRequests += 1
         guard let index = queue.currentIndex else { return }
         await load(index: index, at: 0)
@@ -549,12 +549,6 @@ final class AudioPlayer {
     }
 
     private func showNotice(_ message: String) {
-        noticeTask?.cancel()
-        notice = message
-        noticeTask = Task {
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
-            guard !Task.isCancelled else { return }
-            notice = nil
-        }
+        timedNotice.show(message)
     }
 }

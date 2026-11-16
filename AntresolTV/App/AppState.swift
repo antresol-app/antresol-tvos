@@ -59,8 +59,8 @@ final class AppState {
     var pendingDeepLink: DeepLink?
     /// A short message for the shell's banner (a failed action outside a page that can
     /// show it). Cleared after a few seconds.
-    private(set) var notice: String?
-    @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    var notice: String? { timedNotice.message }
+    @ObservationIgnored private let timedNotice = TimedNotice()
     /// Grows when the profile's library state changed (watchlist), so Home reloads its
     /// shelves.
     private(set) var libraryRevision = 0
@@ -322,13 +322,7 @@ final class AppState {
 
     /// Shows `message` in the shell's banner for a few seconds.
     func showNotice(_ message: String) {
-        noticeTask?.cancel()
-        notice = message
-        noticeTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(4))
-            guard !Task.isCancelled else { return }
-            self?.notice = nil
-        }
+        timedNotice.show(message)
     }
 
     /// Records a change to the profile's library state (for example the watchlist).

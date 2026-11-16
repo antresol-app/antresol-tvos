@@ -15,8 +15,8 @@ final class PlaylistActions {
 
     var addRequest: AddRequest?
     private(set) var revision = 0
-    private(set) var message: String?
-    @ObservationIgnored private var messageTask: Task<Void, Never>?
+    var message: String? { timedNotice.message }
+    @ObservationIgnored private let timedNotice = TimedNotice()
 
     /// Opens the picker for these songs.
     func add(_ tracks: [Track]) {
@@ -28,13 +28,7 @@ final class PlaylistActions {
     func changed(_ message: String? = nil) {
         revision += 1
         guard let message else { return }
-        messageTask?.cancel()
-        self.message = message
-        messageTask = Task {
-            try? await Task.sleep(for: .seconds(4))
-            guard !Task.isCancelled else { return }
-            self.message = nil
-        }
+        timedNotice.show(message)
     }
 }
 

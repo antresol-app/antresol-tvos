@@ -32,12 +32,12 @@ struct MainShellView: View {
             }
         }
         .animation(Theme.Motion.easeOut, value: bannerMessage)
-        .sheet(item: addToPlaylistRequest) { request in
+        .sheet(item: $playlists.addRequest) { request in
             AddToPlaylistView(request: request)
                 .environment(appState)
                 .environment(playlists)
         }
-        .fullScreenCover(item: presentedPlayback) { request in
+        .fullScreenCover(item: $playback.presented) { request in
             VideoPlayerView(request: request)
                 .environment(appState)
                 .environment(playback)
@@ -53,7 +53,7 @@ struct MainShellView: View {
         }
         .background {
             Color.clear
-                .fullScreenCover(item: presentedChannel) { request in
+                .fullScreenCover(item: $playback.presentedChannel) { request in
                     LivePlayerView(request: request)
                         .environment(appState)
                         .environment(playback)
@@ -61,7 +61,7 @@ struct MainShellView: View {
         }
         .background {
             Color.clear
-                .fullScreenCover(item: presentedTrailer) { request in
+                .fullScreenCover(item: $playback.presentedTrailer) { request in
                     TrailerPlayerView(request: request)
                         .environment(appState)
                 }
@@ -308,33 +308,6 @@ struct MainShellView: View {
         playlists.message ?? appState.notice ?? (selection == .nowPlaying ? nil : audio.notice)
     }
 
-    private var addToPlaylistRequest: Binding<PlaylistActions.AddRequest?> {
-        Binding(
-            get: { playlists.addRequest },
-            set: { playlists.addRequest = $0 }
-        )
-    }
-
-    private var presentedChannel: Binding<PlaybackCoordinator.LiveRequest?> {
-        Binding(
-            get: { playback.presentedChannel },
-            set: { playback.presentedChannel = $0 }
-        )
-    }
-
-    private var presentedTrailer: Binding<PlaybackCoordinator.TrailerRequest?> {
-        Binding(
-            get: { playback.presentedTrailer },
-            set: { playback.presentedTrailer = $0 }
-        )
-    }
-
-    private var presentedPlayback: Binding<PlaybackCoordinator.Request?> {
-        Binding(
-            get: { playback.presented },
-            set: { playback.presented = $0 }
-        )
-    }
 }
 
 enum ShellTab: Hashable {
