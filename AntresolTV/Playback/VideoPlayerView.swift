@@ -67,7 +67,7 @@ struct VideoPlayerView: View {
         .onDisappear {
             Task {
                 await model.stop()
-                coordinator.playerDidClose()
+                coordinator.playerDidClose(request)
             }
         }
     }

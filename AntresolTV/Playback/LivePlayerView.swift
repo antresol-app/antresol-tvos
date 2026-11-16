@@ -86,7 +86,7 @@ struct LivePlayerView: View {
         }
         .onDisappear {
             model.stop()
-            coordinator.liveChannelDidClose()
+            coordinator.liveChannelDidClose(request)
         }
     }
 }

@@ -76,8 +76,9 @@ final class PlaybackCoordinator {
 
     /// The live player closed. `completedSessions` is left alone: a channel is not a
     /// playback session, nothing of the library changed (TV is TV).
-    func liveChannelDidClose() {
-        presentedChannel = nil
+    /// Only `request`'s own player clears the presentation: a newer one stays up.
+    func liveChannelDidClose(_ request: LiveRequest) {
+        if presentedChannel?.id == request.id { presentedChannel = nil }
         liveSessions += 1
     }
 
@@ -85,8 +86,10 @@ final class PlaybackCoordinator {
     /// (favourites and the last channel may have changed there).
     private(set) var liveSessions = 0
 
-    func playerDidClose() {
-        presented = nil
+    /// The player of `request` closed. It may report late (its last progress write is
+    /// awaited first), so a request started meanwhile is left presented.
+    func playerDidClose(_ request: Request) {
+        if presented?.id == request.id { presented = nil }
         completedSessions += 1
     }
 
