@@ -1,3 +1,4 @@
+import AntresolKit
 import CoreImage
 import CryptoKit
 import Foundation
@@ -12,6 +13,7 @@ import UIKit
 /// - Disk: original bytes in `Caches/Artwork`, reused for 7 days (the server's `max-age`).
 /// - Concurrent requests for the same image share one download, whatever sizes they ask
 ///   for, and one decode per size; a download nobody waits for any more is cancelled.
+/// - A few decodes run at once (`decodeSlots`); the others wait their turn.
 final class ImagePipeline: @unchecked Sendable {
     static let shared = ImagePipeline()
 
@@ -36,6 +38,9 @@ final class ImagePipeline: @unchecked Sendable {
     private var nextDownloadID = 0
     /// By URL and size.
     private var decoding: [String: Task<UIImage?, Never>] = [:]
+    /// Decodes at once: at most four, and one thread of the shared pool (as wide as the
+    /// processor has cores) is left for the rest of the app while a grid scrolls.
+    private let decodeSlots = ConcurrencyLimiter(limit: min(4, ProcessInfo.processInfo.activeProcessorCount - 1))
 
     init(session: URLSession = .shared) {
         self.session = session
@@ -139,9 +144,9 @@ final class ImagePipeline: @unchecked Sendable {
             if let running = decoding[key as String] {
                 return running
             }
-            let task = Task.detached(priority: .userInitiated) { [memory] () -> UIImage? in
+            let task = Task.detached(priority: .userInitiated) { [memory, decodeSlots] () -> UIImage? in
                 if let image = memory.object(forKey: key) { return image }
-                guard let image = Self.decode(data, maxPixelSize: maxPixelSize) else { return nil }
+                guard let image = await decodeSlots.run({ Self.decode(data, maxPixelSize: maxPixelSize) }) else { return nil }
                 memory.setObject(image, forKey: key, cost: Self.cost(of: image))
                 return image
             }
