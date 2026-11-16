@@ -1,5 +1,6 @@
 import AVFoundation
 import AntresolKit
+import Combine
 import SwiftUI
 import UIKit
 
@@ -93,25 +94,26 @@ struct LivePlayerView: View {
 
 // MARK: - Subtitles
 
-/// The subtitle cue, centred near the bottom (the film player's look), lifted above the
-/// banner while it is up.
+/// The subtitle cue, centred near the bottom (the film player's look, in the viewer's
+/// caption style), lifted above the banner while it is up.
 private struct LiveSubtitle: View {
     let text: String
     let raised: Bool
+    @State private var style = CaptionStyle.current
 
     var body: some View {
         VStack {
             Spacer()
             Text(verbatim: text)
-                .font(.system(size: 48, weight: .semibold))
-                .foregroundStyle(.white)
+                .font(.system(size: style.fontSize, weight: .semibold))
+                .foregroundStyle(Color(uiColor: style.textColor))
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
                 .shadow(color: .black.opacity(0.9), radius: 4, y: 1)
                 .padding(.horizontal, 22)
                 .padding(.top, 10)
                 .padding(.bottom, 12)
-                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Color(uiColor: style.plateColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .frame(maxWidth: 1500)
                 .padding(.bottom, raised ? 330 : 96)
         }
@@ -119,6 +121,9 @@ private struct LiveSubtitle: View {
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .animation(Theme.Motion.easeOut, value: raised)
+        .onReceive(NotificationCenter.default.publisher(for: CaptionStyle.didChange).receive(on: DispatchQueue.main)) { _ in
+            style = .current
+        }
         .accessibilityElement()
         .accessibilityLabel(Text(verbatim: text))
     }
