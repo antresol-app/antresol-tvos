@@ -10,7 +10,8 @@ import UIKit
 ///
 /// - Memory: `NSCache` keyed by URL and target size, bounded by decoded byte cost.
 /// - Disk: original bytes in `Caches/Artwork`, reused for 7 days (the server's `max-age`).
-/// - Concurrent requests for the same image share one download.
+/// - Concurrent requests for the same image share one download, whatever sizes they ask
+///   for, and one decode per size; a download nobody waits for any more is cancelled.
 final class ImagePipeline: @unchecked Sendable {
     static let shared = ImagePipeline()
 
@@ -23,7 +24,18 @@ final class ImagePipeline: @unchecked Sendable {
     private let session: URLSession
     private let directory: URL
     private let lock = NSLock()
-    private var inFlight: [String: Task<UIImage?, Never>] = [:]
+    /// A load of an image's original bytes and how many callers wait for it.
+    private struct Download {
+        let id: Int
+        let task: Task<Data?, Never>
+        var waiters: Int
+    }
+
+    /// By URL.
+    private var downloads: [String: Download] = [:]
+    private var nextDownloadID = 0
+    /// By URL and size.
+    private var decoding: [String: Task<UIImage?, Never>] = [:]
 
     init(session: URLSession = .shared) {
         self.session = session
@@ -44,36 +56,63 @@ final class ImagePipeline: @unchecked Sendable {
     }
 
     /// The image at `url`, scaled down so its longest side is at most `maxPixelSize`.
-    /// Returns nil when the image is missing, cannot be decoded or the request fails.
+    /// Returns nil when the image is missing, cannot be decoded or the request fails, and
+    /// when the caller's task is cancelled.
     func image(for url: URL, headers: [String: String], maxPixelSize: CGFloat) async -> UIImage? {
         let key = Self.memoryKey(url, maxPixelSize)
         if let image = memory.object(forKey: key) {
             return image
         }
-        let task: Task<UIImage?, Never> = lock.withLock {
-            if let running = inFlight[key as String] {
-                return running
-            }
-            let task = Task.detached(priority: .userInitiated) { [self] in
-                await load(url: url, headers: headers, maxPixelSize: maxPixelSize)
-            }
-            inFlight[key as String] = task
-            return task
-        }
-        let image = await task.value
-        lock.withLock { inFlight[key as String] = nil }
-        if let image {
-            memory.setObject(image, forKey: key, cost: Self.cost(of: image))
-        }
-        return image
+        guard let data = await originalData(for: url, headers: headers), !Task.isCancelled else { return nil }
+        return await decoded(data, key: key, maxPixelSize: maxPixelSize)
     }
 
     // MARK: - Loading
 
-    private func load(url: URL, headers: [String: String], maxPixelSize: CGFloat) async -> UIImage? {
+    /// The original bytes of `url`. Every size asked for at the same time shares one
+    /// load (the hero wants its backdrop small for the tint and large for the screen).
+    /// The load is cancelled when every caller waiting for it was (cells scrolled away).
+    private func originalData(for url: URL, headers: [String: String]) async -> Data? {
+        let key = url.absoluteString
+        let (id, task): (Int, Task<Data?, Never>) = lock.withLock {
+            if var running = downloads[key] {
+                running.waiters += 1
+                downloads[key] = running
+                return (running.id, running.task)
+            }
+            nextDownloadID += 1
+            let task = Task.detached(priority: .userInitiated) { [self] in
+                await fetch(url: url, headers: headers)
+            }
+            downloads[key] = Download(id: nextDownloadID, task: task, waiters: 1)
+            return (nextDownloadID, task)
+        }
+        return await withTaskCancellationHandler {
+            let data = await task.value
+            lock.withLock {
+                if downloads[key]?.id == id { downloads[key] = nil }
+            }
+            return data
+        } onCancel: {
+            lock.withLock {
+                guard var running = downloads[key], running.id == id else { return }
+                running.waiters -= 1
+                if running.waiters == 0 {
+                    running.task.cancel()
+                    downloads[key] = nil
+                } else {
+                    downloads[key] = running
+                }
+            }
+        }
+    }
+
+    /// From the disk cache while fresh, else from the server (kept on disk when it is an
+    /// image), else a stale copy.
+    private func fetch(url: URL, headers: [String: String]) async -> Data? {
         let file = fileURL(for: url)
-        if let data = freshData(at: file), let image = Self.decode(data, maxPixelSize: maxPixelSize) {
-            return image
+        if let data = freshData(at: file), Self.isImage(data) {
+            return data
         }
         var request = URLRequest(url: url)
         for (name, value) in headers {
@@ -81,17 +120,37 @@ final class ImagePipeline: @unchecked Sendable {
         }
         do {
             let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-                  let image = Self.decode(data, maxPixelSize: maxPixelSize)
-            else {
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200, Self.isImage(data) else {
                 return nil
             }
             try? data.write(to: file, options: .atomic)
-            return image
+            return data
         } catch {
-            // Offline or cancelled: fall back to a stale copy if there is one.
-            return (try? Data(contentsOf: file)).flatMap { Self.decode($0, maxPixelSize: maxPixelSize) }
+            guard !Task.isCancelled else { return nil }
+            // Offline: fall back to a stale copy if there is one.
+            return try? Data(contentsOf: file)
         }
+    }
+
+    /// Decodes `data` for one size and keeps it in memory; callers wanting the same size at
+    /// the same time share the work.
+    private func decoded(_ data: Data, key: NSString, maxPixelSize: CGFloat) async -> UIImage? {
+        let task: Task<UIImage?, Never> = lock.withLock {
+            if let running = decoding[key as String] {
+                return running
+            }
+            let task = Task.detached(priority: .userInitiated) { [memory] () -> UIImage? in
+                if let image = memory.object(forKey: key) { return image }
+                guard let image = Self.decode(data, maxPixelSize: maxPixelSize) else { return nil }
+                memory.setObject(image, forKey: key, cost: Self.cost(of: image))
+                return image
+            }
+            decoding[key as String] = task
+            return task
+        }
+        let image = await task.value
+        lock.withLock { decoding[key as String] = nil }
+        return image
     }
 
     private func freshData(at file: URL) -> Data? {
@@ -123,6 +182,13 @@ final class ImagePipeline: @unchecked Sendable {
     }
 
     // MARK: - Decoding
+
+    /// Whether ImageIO recognises `data` as an image (the header only, nothing is decoded).
+    private static func isImage(_ data: Data) -> Bool {
+        let options: [CFString: Any] = [kCGImageSourceShouldCache: false]
+        guard let source = CGImageSourceCreateWithData(data as CFData, options as CFDictionary) else { return false }
+        return CGImageSourceGetCount(source) > 0
+    }
 
     private static func decode(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
         let sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]

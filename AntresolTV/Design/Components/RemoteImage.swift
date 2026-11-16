@@ -11,7 +11,8 @@ struct RemoteImage: View {
     /// Paths tried in order when `path` does not load (an episode's frame may be gone with
     /// the media disk, then the series' backdrop shows).
     var fallbacks: [String] = []
-    /// Longest side to decode, in pixels. Keep it near the on-screen size.
+    /// Longest side to decode, in pixels of a 2x screen (Apple TV 4K). Keep it near the
+    /// on-screen size; a 1x screen (Apple TV HD) decodes half of it (`pixelSize`).
     var maxPixelSize: CGFloat = 600
     /// Fit inside the frame (a logo) instead of filling it (artwork).
     var fit = false
@@ -19,7 +20,13 @@ struct RemoteImage: View {
     var onLoad: ((UIImage) -> Void)?
 
     @Environment(AppState.self) private var appState
+    @Environment(\.displayScale) private var displayScale
     @State private var image: UIImage?
+
+    /// `maxPixelSize` for this screen's scale.
+    private var pixelSize: CGFloat {
+        (maxPixelSize * displayScale / 2).rounded(.up)
+    }
 
     var body: some View {
         Color.clear
@@ -47,7 +54,7 @@ struct RemoteImage: View {
     }
 
     private var cachedImage: UIImage? {
-        urls.lazy.compactMap { ImagePipeline.shared.cachedImage(for: $0, maxPixelSize: maxPixelSize) }.first
+        urls.lazy.compactMap { ImagePipeline.shared.cachedImage(for: $0, maxPixelSize: pixelSize) }.first
     }
 
     /// How long a fallback shows before the better path is tried once more (a busy server
@@ -73,7 +80,7 @@ struct RemoteImage: View {
     private func firstImage(in urls: [URL], client: APIClient) async -> Int? {
         for (index, url) in urls.enumerated() {
             let loaded = await ImagePipeline.shared.image(
-                for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: maxPixelSize
+                for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: pixelSize
             )
             guard !Task.isCancelled else { return nil }
             if let loaded {
