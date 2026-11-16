@@ -21,8 +21,12 @@ final class TVModel {
     }
 
     private(set) var phase: Phase = .loading
-    private(set) var list = ChannelList(channels: [])
-    private(set) var grid = ChannelGuideGrid()
+    private(set) var list = ChannelList(channels: []) {
+        didSet { derive() }
+    }
+    private(set) var grid = ChannelGuideGrid() {
+        didSet { deriveGuide() }
+    }
     private(set) var guidePhase: Phase = .loading
     /// A guide window is being fetched.
     private(set) var isLoadingWindow = false
@@ -32,8 +36,26 @@ final class TVModel {
     }
 
     var filter: ChannelFilter {
-        didSet { defaults.set(filter.storageKey, forKey: Self.filterKey) }
+        didSet {
+            defaults.set(filter.storageKey, forKey: Self.filterKey)
+            derive()
+        }
     }
+
+    // Derived from `list`, `grid` and `filter` when one of them changes (`derive`,
+    // `deriveGuide`), not on every read: the views read them for each row and block they
+    // draw, on every focus move.
+
+    /// The filters the list offers.
+    private(set) var filters: [ChannelFilter] = []
+    /// The chosen filter, or All when its theme is gone from the list.
+    private(set) var activeFilter: ChannelFilter = .all
+    /// The channels the list shows.
+    private(set) var channels: [Channel] = []
+    /// The guide's rows for the filter.
+    private(set) var guideRows: [ChannelEPG] = []
+    /// The guide's time scale, fitted to the typical length of the loaded programmes.
+    private(set) var guideScale = GuideScale.fitting(typicalLength: nil)
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private weak var appState: AppState?
@@ -50,6 +72,7 @@ final class TVModel {
         self.defaults = defaults
         mode = Mode(rawValue: defaults.string(forKey: Self.modeKey) ?? "") ?? .channels
         filter = ChannelFilter(storageKey: defaults.string(forKey: Self.filterKey) ?? "")
+        derive()
     }
 
     func attach(_ appState: AppState) {
@@ -60,27 +83,19 @@ final class TVModel {
         appState?.client.map(ChannelService.init(client:))
     }
 
-    /// The filters the list offers.
-    var filters: [ChannelFilter] {
-        ChannelFilter.options(for: list.channels)
+    private func derive() {
+        filters = ChannelFilter.options(for: list.channels)
+        activeFilter = filters.contains(filter) ? filter : .all
+        channels = activeFilter.apply(to: list.channels)
+        deriveGuide()
     }
 
-    /// The chosen filter, or All when its theme is gone from the list.
-    var activeFilter: ChannelFilter {
-        filters.contains(filter) ? filter : .all
-    }
-
-    /// The channels the list shows.
-    var channels: [Channel] {
-        activeFilter.apply(to: list.channels)
-    }
-
-    /// The guide's rows for the filter.
-    var guideRows: [ChannelEPG] {
+    private func deriveGuide() {
         var grid = grid
         // the list's uploaded logos, for rows the guide sent without one
         grid.applyLogos(from: list.channels)
-        return grid.rows(activeFilter)
+        guideRows = grid.rows(activeFilter)
+        guideScale = GuideScale.fitting(typicalLength: ChannelGuideGrid.typicalLength(of: grid.rows))
     }
 
     // MARK: - Loading

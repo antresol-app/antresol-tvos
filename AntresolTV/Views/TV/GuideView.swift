@@ -56,7 +56,7 @@ struct GuideView: View {
     }
 
     private var scale: GuideScale {
-        GuideScale.fitting(typicalLength: ChannelGuideGrid.typicalLength(of: model.grid.rows))
+        model.guideScale
     }
 
     private var viewEnd: Date {

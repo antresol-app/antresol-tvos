@@ -516,7 +516,8 @@ private struct LiveChannelRail: View {
 
     /// The row's channels as the latest list has them (what is on moves on).
     private func fresh(_ ids: [Int]) -> [Channel] {
-        ids.compactMap { id in model.channels.first { $0.id == id } ?? (model.channel.id == id ? model.channel : nil) }
+        let latest = Dictionary(model.channels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return ids.compactMap { id in latest[id] ?? (model.channel.id == id ? model.channel : nil) }
     }
 }
 
