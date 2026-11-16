@@ -155,6 +155,11 @@ enum Theme {
         static let slowEaseOut = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.6)
         static let focusScale: CGFloat = 1.07
         static let cardLift: CGFloat = 1.04
+
+        /// A panel coming up from the bottom edge; only a fade with Reduce Motion on.
+        static func rise(reduceMotion: Bool) -> AnyTransition {
+            reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
+        }
     }
 
     /// A saturated mid-dark colour derived from `seed`, used for placeholders and hero tints.

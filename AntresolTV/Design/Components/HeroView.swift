@@ -8,12 +8,14 @@ import SwiftUI
 /// The first shelf below overlaps the hero's bottom edge (`Theme.Layout.heroOverlap`).
 ///
 /// With several featured items it advances every 8 seconds while its buttons are not
-/// focused; Left on Play goes back by hand. The backgrounds cross-fade.
+/// focused (not with Reduce Motion on); Left on Play goes back by hand. The backgrounds
+/// cross-fade.
 struct HeroView: View {
     let features: [HomeContent.Feature]
 
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var index = 0
     /// Each featured item's page (genres, rating, description, watchlist state), loaded
     /// once per item: the carousel comes back to the same few items every 8 seconds.
@@ -86,10 +88,11 @@ struct HeroView: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: Theme.Layout.heroHeight, maxHeight: Theme.Layout.heroHeight, alignment: .bottomLeading)
-        .task(id: focusedButton == nil && !playback.isPresenting) {
+        .task(id: focusedButton == nil && !playback.isPresenting && !reduceMotion) {
             // Auto-advance only while the user is not on the hero's buttons, and not
-            // under a full-screen player (the page stays alive below it).
-            guard focusedButton == nil, !playback.isPresenting, features.count > 1 else { return }
+            // under a full-screen player (the page stays alive below it). With Reduce
+            // Motion on, it changes by hand only (the next button, Left on Play).
+            guard focusedButton == nil, !playback.isPresenting, !reduceMotion, features.count > 1 else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.interval)
                 guard !Task.isCancelled else { return }

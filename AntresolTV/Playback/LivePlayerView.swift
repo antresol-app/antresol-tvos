@@ -19,6 +19,7 @@ struct LivePlayerView: View {
     @Environment(PlaybackCoordinator.self) private var coordinator
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model: LivePlayerModel
 
     init(request: PlaybackCoordinator.LiveRequest) {
@@ -56,11 +57,11 @@ struct LivePlayerView: View {
                 }
                 if model.showsInfo {
                     LiveBanner(model: model)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(Theme.Motion.rise(reduceMotion: reduceMotion))
                 }
                 if model.showsGuide {
                     LiveChannelRail(model: model)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(Theme.Motion.rise(reduceMotion: reduceMotion))
                 }
             }
         }
@@ -139,6 +140,7 @@ private struct LiveBanner: View {
     let model: LivePlayerModel
 
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -148,7 +150,7 @@ private struct LiveBanner: View {
                 if let menu = model.openMenu {
                     TrackMenu(model: model, kind: menu)
                         .padding(.trailing, Theme.Layout.margin + 32)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(Theme.Motion.rise(reduceMotion: reduceMotion))
                 }
                 HStack(alignment: .center, spacing: 44) {
                     Text(verbatim: String(model.channel.number))
