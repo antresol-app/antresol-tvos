@@ -93,7 +93,7 @@ The server accepts three ways to authenticate:
 |---|---|---|
 | **Device token** (native apps) | Header `Authorization: Bearer <token>` | Every `/api/*` endpoint, including images, HLS, streams, subtitles and SSE. |
 | Web session cookie | `Cookie: vault_session=<token>` | Every endpoint (used by the web app). A device token also works as the cookie value. |
-| **Media key** (short-lived, signed) | Query parameter `?mk=<key>` | **Only** these path prefixes: `/api/stream/`, `/api/hls/`, `/api/audio/`, `/api/tracks/`, plus `/api/torrent-stream/` and `/api/online/s/`, which are unused in library-only builds. **Not** accepted on images, subtitles (`/api/subs/...`), comics, `/api/download/` or JSON endpoints. |
+| **Media key** (short-lived, signed) | Query parameter `?mk=<key>` | **Only** these path prefixes: `/api/stream/`, `/api/hls/`, `/api/audio/`, `/api/tracks/`, plus the stream paths of other source kinds, which are unused in library-only builds. **Not** accepted on images, subtitles (`/api/subs/...`), comics, `/api/download/` or JSON endpoints. |
 
 Token details:
 
@@ -264,7 +264,7 @@ Returns the Me object for the authenticated user:
 | isKid | bool | Kid profiles see only items rated ≤ `maxRating`. **Unrated items are hidden from kids.** |
 | maxRating | string \| null | For example `"6+"` or `"12+"`. Values used by the web UI: `0+`, `6+`, `12+`, `16+`, `18+`. |
 | remote | bool | The request comes from outside the home network, so remote quality caps apply. |
-| libraryOnly | bool | `true` in this build: there is no torrent or online discovery. |
+| libraryOnly | bool | `true` in this build: there is no discovery of other sources. |
 
 Use this call to validate a stored token at app start: `401` means sign in again.
 
@@ -1206,12 +1206,12 @@ use. `tmdbId` is the series' `tmdbId` from `GET /api/items/{id}` (§4.3).
 { "title": {"kind": "series", "tmdbId": int, "name": string, "poster": string, "status": string, "itemId"?: int},
   "episodes": [{"season": int, "number": int, "name": string, "airDate": "YYYY-MM-DD" | "",
                 "watched": bool, "positionSec"?: int, "new": bool,
-                "sources": [{"kind": "library" | "pinned" | "torrent" | "online", "ref": string,
+                "sources": [{"kind": string, "ref": string,
                              "provider"?: string, "quality"?: string, "labels": string[],
                              "firstSeen": string, "meta": {"itemId"?: int, "fileId"?: int, ...}}]}] }
 ```
 
-- A source of kind `library` is a downloaded file; its `meta.itemId` is the episode item, played
+- A source's `kind` is an opaque string; `library` is the core's, a downloaded file; its `meta.itemId` is the episode item, played
   as any episode (§11). The other kinds are not app features: the TV app shows such an episode
   as not downloaded.
 - Library episodes TMDB lacks (absolute numbering, specials) are added with `airDate: ""`.

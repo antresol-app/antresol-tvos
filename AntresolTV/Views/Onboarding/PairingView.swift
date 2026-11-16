@@ -32,8 +32,7 @@ struct PairingView: View {
         .onChange(of: needsNewCode) { _, needed in
             if needed { focus = .newCode }
         }
-        // Menu leaves for the server screen (its Cancel comes back here).
-        .onExitCommand { appState.changeServer() }
+        // No exit command: this is the root of the sign-in flow, so Menu leaves the app.
     }
 
     // MARK: Text and actions
@@ -71,8 +70,8 @@ struct PairingView: View {
                 .buttonStyle(PillButtonStyle(kind: .glass))
                 .focused($focus, equals: .remote)
 
-                // Three pills do not fit the column: with "Get a New Code" up, Menu is the
-                // way to the server screen.
+                // Three pills do not fit the column: with "Get a New Code" up, the server
+                // screen is reached after a new code, or from the profile picker.
                 if !needsNewCode {
                     Button {
                         appState.changeServer()

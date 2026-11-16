@@ -20,7 +20,7 @@ final class EpisodeGuideTests: XCTestCase {
         XCTAssertEqual(second.number, 2)
         XCTAssertEqual(second.airDate, "2026-09-08")
         XCTAssertEqual(second.positionSec, 610)
-        XCTAssertEqual(second.sources.map(\.kind), ["library", "torrent"])
+        XCTAssertEqual(second.sources.map(\.kind), ["library", "x-source"])
         XCTAssertEqual(second.sources[0].meta, TrackingSourceMeta(itemId: 5, fileId: 50))
         XCTAssertEqual(second.sources[1].quality, "2160p")
         XCTAssertEqual(second.libraryItemId, 5)

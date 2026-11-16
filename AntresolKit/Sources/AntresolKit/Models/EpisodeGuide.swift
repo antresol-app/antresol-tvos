@@ -103,7 +103,7 @@ public struct TrackingEpisode: Decodable, Hashable, Sendable {
 public struct TrackingSource: Decodable, Hashable, Sendable {
     public static let library = "library"
 
-    /// "library", "pinned", "torrent" or "online".
+    /// An opaque source kind; "library" is the core's.
     public var kind: String
     public var ref: String
     public var provider: String?
