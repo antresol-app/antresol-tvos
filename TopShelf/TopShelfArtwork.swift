@@ -23,7 +23,6 @@ struct TopShelfArtwork {
     func files(for paths: [String]) async -> [String: URL] {
         let directory = directory
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        removeExpiredFiles(in: directory)
 
         return await withTaskGroup(of: (String, URL?).self) { group in
             for path in Set(paths) {
@@ -82,7 +81,9 @@ struct TopShelfArtwork {
         return file
     }
 
-    private func removeExpiredFiles(in directory: URL) {
+    /// Deletes the files older than `expiry`; once per Top Shelf load.
+    func removeExpiredFiles() {
+        let directory = directory
         let fileManager = FileManager.default
         guard let files = try? fileManager.contentsOfDirectory(
             at: directory, includingPropertiesForKeys: [.contentModificationDateKey]

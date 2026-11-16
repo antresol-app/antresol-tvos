@@ -24,7 +24,9 @@ final class ContentProvider: TVTopShelfContentProvider {
         let live = TopShelfChannels(channels: await channelList?.channels ?? [], at: Date())
         guard !plan.sections.isEmpty || !live.entries.isEmpty else { return nil }
 
+        let strings = stringsBundle(for: stored.session.language)
         let artwork = TopShelfArtwork(client: client)
+        artwork.removeExpiredFiles()
         let paths = plan.sections.flatMap { $0.entries.compactMap(\.imagePath) } + live.entries.map(\.imagePath).filter { !$0.isEmpty }
         var files = await artwork.files(for: paths)
         // A tile whose best picture failed (an episode frame while the server is busy) gets
@@ -55,20 +57,20 @@ final class ContentProvider: TVTopShelfContentProvider {
                 return item
             }
             let collection = TVTopShelfItemCollection(items: items)
-            collection.title = title(for: section)
+            collection.title = title(for: section, strings: strings)
             return collection
         }
         if !live.entries.isEmpty {
             // After Continue Watching, before Recently Added.
             let index = plan.sections.first?.kind == .continueWatching ? 1 : 0
-            collections.insert(liveCollection(live, files: files, placeholder: placeholder), at: index)
+            collections.insert(liveCollection(live, files: files, placeholder: placeholder, strings: strings), at: index)
         }
         return TVTopShelfSectionedContent(sections: collections)
     }
 
     /// «Сейчас в эфире»: the programme's still (else the neutral placeholder), "10 ·
     /// Comedies — Title" and how far it is.
-    private static func liveCollection(_ live: TopShelfChannels, files: [String: URL], placeholder: URL?) -> TVTopShelfItemCollection<TVTopShelfSectionedItem> {
+    private static func liveCollection(_ live: TopShelfChannels, files: [String: URL], placeholder: URL?, strings: Bundle) -> TVTopShelfItemCollection<TVTopShelfSectionedItem> {
         let items = live.entries.map { entry in
             let item = TVTopShelfSectionedItem(identifier: "channel-\(entry.channel.id)")
             item.title = entry.title
@@ -82,15 +84,21 @@ final class ContentProvider: TVTopShelfContentProvider {
             return item
         }
         let collection = TVTopShelfItemCollection(items: items)
-        collection.title = String(localized: "On Air Now")
+        collection.title = String(localized: "On Air Now", bundle: strings)
         return collection
     }
 
-    private static func title(for section: TopShelfPlan.Section) -> String {
+    private static func title(for section: TopShelfPlan.Section, strings: Bundle) -> String {
         if let serverTitle = section.serverTitle { return serverTitle }
         switch section.kind {
-        case .continueWatching: return String(localized: "Continue Watching")
-        case .recentlyAdded: return String(localized: "Recently Added")
+        case .continueWatching: return String(localized: "Continue Watching", bundle: strings)
+        case .recentlyAdded: return String(localized: "Recently Added", bundle: strings)
         }
+    }
+
+    /// The strings of the app's language (`en` or `ru`, as the session has it), which the
+    /// server's titles are in too; the system's language when it has no strings of its own.
+    private static func stringsBundle(for language: String) -> Bundle {
+        Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
     }
 }
