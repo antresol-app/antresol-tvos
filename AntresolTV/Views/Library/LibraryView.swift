@@ -10,15 +10,25 @@ struct LibraryView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
     @AppStorage private var storedSort: String
-    @State private var model: LibraryModel
+    /// `/api/items` of this section, sixty at a time (ten full rows of the grid).
+    @State private var list = PagedList<Card>(key: \.uniqueKey)
 
     init(kind: ItemKind, title: LocalizedStringKey) {
         self.kind = kind
         self.title = title
         let key = "library.sort.\(kind.rawValue)"
         _storedSort = AppStorage(wrappedValue: ItemSort.recent.rawValue, key)
-        let saved = UserDefaults.standard.string(forKey: key).flatMap(ItemSort.init(rawValue:)) ?? .recent
-        _model = State(initialValue: LibraryModel(kind: kind, sort: saved))
+    }
+
+    /// Loads the first page. A new sort order starts over; otherwise (the tab appearing
+    /// again, a finished video) the first page is merged into the loaded cards, so later
+    /// pages and the focused card stay.
+    private func reload() async {
+        let kind = kind
+        let sort = sort.wrappedValue
+        await list.reload(using: appState, key: sort) { client, offset, limit in
+            try await client.items(kind: kind, sort: sort, limit: limit, offset: offset)
+        }
     }
 
     private var sort: Binding<ItemSort> {
@@ -72,19 +82,19 @@ struct LibraryView: View {
         .ignoresSafeArea(edges: .horizontal)
         .background(Theme.Colors.background.ignoresSafeArea())
         .task(id: sort.wrappedValue) {
-            await model.reload(sort: sort.wrappedValue, using: appState)
+            await reload()
         }
         .onChange(of: playback.completedSessions) {
-            Task { await model.reload(sort: sort.wrappedValue, using: appState) }
+            Task { await reload() }
         }
         .onChange(of: appState.libraryRevision) {
             // Watched marks changed on a page.
-            Task { await model.reload(sort: sort.wrappedValue, using: appState) }
+            Task { await reload() }
         }
     }
 
     private var header: some View {
-        PageHeader(title: title, count: model.total > 0 ? countText : "") {
+        PageHeader(title: title, count: list.total > 0 ? countText : "") {
             SegmentedPill(options: [
                 SegmentedPill<ItemSort>.Option(value: .recent, title: String(localized: "Recently Added", bundle: .localized)),
                 SegmentedPill<ItemSort>.Option(value: .title, title: String(localized: "By Title", bundle: .localized)),
@@ -95,23 +105,23 @@ struct LibraryView: View {
 
     private var countText: String {
         kind == .series
-            ? String(localized: "\(model.total) shows", bundle: .localized)
-            : String(localized: "\(model.total) movies", bundle: .localized)
+            ? String(localized: "\(list.total) shows", bundle: .localized)
+            : String(localized: "\(list.total) movies", bundle: .localized)
     }
 
     @ViewBuilder
     private var content: some View {
-        switch model.state {
+        switch list.state {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 600)
         case .failed(let message):
             ErrorStateView(message: message) {
-                Task { await model.reload(sort: sort.wrappedValue, using: appState) }
+                Task { await reload() }
             }
             .frame(minHeight: 700)
         case .loaded:
-            if model.cards.isEmpty {
+            if list.items.isEmpty {
                 EmptyStateView(
                     systemImage: kind == .series ? "tv" : "film",
                     title: kind == .series ? "No TV shows yet" : "No movies yet",
@@ -126,18 +136,18 @@ struct LibraryView: View {
 
     private var grid: some View {
         LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.Layout.gridRowSpacing) {
-            ForEach(model.cards, id: \.uniqueKey) { card in
+            ForEach(list.items, id: \.uniqueKey) { card in
                 NavigationLink(value: Route.item(card)) {
                     PosterCard(card: card, width: Theme.Layout.gridPosterWidth)
                 }
                 .buttonStyle(CardButtonStyle())
                 .playsOnPlayPause(card)
-                .task { await model.loadMoreIfNeeded(after: card, using: appState) }
+                .task { await list.loadMoreIfNeeded(after: card, using: appState) }
             }
         }
         .focusSection()
         .overlay(alignment: .bottom) {
-            if model.isLoadingMore {
+            if list.isLoadingMore {
                 ProgressView().offset(y: 80)
             }
         }
