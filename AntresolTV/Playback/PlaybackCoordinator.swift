@@ -52,6 +52,12 @@ final class PlaybackCoordinator {
     /// The live channel the live player is showing, if any.
     var presentedChannel: LiveRequest?
 
+    /// A full-screen player (video, trailer or live) covers the tabs. They stay alive
+    /// under it, so their timers check this before doing work nobody sees.
+    var isPresenting: Bool {
+        presented != nil || presentedTrailer != nil || presentedChannel != nil
+    }
+
     /// Incremented each time the player closes; pages observe it to reload progress.
     private(set) var completedSessions = 0
 

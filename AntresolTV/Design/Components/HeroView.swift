@@ -86,9 +86,10 @@ struct HeroView: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: Theme.Layout.heroHeight, maxHeight: Theme.Layout.heroHeight, alignment: .bottomLeading)
-        .task(id: focusedButton == nil) {
-            // Auto-advance only while the user is not on the hero's buttons.
-            guard focusedButton == nil, features.count > 1 else { return }
+        .task(id: focusedButton == nil && !playback.isPresenting) {
+            // Auto-advance only while the user is not on the hero's buttons, and not
+            // under a full-screen player (the page stays alive below it).
+            guard focusedButton == nil, !playback.isPresenting, features.count > 1 else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.interval)
                 guard !Task.isCancelled else { return }

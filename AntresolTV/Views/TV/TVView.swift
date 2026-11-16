@@ -42,7 +42,9 @@ struct TVView: View {
             if let client = appState.client { Task { await ChannelService(client: client).opened() } }
             if model.grid.loadedFrom != nil { await model.reloadGuide() }
             while !Task.isCancelled {
-                await model.refresh()
+                // Under a full-screen player nobody sees the list (the live player
+                // fetches it itself, and its closing refreshes this one).
+                if !playback.isPresenting { await model.refresh() }
                 try? await Task.sleep(for: Self.refreshInterval)
             }
         }
