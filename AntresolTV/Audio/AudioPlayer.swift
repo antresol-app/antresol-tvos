@@ -313,7 +313,18 @@ final class AudioPlayer {
         guard let entry = queue.move(to: index) else { return }
         // Without any key the stream would only answer 401.
         guard await refreshMediaKey() || mediaKey != nil else { return }
-        let isTranscoded = await transcoding(entry.element)
+        // From the beginning both kinds of stream have the same address, so a song not
+        // seen before starts at once and its kind is learned beside it, as for the queued
+        // next song. Only a start inside the song has to know first.
+        let known = knownTranscoding(entry.element)
+        let isTranscoded: Bool
+        if let known {
+            isTranscoded = known
+        } else if offset > 0 {
+            isTranscoded = await transcoding(entry.element)
+        } else {
+            isTranscoded = false
+        }
         guard queue.current?.id == entry.id else { return }
         guard let playerItem = makePlayerItem(for: entry, offset: offset, transcoded: isTranscoded) else { return }
         player.removeAllItems()
@@ -321,6 +332,14 @@ final class AudioPlayer {
         itemObservers = [:]
         register(playerItem, entry: entry, offset: isTranscoded ? offset : 0, transcoded: isTranscoded, acceptsFLAC: !isTranscoded)
         player.insert(playerItem, after: nil)
+        if known == nil, offset <= 0 {
+            // Learn it before anyone seeks in the song.
+            let id = ObjectIdentifier(playerItem)
+            Task {
+                let transcoded = await transcoding(entry.element)
+                loaded[id]?.transcoded = transcoded
+            }
+        }
         pendingSeek = (!isTranscoded && offset > 0) ? offset : nil
         position = offset
         startedItem(entry)
