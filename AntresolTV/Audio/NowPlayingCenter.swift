@@ -61,12 +61,12 @@ final class NowPlayingCenter {
         artworkPath = path
         artwork = nil
         artworkTask?.cancel()
-        guard let client = player.client, let url = client.urls.image(path) else { return }
+        guard let client = player.client else { return }
         artworkTask = Task {
-            guard let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800),
+            guard let loaded = await ImagePipeline.shared.nowPlayingArtwork(path, client: client),
                   !Task.isCancelled, artworkPath == path
             else { return }
-            artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+            artwork = loaded
             update()
         }
     }
@@ -120,5 +120,16 @@ final class NowPlayingCenter {
                 return .success
             }
         }
+    }
+}
+
+extension ImagePipeline {
+    /// A server image as the system's Now Playing artwork (music and live TV).
+    @MainActor
+    func nowPlayingArtwork(_ path: String, client: APIClient) async -> MPMediaItemArtwork? {
+        guard let url = client.urls.image(path),
+              let image = await image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800)
+        else { return nil }
+        return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }
 }
