@@ -217,7 +217,7 @@ struct ServerEntryView: View {
         Group {
             if browser.isDenied {
                 Label {
-                    Text("Antresol can't look for servers: local network access is off. Turn it on in Settings > Privacy & Security > Local Network, or enter the address below.")
+                    Text("Antresol can't look for servers: local network access is off. Turn it on in Settings > General > Privacy & Security > Local Network, or enter the address below.")
                 } icon: {
                     Image(systemName: "network.slash")
                 }
