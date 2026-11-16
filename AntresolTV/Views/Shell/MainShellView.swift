@@ -59,6 +59,13 @@ struct MainShellView: View {
                         .environment(playback)
                 }
         }
+        .background {
+            Color.clear
+                .fullScreenCover(item: presentedTrailer) { request in
+                    TrailerPlayerView(request: request)
+                        .environment(appState)
+                }
+        }
         .onChange(of: selection) { old, new in
             tabReset.selectionChanged(from: old, to: new)
         }
@@ -76,6 +83,9 @@ struct MainShellView: View {
             if request != nil { audio.pause() }
         }
         .onChange(of: playback.presentedChannel) { _, request in
+            if request != nil { audio.pause() }
+        }
+        .onChange(of: playback.presentedTrailer) { _, request in
             if request != nil { audio.pause() }
         }
         .onChange(of: playback.completedSessions) {
@@ -309,6 +319,13 @@ struct MainShellView: View {
         Binding(
             get: { playback.presentedChannel },
             set: { playback.presentedChannel = $0 }
+        )
+    }
+
+    private var presentedTrailer: Binding<PlaybackCoordinator.TrailerRequest?> {
+        Binding(
+            get: { playback.presentedTrailer },
+            set: { playback.presentedTrailer = $0 }
         )
     }
 

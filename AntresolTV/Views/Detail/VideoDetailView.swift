@@ -311,7 +311,7 @@ struct VideoDetailView: View {
     @ViewBuilder
     private var trailerButton: some View {
         if !model.trailers.isEmpty {
-            TrailerButton(trailers: model.trailers)
+            TrailerButton(trailers: model.trailers, card: card)
         }
     }
 

@@ -16,10 +16,14 @@ public struct Trailer: Decodable, Hashable, Identifiable, Sendable {
     public var official: Bool
     /// The https watch page, for a phone or a browser.
     public var url: String
+    /// `POST` here to play the trailer in the app (`/api/trailers/<key>/play`). nil when the
+    /// server cannot fetch trailers (an older server, or trailers turned off): the app then
+    /// falls back to the trailer site.
+    public var play: String?
 
     public var id: String { key }
 
-    public init(name: String, site: String = "YouTube", key: String, type: String = "Trailer", lang: String = "", official: Bool = false, url: String = "") {
+    public init(name: String, site: String = "YouTube", key: String, type: String = "Trailer", lang: String = "", official: Bool = false, url: String = "", play: String? = nil) {
         self.name = name
         self.site = site
         self.key = key
@@ -27,9 +31,10 @@ public struct Trailer: Decodable, Hashable, Identifiable, Sendable {
         self.lang = lang
         self.official = official
         self.url = url
+        self.play = play
     }
 
-    enum CodingKeys: String, CodingKey { case name, site, key, type, lang, official, url }
+    enum CodingKeys: String, CodingKey { case name, site, key, type, lang, official, url, play }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -40,6 +45,17 @@ public struct Trailer: Decodable, Hashable, Identifiable, Sendable {
         lang = c.value(.lang, default: "")
         official = c.value(.official, default: false)
         url = c.value(.url, default: "")
+        play = Self.playPath(c.optional(.play))
+    }
+
+    /// Whether the server plays this trailer itself (`play` is set).
+    public var playsInApp: Bool { play != nil }
+
+    /// Only a server path under `/api/trailers/` is kept: the app never posts elsewhere.
+    static func playPath(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespaces), value.hasPrefix("/api/trailers/"),
+              !value.contains(".."), !value.contains("?"), !value.contains("#") else { return nil }
+        return value
     }
 
     /// Whether it is a teaser rather than a full trailer.
