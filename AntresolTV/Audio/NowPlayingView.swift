@@ -138,15 +138,8 @@ private struct NowPlayingContent: View {
             }
             .padding(.top, 36)
 
-            ScrubBar(
-                position: audio.position,
-                duration: audio.durationSec,
-                step: 10,
-                isBuffering: audio.isBuffering,
-                seek: audio.seek(to:),
-                select: audio.togglePlayPause
-            )
-            .padding(.top, 28)
+            AudioScrubBar()
+                .padding(.top, 28)
 
             GlassGroup(spacing: 18) { controls }
                 .padding(.top, 28)
@@ -272,6 +265,23 @@ private struct NowPlayingBackground: View {
 }
 
 // MARK: - Scrubber
+
+/// The scrub bar on the audio player's clock. A view of its own: the position changes
+/// twice a second, and only this view should be redrawn for it, not the whole screen.
+private struct AudioScrubBar: View {
+    @Environment(AudioPlayer.self) private var audio
+
+    var body: some View {
+        ScrubBar(
+            position: audio.position,
+            duration: audio.durationSec,
+            step: 10,
+            isBuffering: audio.isBuffering,
+            seek: audio.seek(to:),
+            select: audio.togglePlayPause
+        )
+    }
+}
 
 /// The playback position: a focusable bar. Left and right seek by `step` (presses add
 /// up before the seek is sent), select toggles play/pause.
