@@ -11,7 +11,7 @@ import UIKit
 ///
 /// - Memory: `NSCache` keyed by URL and target size, bounded by decoded byte cost.
 /// - Disk: original bytes in `Caches/Artwork`, reused for 7 days (the server's `max-age`);
-///   a file that turns out not to decode is removed.
+///   a file that turns out not to decode at any size is removed.
 /// - Concurrent requests for the same image share one download, whatever sizes they ask
 ///   for, and one decode per size; a download nobody waits for any more is cancelled.
 /// - A few decodes run at once (`decodeSlots`); the others wait their turn.
@@ -76,7 +76,12 @@ final class ImagePipeline: @unchecked Sendable {
         // ImageIO knew the header but could not decode the picture (damaged, or half
         // written by the server): the copy on disk would be handed out for a week
         // without the server being asked again. Without it the next request asks.
-        try? FileManager.default.removeItem(at: fileURL(for: url))
+        // Only when the file is the reason: one that still decodes small failed for
+        // want of memory for this size (the hero asks for one picture at 96 and 1920),
+        // and removing it would download it again on every appearance.
+        if !Task.isCancelled, ArtworkDecoding.isUndecodable(data) {
+            try? FileManager.default.removeItem(at: fileURL(for: url))
+        }
         return nil
     }
 
@@ -124,7 +129,7 @@ final class ImagePipeline: @unchecked Sendable {
     /// image), else a stale copy.
     private func fetch(url: URL, headers: [String: String]) async -> Data? {
         let file = fileURL(for: url)
-        if let data = freshData(at: file), Self.isImage(data) {
+        if let data = freshData(at: file), ArtworkDecoding.isImage(data) {
             return data
         }
         var request = URLRequest(url: url)
@@ -133,7 +138,7 @@ final class ImagePipeline: @unchecked Sendable {
         }
         do {
             let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200, Self.isImage(data) else {
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200, ArtworkDecoding.isImage(data) else {
                 return nil
             }
             try? data.write(to: file, options: .atomic)
@@ -200,24 +205,9 @@ final class ImagePipeline: @unchecked Sendable {
 
     // MARK: - Decoding
 
-    /// Whether ImageIO recognises `data` as an image (the header only, nothing is decoded).
-    private static func isImage(_ data: Data) -> Bool {
-        let options: [CFString: Any] = [kCGImageSourceShouldCache: false]
-        guard let source = CGImageSourceCreateWithData(data as CFData, options as CFDictionary) else { return false }
-        return CGImageSourceGetCount(source) > 0
-    }
-
+    /// (`ArtworkDecoding`, in the kit, is the ImageIO part: it has the unit tests.)
     private static func decode(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
-        let sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
-        guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions as CFDictionary) else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceThumbnailMaxPixelSize: max(1, Int(maxPixelSize)),
-        ]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-        return UIImage(cgImage: image)
+        ArtworkDecoding.thumbnail(data, maxPixelSize: Int(maxPixelSize)).map { UIImage(cgImage: $0) }
     }
 
     private static func memoryKey(_ url: URL, _ maxPixelSize: CGFloat) -> NSString {

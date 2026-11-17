@@ -201,3 +201,52 @@ final class RequestGateTests: XCTestCase {
         XCTAssertNotNil(gate.begin())
     }
 }
+
+#if canImport(ImageIO)
+import ImageIO
+
+/// A cached picture is thrown away only when the file itself cannot be decoded.
+final class ArtworkDecodingTests: XCTestCase {
+    /// A PNG of plain noise-free colour, `side` pixels square.
+    private func png(side: Int) throws -> Data {
+        let space = CGColorSpaceCreateDeviceRGB()
+        let context = try XCTUnwrap(CGContext(
+            data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0, space: space,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ))
+        context.setFillColor(CGColor(red: 0.8, green: 0.3, blue: 0.1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: side, height: side))
+        context.setFillColor(CGColor(red: 0.1, green: 0.3, blue: 0.8, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: side / 2, height: side / 3))
+        let image = try XCTUnwrap(context.makeImage())
+        let data = NSMutableData()
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        return data as Data
+    }
+
+    func testAGoodFileDecodesAtAnySizeAndIsKept() throws {
+        let data = try png(side: 256)
+        XCTAssertTrue(ArtworkDecoding.isImage(data))
+        XCTAssertEqual(ArtworkDecoding.thumbnail(data, maxPixelSize: 96)?.width, 96)
+        XCTAssertEqual(ArtworkDecoding.thumbnail(data, maxPixelSize: 1920)?.width, 256, "never scaled up")
+        // Whatever made the large decode fail, this file is not the reason.
+        XCTAssertFalse(ArtworkDecoding.isUndecodable(data))
+    }
+
+    /// The header is whole (ImageIO takes the file for an image, so it reached the disk
+    /// cache), the picture is not there: such a file is thrown away.
+    func testAFileWithOnlyItsHeaderIsThrownAway() throws {
+        let data = try png(side: 256)
+        // The signature and the IHDR chunk (8 + 25 bytes), then nothing.
+        let header = data.prefix(33)
+        XCTAssertTrue(ArtworkDecoding.isImage(header), "the header alone is recognised")
+        XCTAssertNil(ArtworkDecoding.thumbnail(header, maxPixelSize: 1920))
+        XCTAssertTrue(ArtworkDecoding.isUndecodable(header))
+        // Not an image at all.
+        XCTAssertFalse(ArtworkDecoding.isImage(Data("<html>".utf8)))
+        XCTAssertTrue(ArtworkDecoding.isUndecodable(Data("<html>".utf8)))
+    }
+}
+#endif
