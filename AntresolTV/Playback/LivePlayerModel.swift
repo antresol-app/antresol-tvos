@@ -700,8 +700,9 @@ final class LivePlayerModel {
                     guard let self, self.isItem(itemID, in: slot) else { return }
                     switch status {
                     case .readyToPlay:
-                        self.select(in: item, slot: slot)
                         self.itemIsReady(slot)
+                        // Shown at once (its first frame was up): the swap chose the tracks.
+                        if self.front != slot { self.select(in: item, slot: slot) }
                     case .failed: self.itemFailed()
                     default: break
                     }
