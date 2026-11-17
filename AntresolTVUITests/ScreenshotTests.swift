@@ -12,7 +12,9 @@ final class ScreenshotTests: XCTestCase {
 
     func test01ServerEntry() {
         let app = launch(arguments: ["-AntresolResetSession", "YES"])
-        XCTAssertTrue(app.staticTexts["Connect to your server"].waitForExistence(timeout: 20))
+        // The first screen is set-up by phone; the address screen is one press away.
+        XCTAssertTrue(app.staticTexts["Set up with your phone"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["Enter Address with the Remote"].exists)
         snapshot(app, "01-server-entry")
     }
 
