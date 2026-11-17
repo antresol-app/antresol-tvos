@@ -69,6 +69,8 @@ final class AudioPlayer {
     @ObservationIgnored private var transcodedStreams: [Int: Bool] = [:]
     @ObservationIgnored private var scrobble: ScrobbleTracker?
     @ObservationIgnored private var pendingSeek: Double?
+    /// The queue entry whose stream was asked for again for a held seek (`HeldSongSeek`).
+    @ObservationIgnored private var heldSeekReload: UUID?
     @ObservationIgnored private var timeObserver: Any?
     @ObservationIgnored private var observers: [NSKeyValueObservation] = []
     @ObservationIgnored private var itemObservers: [ObjectIdentifier: [NSKeyValueObservation]] = [:]
@@ -484,12 +486,20 @@ final class AudioPlayer {
             if playerItem === player.currentItem { consecutiveFailures = 0 }
             if playerItem === player.currentItem, let seek = pendingSeek {
                 pendingSeek = nil
-                let plan = SongSeek.plan(knownTranscoded: info.transcoded, isReady: true, hasSeekableRanges: !playerItem.seekableTimeRanges.isEmpty)
-                if plan == .reload, let index = queue.currentIndex, let entry = queue.current, entry.id == info.entryId {
+                let entry = queue.current.flatMap { $0.id == info.entryId ? $0 : nil }
+                let plan = HeldSongSeek.plan(
+                    knownTranscoded: info.transcoded, serverAnswer: entry.flatMap { knownTranscoding($0.element) },
+                    hasSeekableRanges: !playerItem.seekableTimeRanges.isEmpty, reloadedBefore: heldSeekReload == info.entryId
+                )
+                if case .reload(let remember) = plan, let index = queue.currentIndex, let entry {
                     // A seek made before the item was ready, in a song that turned out
                     // to be transcoded (a seek in it does nothing): the stream is asked
-                    // for again from there. Remembered, so the reload is a transcoded one.
-                    transcodedStreams[entry.element.track.id] = true
+                    // for again from there. An item without ranges alone is not the
+                    // server's word (an original file's ranges can be late): that load
+                    // asks the server first, and only a second time without ranges and
+                    // without an answer is remembered for the session.
+                    if remember { transcodedStreams[entry.element.track.id] = true }
+                    heldSeekReload = entry.id
                     Task { await load(index: index, at: seek) }
                 } else {
                     player.seek(to: CMTime(seconds: seek, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)

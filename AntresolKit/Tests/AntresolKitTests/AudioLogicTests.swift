@@ -159,4 +159,25 @@ final class SongSeekTests: XCTestCase {
         XCTAssertEqual(SongSeek.plan(knownTranscoded: true, isReady: false, hasSeekableRanges: false), .reload)
         XCTAssertEqual(SongSeek.plan(knownTranscoded: true, isReady: true, hasSeekableRanges: true), .reload)
     }
+
+    /// A held seek, decided when the item is ready. Nothing to seek in does not by
+    /// itself make a song transcoded for the session: an original file's ranges can come
+    /// after it is ready.
+    func testAHeldSeekTakesASongAsTranscodedOnlyOnTheServersWordOrASecondTime() {
+        // Ranges there: the player seeks.
+        XCTAssertEqual(HeldSongSeek.plan(knownTranscoded: false, serverAnswer: nil, hasSeekableRanges: true, reloadedBefore: false), .native)
+        XCTAssertEqual(HeldSongSeek.plan(knownTranscoded: false, serverAnswer: false, hasSeekableRanges: true, reloadedBefore: false), .native)
+        // No ranges, and the server has not answered: the stream is asked for again
+        // (that load asks the server first), and nothing is remembered.
+        XCTAssertEqual(HeldSongSeek.plan(knownTranscoded: false, serverAnswer: nil, hasSeekableRanges: false, reloadedBefore: false), .reload(remember: false))
+        // The server said "the original file": the ranges are late, the player seeks.
+        XCTAssertEqual(HeldSongSeek.plan(knownTranscoded: false, serverAnswer: false, hasSeekableRanges: false, reloadedBefore: false), .native)
+        XCTAssertEqual(HeldSongSeek.plan(knownTranscoded: false, serverAnswer: false, hasSeekableRanges: false, reloadedBefore: true), .native)
+        // Reloaded once already, again no ranges and still no answer (the request
+        // fails): a transcode the headers do not reveal. Remembered, so it ends there.
+        XCTAssertEqual(HeldSongSeek.plan(knownTranscoded: false, serverAnswer: nil, hasSeekableRanges: false, reloadedBefore: true), .reload(remember: true))
+        // Known to be transcoded (by the item, or by the server's answer since).
+        XCTAssertEqual(HeldSongSeek.plan(knownTranscoded: true, serverAnswer: nil, hasSeekableRanges: true, reloadedBefore: false), .reload(remember: false))
+        XCTAssertEqual(HeldSongSeek.plan(knownTranscoded: false, serverAnswer: true, hasSeekableRanges: false, reloadedBefore: false), .reload(remember: false))
+    }
 }
