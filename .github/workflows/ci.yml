@@ -152,6 +152,20 @@ jobs:
             exit 1
           fi
           grep -E 'Test Case|Executed' uitest.log | tail -n 10
+      - name: Run the hero test with Reduce Motion on
+        # The run above sees the setting off (the hero moves on by itself); with it on
+        # the hero must stay. One test, about two minutes, on the build made above.
+        run: |
+          xcrun simctl spawn "$SIM_UDID" defaults write com.apple.Accessibility ReduceMotionEnabled -bool true
+          if ! TEST_RUNNER_ANTRESOL_EXPECT_REDUCE_MOTION=1 xcodebuild test-without-building \
+            -project Antresol.xcodeproj -scheme AntresolTV -destination "id=$SIM_UDID" \
+            -only-testing:AntresolTVUITests/RuntimeTests/testHeroAutoAdvance > reduce-motion.log 2>&1; then
+            grep -E 'error:|failed|Test Case' reduce-motion.log | head -n 40
+            tail -n 40 reduce-motion.log
+            exit 1
+          fi
+          grep -E 'Test Case|Executed' reduce-motion.log | tail -n 4
+          xcrun simctl spawn "$SIM_UDID" defaults delete com.apple.Accessibility ReduceMotionEnabled || true
       - name: Export screenshots
         if: ${{ !cancelled() }}
         run: |

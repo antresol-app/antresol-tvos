@@ -120,6 +120,10 @@ final class RuntimeTests: XCTestCase {
         let dots = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Featured ")).firstMatch
         XCTAssertTrue(dots.waitForExistence(timeout: 10), "no hero page dots")
         let reduceMotion = UIAccessibility.isReduceMotionEnabled
+        // The run that is meant to see the setting on says so (CI's second step).
+        if ProcessInfo.processInfo.environment["ANTRESOL_EXPECT_REDUCE_MOTION"] == "1" {
+            XCTAssertTrue(reduceMotion, "Reduce Motion is not on in this simulator")
+        }
         let first = dots.label
         snapshot(reduceMotion ? "rt-22-hero-reduce-motion" : "rt-20-hero")
         var seen = Set([first])
@@ -137,19 +141,12 @@ final class RuntimeTests: XCTestCase {
 
     /// A song the server transcodes (the mock's second port, the album's third song)
     /// starts without waiting for the app's question about the stream, which the mock
-    /// answers after 4 s; a seek after that reloads the stream at the new position
-    /// (`t=` in the mock's log), as a transcoded song needs.
+    /// answers after 6 s: the player's own request comes before that answer and the
+    /// clock runs before it. A seek after that reloads the stream at the new position
+    /// (`t=` in the mock's record), as a transcoded song needs, and the clock goes on
+    /// from there.
     func testTranscodedSong() {
-        launch(server: pairingServer)
-        XCTAssertTrue(app.staticTexts["Sign in with your phone"].waitForExistence(timeout: 30), "no QR sign-in screen")
-        XCTAssertTrue(waitForFocus(app.buttons["Sign In with the Remote"]), "focus: \(focusedLabel)")
-        remote.press(.select)
-        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
-        sleep(2)
-        remote.press(.right)
-        remote.press(.select)
-        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30))
-        sleep(3)
+        signInOnSecondPort()
 
         // The first album of Home's shelves (as the screenshot tests reach it).
         remote.press(.right)
@@ -168,28 +165,62 @@ final class RuntimeTests: XCTestCase {
             sleep(1)
         }
         XCTAssertTrue(focusedLabel.contains("Track Number 3"), "focus: \(focusedLabel)")
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
 
-        let started = Date()
         remote.press(.select)
         let position = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Playback Position")).firstMatch
         XCTAssertTrue(position.waitForExistence(timeout: 20), "no Now Playing")
-        // The clock leaves 0:00 before the mock answers the app's own request.
-        var moved: TimeInterval?
-        while Date().timeIntervalSince(started) < 15 {
-            if let value = position.value as? String, value != "0:00" {
-                moved = Date().timeIntervalSince(started)
-                break
-            }
-            usleep(200_000)
+        func clock() -> Int? {
+            guard let parts = (position.value as? String)?.split(separator: ":").map({ Int($0) }), parts.count == 2,
+                  let minutes = parts[0], let seconds = parts[1]
+            else { return nil }
+            return minutes * 60 + seconds
         }
+        func wait(seconds limit: TimeInterval, until reached: (Int) -> Bool) -> Date? {
+            let from = Date()
+            while Date().timeIntervalSince(from) < limit {
+                if let now = clock(), reached(now) { return Date() }
+                usleep(200_000)
+            }
+            return nil
+        }
+        // The clock leaves 0:00 before the mock answers the app's own request.
+        let moved = wait(seconds: 20) { $0 > 0 }
         XCTAssertNotNil(moved, "the song did not start")
         snapshot("rt-30-transcoded-song-playing")
-        // By now the app knows the song is transcoded: a seek asks for the stream again.
-        sleep(5)
         XCTAssertTrue(moveFocus(.up, to: position, limit: 3), "focus: \(focusedLabel)")
-        remote.press(.right)
+
+        // By 0:13 the app knows the song is transcoded (the answer came at about 0:06).
+        XCTAssertNotNil(wait(seconds: 30) { $0 >= 13 }, "the song did not reach 0:13: \(clock() ?? -1)")
+        let stream = { (events: [[String: Any]]) in events.filter { $0["path"] as? String == "/api/tracks/17/stream" } }
+        let before = stream(mockEvents())
+        let players = before.filter { ($0["agent"] as? String ?? "").contains("AppleCoreMedia") }
+        let asked = before.filter { !($0["agent"] as? String ?? "").contains("AppleCoreMedia") }
+        let answered = asked.compactMap { $0["answered"] as? Double }.min()
+        XCTAssertNotNil(answered, "the app's own request about the stream was not answered: \(before)")
+        if let answered, let first = players.compactMap({ $0["t"] as? Double }).min(), let moved {
+            XCTAssertLessThan(first, answered, "the player asked for the song only after the app's question was answered")
+            XCTAssertLessThan(moved.timeIntervalSince1970, answered, "the clock ran only after the app's question was answered")
+            print("transcoded song: player asked \(String(format: "%.1f", answered - first)) s, clock ran \(String(format: "%.1f", answered - moved.timeIntervalSince1970)) s before the answer")
+        } else {
+            XCTFail("the player did not ask for the song: \(before)")
+        }
+
+        // Ten seconds back: the stream is asked for again from there, and plays on from there.
+        let from = clock() ?? 0
+        remote.press(.left)
         sleep(4)
+        let landed = clock() ?? -1
+        let target = from - 10
+        XCTAssertTrue(landed >= target && landed <= target + 7, "the seek from 0:\(from) did not land near 0:\(max(0, target)): 0:\(landed)")
         XCTAssertTrue(app.buttons["Pause"].exists, "not playing after the seek")
+        let reloads = stream(mockEvents()).dropFirst(before.count).compactMap { event -> Double? in
+            guard let query = event["query"] as? String,
+                  let value = query.split(separator: "&").first(where: { $0.hasPrefix("t=") })?.dropFirst(2)
+            else { return nil }
+            return Double(value)
+        }
+        XCTAssertTrue(reloads.contains { abs($0 - Double(target)) <= 2 }, "the stream was not asked for again near \(target) s: \(reloads)")
         snapshot("rt-31-transcoded-song-after-seek")
     }
 

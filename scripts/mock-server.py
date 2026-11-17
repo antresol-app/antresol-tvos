@@ -618,9 +618,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def send_transcoded(self):
         """A transcoded song: the whole stream whatever the range, of unknown length. The
-        player gets it at once; the app's own request for the headers waits four seconds."""
+        player gets it at once; the app's own request for the headers waits six seconds."""
         if "AppleCoreMedia" not in (self.headers.get("User-Agent") or ""):
-            time.sleep(4)
+            time.sleep(6)
         with self.server.hooks_lock:
             self.event["answered"] = time.time()
         self.send_response(200)
