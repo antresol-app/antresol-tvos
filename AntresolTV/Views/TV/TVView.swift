@@ -53,10 +53,7 @@ struct TVView: View {
             // last channel once, as a TV does.
             guard phase == .loaded, !placedFocus, model.mode == .channels, let initialRow else { return }
             placedFocus = true
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                focusedRow = initialRow
-            }
+            focusedRow = initialRow
         }
         .onChange(of: playback.liveSessions) {
             // The player may have changed favourites and the last channel.

@@ -269,10 +269,7 @@ private struct LiveControls: View {
         .defaultFocus($focused, first(audio: audio, subtitles: subtitles))
         .onAppear {
             // The picture gives up focus as the row appears: hand it to the row.
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(80))
-                focused = first(audio: audio, subtitles: subtitles)
-            }
+            focused = first(audio: audio, subtitles: subtitles)
         }
         .onExitCommand { model.closeControls() }
         .onMoveCommand { direction in
@@ -382,12 +379,7 @@ private struct TrackMenu: View {
         .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous), highlighted: false, interactive: false)
         .focusSection()
         .defaultFocus($focused, selected)
-        .onAppear {
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(80))
-                focused = selected
-            }
-        }
+        .onAppear { focused = selected }
         .onExitCommand { model.openMenu = nil }
     }
 
