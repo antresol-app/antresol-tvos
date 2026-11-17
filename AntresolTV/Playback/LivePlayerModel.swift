@@ -49,7 +49,13 @@ final class LivePlayerModel {
     /// The options row (star, audio, subtitles, channels) under the banner has focus.
     private(set) var showsControls = false
     /// The audio or subtitle list opened from the options row.
-    var openMenu: TrackMenuKind?
+    var openMenu: TrackMenuKind? {
+        didSet {
+            if openMenu != nil, openMenu != oldValue { menuOpenings += 1 }
+        }
+    }
+    /// Counts the openings of a list: the list takes focus on each one.
+    private(set) var menuOpenings = 0
     /// The profile's audio and subtitle defaults.
     private(set) var prefs = PlaybackPrefs()
     /// The viewer's picks of this session on own channels (never sent anywhere).

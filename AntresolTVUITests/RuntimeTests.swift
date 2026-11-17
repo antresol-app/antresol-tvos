@@ -77,8 +77,7 @@ final class RuntimeTests: XCTestCase {
         sleep(1)
         remote.press(.select)
         XCTAssertTrue(waitForFocus(audio), "focus did not return to Audio after a pick: \(focusedLabel)")
-        XCTAssertTrue(app.buttons["live.track.English"].waitForNonExistence(timeout: 5), "the audio list did not close")
-        sleep(1)
+        // Opened again at once, while the list that closed may still be leaving.
         remote.press(.select)
         XCTAssertTrue(waitForFocus(app.buttons["live.track.Русский"]), "the audio list did not open on the picked voice: \(focusedLabel)")
         snapshot("rt-15-audio-picked")

@@ -379,7 +379,10 @@ private struct TrackMenu: View {
         .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous), highlighted: false, interactive: false)
         .focusSection()
         .defaultFocus($focused, selected)
-        .onAppear { focused = selected }
+        // Keyed on the opening, not on the list's appearance: a list opened again while
+        // it is still leaving (its 0.26 s transition) is the same view brought back, with
+        // no `onAppear`, and focus stayed on the button that opened it.
+        .task(id: model.menuOpenings) { focused = selected }
         .onExitCommand { model.openMenu = nil }
     }
 
