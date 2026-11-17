@@ -11,7 +11,8 @@ seconds of the video fixture, looped, with three audio renditions).
 
 The next port (8422) is the same server with QR sign-in (`/api/auth/pair/…`): the app
 shows its sign-in code there, and the profile picker on the main port, as the screenshot
-tests expect.
+tests expect. There the third song of the sample album is one the server transcodes (no
+ranges, `X-Vault-Transcode: 1`), and it is slow to answer the app's own question about it.
 """
 import argparse
 import datetime
@@ -31,6 +32,9 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 VIDEO = FIXTURES / "sample.mp4"
 TRACK = FIXTURES / "track.m4a"
 AUDIOBOOK = FIXTURES / "audiobook.m4a"
+# `ffmpeg -i track.m4a -c copy -f adts track.aac`: a stream that plays without ranges.
+TRANSCODED_TRACK = 17
+TRANSCODED = FIXTURES / "track.aac"
 # `ffmpeg -i sample.mp4 -t 12 -map 0:v -c copy -f hls -hls_time 4 …` and the same with 0:a.
 LIVE = FIXTURES / "live"
 LIVE_SEGMENTS = 3
@@ -453,6 +457,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, json.dumps(play_response(int(path.rsplit("/", 1)[1]))).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/stream/\d+", path):
             return self.send_file(VIDEO, "video/mp4")
+        if method == "GET" and path == f"/api/tracks/{TRANSCODED_TRACK}/stream" and getattr(self.server, "pairing", False):
+            return self.send_transcoded()
         if method == "GET" and re.fullmatch(r"/api/tracks/\d+/stream", path):
             return self.send_file(TRACK, "audio/mp4")
         if method == "GET" and re.fullmatch(r"/api/audio/\d+", path):
@@ -531,6 +537,23 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(chunk)))
         self.end_headers()
         self.wfile.write(chunk)
+
+    def send_transcoded(self):
+        """A transcoded song: the whole stream whatever the range, of unknown length. The
+        player gets it at once; the app's own request for the headers waits four seconds."""
+        if "AppleCoreMedia" not in (self.headers.get("User-Agent") or ""):
+            time.sleep(4)
+        self.send_response(200)
+        self.send_header("Content-Type", "audio/aac")
+        self.send_header("Accept-Ranges", "none")
+        self.send_header("X-Vault-Transcode", "1")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.close_connection = True
+        try:
+            self.wfile.write(TRANSCODED.read_bytes())
+        except OSError:
+            pass
 
     def send(self, status, body, content_type):
         if content_type == "application/json" and body:

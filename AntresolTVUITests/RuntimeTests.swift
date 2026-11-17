@@ -120,6 +120,64 @@ final class RuntimeTests: XCTestCase {
         }
     }
 
+    /// A song the server transcodes (the mock's second port, the album's third song)
+    /// starts without waiting for the app's question about the stream, which the mock
+    /// answers after 4 s; a seek after that reloads the stream at the new position
+    /// (`t=` in the mock's log), as a transcoded song needs.
+    func testTranscodedSong() {
+        launch(server: pairingServer)
+        XCTAssertTrue(app.staticTexts["Sign in with your phone"].waitForExistence(timeout: 30), "no QR sign-in screen")
+        XCTAssertTrue(waitForFocus(app.buttons["Sign In with the Remote"]), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
+        sleep(2)
+        remote.press(.right)
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30))
+        sleep(3)
+
+        // The first album of Home's shelves (as the screenshot tests reach it).
+        remote.press(.right)
+        sleep(2)
+        let album = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Sample Record")).firstMatch
+        for _ in 0..<4 where !(album.exists && album.hasFocus) {
+            remote.press(.down)
+            sleep(1)
+        }
+        XCTAssertTrue(moveFocus(.right, to: album, limit: 6), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Play"].waitForExistence(timeout: 20))
+        sleep(3)
+        for _ in 0..<3 {
+            remote.press(.down)
+            sleep(1)
+        }
+        XCTAssertTrue(focusedLabel.contains("Track Number 3"), "focus: \(focusedLabel)")
+
+        let started = Date()
+        remote.press(.select)
+        let position = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Playback Position")).firstMatch
+        XCTAssertTrue(position.waitForExistence(timeout: 20), "no Now Playing")
+        // The clock leaves 0:00 before the mock answers the app's own request.
+        var moved: TimeInterval?
+        while Date().timeIntervalSince(started) < 15 {
+            if let value = position.value as? String, value != "0:00" {
+                moved = Date().timeIntervalSince(started)
+                break
+            }
+            usleep(200_000)
+        }
+        XCTAssertNotNil(moved, "the song did not start")
+        snapshot("rt-30-transcoded-song-playing")
+        // By now the app knows the song is transcoded: a seek asks for the stream again.
+        sleep(5)
+        XCTAssertTrue(moveFocus(.up, to: position, limit: 3), "focus: \(focusedLabel)")
+        remote.press(.right)
+        sleep(4)
+        XCTAssertTrue(app.buttons["Pause"].exists, "not playing after the seek")
+        snapshot("rt-31-transcoded-song-after-seek")
+    }
+
     // MARK: - Helpers
 
     /// The mock's port with QR sign-in: the one after the main port.
