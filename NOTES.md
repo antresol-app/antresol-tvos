@@ -1164,3 +1164,55 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   blocks side by side (it cannot be told from the same film shown twice in a row). The
   mock's guide ignores `from`, so the joined programme was checked by the kit test only.
 - The detail pages' delayed focus (tvOS 17, a linked album) is as it was.
+
+## App review round, fourth pass, 2026-11-17 (the independent review's findings)
+
+### What changed
+- **Resume point** (RV-1): Try Again after a failed progress request asks for the saved
+  position again. `open()` set the item before the position had arrived, so the retry
+  took the item as resolved and began at 0 (after Up Next: at the previous episode's
+  offset). The choice is `PlaybackRetry.plan` (kit): a start counts as known only once a
+  session was begun for the item.
+- **Guide pages** (RV-5, RV-6, and the Android twin's review): the newer page wins over
+  what was known for its span. The server gives a programme's id to another programme
+  when a schedule is rebuilt, so the merge trusts nothing known: same key or same start
+  → the page's copy; a known programme that starts inside the page's span or overlaps
+  one of the page's is dropped; a join is void when its key or span would clash with
+  another of the page's programmes; keys are unique in a row. Only library programmes
+  are joined (external entries all have item 0), and under one id only when both copies
+  agree on the edge that is not cut (a moved programme is not stretched).
+- **Focus** (RV-2, RV-10): the TV tab keeps the row it wants focused (`focusRequest`):
+  the list scrolls there, the row takes focus as it appears, the delayed assignment is
+  a fallback of three tries. The audio / subtitle list takes focus on every opening
+  (`menuOpenings`), not on `onAppear`: opened again inside its 0.26 s leaving
+  transition it is the same view brought back, and `onAppear` does not run (seen in the
+  log: no `onAppear` between the two openings).
+- **Artwork** (RV-3, RV-9, RV-11): `ArtworkPixels.longestSide` (kit) is the size rule;
+  full-screen backdrops pass a floor of 1920, so a 1080p screen gets its every pixel
+  again and 4K still decodes 1920. A file whose decode fails leaves the disk cache. A
+  late waiter removes only its own decode entry.
+- **Music** (RV-7, RV-8): the stream probe's answer is applied only to the item of the
+  queue entry it was asked for; a seek held before an unknown song's item is ready is
+  decided again then (`SongSeek.plan`, kit) and reloads the stream when it has no ranges.
+- **Tests** (RV-4): the mock's second port keeps what it was asked (`/mock/events`,
+  `/mock/reset`), can fail one progress request (`/mock/fail-progress/<id>`), lists 24
+  channels with the 18th as the last one watched, and answers the app's own question
+  about the transcoded song after 6 s. `testTranscodedSong` checks the order of requests
+  and the clock after the seek; `testTryAgainResumesAtTheSavedPosition` and
+  `testTVTabOpensOnAFarLastChannel` are new; `testLivePlayer` opens the audio list again
+  at once. CI runs `testHeroAutoAdvance` a second time with Reduce Motion on. The video
+  player's file position is an accessibility value in debug builds (`player.position`).
+
+### Known gaps
+- No unit test for RV-7, RV-9 and RV-11: the code is in the app target, which has no
+  unit-test bundle; they were built and exercised by the UI runs only as far as those go
+  (no damaged image, no probe race in the mock).
+- A programme a rebuilt schedule moved AND renumbered between two page loads cannot be
+  told from one cut by the page's edge (same item, overlapping, across the edge): it is
+  still joined. A stable programme id from the server would end the guessing.
+- Decodes are still not cancellable and wait in arrival order (RV-11's first point).
+- The held-seek reload (RV-8) and the 1080p decode size were not seen on an Apple TV.
+- Still open from the third pass: the mock's guide ignores `from` (the joined programme
+  is checked by kit tests only), and a tune-in with a voice other than the stream's
+  default loads the default rendition's first segments (needs the choice before the
+  item loads: a restructuring).
