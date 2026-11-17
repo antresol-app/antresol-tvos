@@ -133,11 +133,25 @@ public struct ChannelGuideGrid: Hashable, Sendable {
     /// known (the same item, overlapping, reaching past the edge that cut `fresh`) it is
     /// one programme: the whole span, under the key it already had (the guide's identity
     /// and focus).
+    ///
+    /// Only a library programme can be recognised so: an external guide's entries carry no
+    /// item (`itemId` 0 for all of them), and two of those that overlap are two programmes.
+    /// Under the same id the known copy is this programme joined before only when the two
+    /// agree on the edge that is not cut; otherwise a rebuilt schedule moved it, and the
+    /// fresh copy stands. (A moved programme that also changed its id cannot be told from
+    /// a cut one by its times.)
     static func joined(_ fresh: ChannelProgram, with known: [ChannelProgram], in window: ChannelEPGWindow) -> ChannelProgram {
-        guard !fresh.id.isEmpty else { return fresh }
+        guard !fresh.id.isEmpty, fresh.itemId != 0, !fresh.external, fresh.kind != "external" else { return fresh }
         let part = known.first { old in
-            !old.id.isEmpty && old.itemId == fresh.itemId && old.start < fresh.end && fresh.start < old.end
-                && ((fresh.start <= window.from && old.start < fresh.start) || (fresh.end >= window.to && old.end > fresh.end))
+            guard !old.id.isEmpty, old.itemId == fresh.itemId, !old.external, old.start < fresh.end, fresh.start < old.end else {
+                return false
+            }
+            let sameId = old.id == fresh.id
+            // Cut at the window's start: the known part has the head.
+            let head = fresh.start <= window.from && old.start < fresh.start && (!sameId || old.end == fresh.end)
+            // Cut at the window's end: the known part has the tail.
+            let tail = fresh.end >= window.to && old.end > fresh.end && (!sameId || old.start == fresh.start)
+            return head || tail
         }
         guard let part else { return fresh }
         var whole = fresh

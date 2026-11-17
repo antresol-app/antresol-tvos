@@ -146,6 +146,66 @@ final class ChannelGuideTests: XCTestCase {
         XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-2"])
     }
 
+    /// An external (XMLTV) guide's programmes carry no item, and sloppy guides overlap:
+    /// A 90–130 and C 115–150 around the windows' edge at 120 are two programmes.
+    func testOverlappingExternalProgrammesAreNotJoined() throws {
+        func entry(_ id: String, _ start: TimeInterval, _ end: TimeInterval) -> ChannelProgram {
+            ChannelProgram(id: id, itemId: 0, kind: "external", title: id, start: t(start), end: t(end))
+        }
+        let before = ChannelEPGWindow(from: t(0), to: t(120), channels: [
+            ChannelEPG(id: 9, number: 100, name: "X", programs: [entry("xa", 90, 130), entry("xc", 115, 150)], external: true),
+        ])
+        let after = ChannelEPGWindow(from: t(120), to: t(240), channels: [
+            ChannelEPG(id: 9, number: 100, name: "X", programs: [entry("xa", 90, 130), entry("xc", 115, 150), entry("xd", 150, 200)], external: true),
+        ])
+        for windows in [[before, after], [after, before]] {
+            var grid = ChannelGuideGrid(windows[0])
+            grid.merge(windows[1])
+            XCTAssertEqual(grid.rows[0].programs.map(\.key), ["xa", "xc", "xd"])
+            XCTAssertEqual(grid.rows[0].programs.map(\.start), [t(90), t(115), t(150)])
+            XCTAssertEqual(grid.rows[0].programs.map(\.end), [t(130), t(150), t(200)])
+        }
+        // As the server sends them: no `itemId` at all.
+        let decoded = try JSONDecoder().decode(ChannelProgram.self, from: Data(
+            #"{"id":"xhttp://a-90000","kind":"external","title":"A","start":"2026-11-01T10:00:00Z","end":"2026-11-01T11:00:00Z"}"#.utf8
+        ))
+        XCTAssertEqual(decoded.itemId, 0)
+        var other = decoded
+        other.id = "xhttp://a-93000"
+        other.start = decoded.start.addingTimeInterval(1800)
+        other.end = decoded.end.addingTimeInterval(1800)
+        let window = ChannelEPGWindow(from: decoded.start.addingTimeInterval(2400), to: decoded.end.addingTimeInterval(7200), channels: [])
+        XCTAssertEqual(ChannelGuideGrid.joined(other, with: [decoded], in: window), other)
+    }
+
+    /// A film of one file, 60–140, with the windows' edge at 120; the schedule is rebuilt
+    /// between the two pages and the film now runs 100–180 (entries after the rebuilt
+    /// point keep their numbers, so its id is the same). It is not 60–180.
+    func testAProgrammeMovedByARebuiltScheduleIsNotStretched() {
+        func film(_ start: TimeInterval, _ end: TimeInterval) -> ChannelProgram {
+            ChannelProgram(id: "1-2", itemId: 7, title: "Film", start: t(start), end: t(end))
+        }
+        var grid = ChannelGuideGrid(ChannelEPGWindow(from: t(0), to: t(120), channels: [
+            ChannelEPG(id: 1, number: 1, name: "A", programs: [program("1-1", 0, 60), film(60, 140)]),
+        ]))
+        grid.merge(ChannelEPGWindow(from: t(120), to: t(240), channels: [
+            ChannelEPG(id: 1, number: 1, name: "A", programs: [film(100, 180), program("1-3", 180, 240)]),
+        ]))
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-2", "1-3"])
+        XCTAssertEqual(grid.rows[0].programs[1].start, t(100))
+        XCTAssertEqual(grid.rows[0].programs[1].end, t(180))
+
+        // Moved earlier, seen scrolling back: the same.
+        grid = ChannelGuideGrid(ChannelEPGWindow(from: t(120), to: t(240), channels: [
+            ChannelEPG(id: 1, number: 1, name: "A", programs: [film(100, 180), program("1-3", 180, 240)]),
+        ]))
+        grid.merge(ChannelEPGWindow(from: t(0), to: t(120), channels: [
+            ChannelEPG(id: 1, number: 1, name: "A", programs: [program("1-1", 0, 60), film(60, 140)]),
+        ]))
+        XCTAssertEqual(grid.rows[0].programs[1].start, t(60))
+        XCTAssertEqual(grid.rows[0].programs[1].end, t(140))
+    }
+
     func testCursorLandsOnTheProgrammeOnAirElseTheNearest() {
         let row = ChannelEPG(id: 1, number: 1, name: "A", programs: [program("a", 100, 200), program("b", 300, 400)])
         XCTAssertEqual(row.program(near: t(150))?.id, "a")
