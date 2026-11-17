@@ -10,7 +10,8 @@ import UIKit
 /// ImageIO and caches it in memory and on disk.
 ///
 /// - Memory: `NSCache` keyed by URL and target size, bounded by decoded byte cost.
-/// - Disk: original bytes in `Caches/Artwork`, reused for 7 days (the server's `max-age`).
+/// - Disk: original bytes in `Caches/Artwork`, reused for 7 days (the server's `max-age`);
+///   a file that turns out not to decode is removed.
 /// - Concurrent requests for the same image share one download, whatever sizes they ask
 ///   for, and one decode per size; a download nobody waits for any more is cancelled.
 /// - A few decodes run at once (`decodeSlots`); the others wait their turn.
@@ -69,7 +70,14 @@ final class ImagePipeline: @unchecked Sendable {
             return image
         }
         guard let data = await originalData(for: url, headers: headers), !Task.isCancelled else { return nil }
-        return await decoded(data, key: key, maxPixelSize: maxPixelSize)
+        if let image = await decoded(data, key: key, maxPixelSize: maxPixelSize) {
+            return image
+        }
+        // ImageIO knew the header but could not decode the picture (damaged, or half
+        // written by the server): the copy on disk would be handed out for a week
+        // without the server being asked again. Without it the next request asks.
+        try? FileManager.default.removeItem(at: fileURL(for: url))
+        return nil
     }
 
     // MARK: - Loading
