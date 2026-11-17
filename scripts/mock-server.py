@@ -7,6 +7,10 @@ fixture clips for video, music and audiobooks, so the app can be driven through 
 screen without a real library.
 
     python3 scripts/mock-server.py --port 8421
+
+The next port (8422) is the same server with QR sign-in (`/api/auth/pair/…`): the app
+shows its sign-in code there, and the profile picker on the main port, as the screenshot
+tests expect.
 """
 import argparse
 import datetime
@@ -331,6 +335,13 @@ def on_air_now(sample):
     return data
 
 
+def pairing_code(port):
+    """`POST /api/auth/pair/start`: a code nobody approves (the poll stays pending)."""
+    expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5)
+    return {"code": "ABC234", "secret": "mock-pairing-secret", "expiresAt": expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "interval": 2, "url": f"http://127.0.0.1:{port}/pair?code=ABC234"}
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -363,6 +374,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, json.dumps({"token": KID_TOKEN, "user": KID_USER}).encode(), "application/json")
         if method == "GET" and path == "/api/me" and KID_TOKEN in (self.headers.get("Authorization") or ""):
             return self.send(200, json.dumps(KID_USER).encode(), "application/json")
+        # QR sign-in, on the second port only.
+        if method == "POST" and getattr(self.server, "pairing", False):
+            if path == "/api/auth/pair/start":
+                return self.send(200, json.dumps(pairing_code(self.server.server_port)).encode(), "application/json")
+            if path == "/api/auth/pair/poll":
+                return self.send(200, json.dumps({"status": "pending"}).encode(), "application/json")
         handled = LIBRARY.handle(method, path, json.loads(body or b"{}") if method in ("POST", "PATCH") else {})
         if handled:
             status, payload = handled
@@ -486,6 +503,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8421)
     args = parser.parse_args()
+    pairing = ThreadingHTTPServer(("127.0.0.1", args.port + 1), Handler)
+    pairing.pairing = True
+    threading.Thread(target=pairing.serve_forever, daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 
 
