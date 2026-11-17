@@ -222,6 +222,12 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
     -destination "id=$SIM_UDID" -only-testing:AntresolTVUITests/ScreenshotTests/test02OnboardingAndHome
   ```
 
+- `RuntimeTests` use the same mock server for what the screenshots do not show: Menu on the
+  sign-in screens, the live player (every channel of the mock plays one short looped stream,
+  `scripts/fixtures/live`), a transcoded song and the hero's auto-advance (it expects the
+  hero to stay when the simulator has Reduce Motion on). The mock also listens on the next
+  port (8422 for `--port 8421`): the same server with QR sign-in, which the main port does
+  not have, so the screenshot tests keep starting on the profile picker.
 - Without an Apple TV simulator yet: `xcrun simctl create "Apple TV 4K (3rd generation)"
   com.apple.CoreSimulator.SimDeviceType.Apple-TV-4K-3rd-generation-4K <a tvOS runtime of
   "xcrun simctl list runtimes">`, and boot it before the run (`xcrun simctl bootstatus <udid> -b`).

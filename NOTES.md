@@ -1108,3 +1108,59 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
 - Kit API nothing in the app calls (tests only), kept: `Models/Books.swift` beyond
   `isBook` / `withoutBooks`, `devices()`, `revokeDevice(id:)`, `searchSubtitles`,
   `downloadSubtitle`, `libraryStatus()`, `ServerURLs.download`, `ServerURLs.events`.
+
+## App review round, third pass, 2026-11-17 (the live player and sign-in in the simulator)
+
+### What changed
+- **Mock server**: every channel plays one short live stream (the first 12 s of the video
+  fixture, looped, three audio renditions named as the sample programme's voices). The
+  port after the main one is the same server with QR sign-in and one transcoded song;
+  the main port is as it was, so the screenshot tests see what they saw. The log line has
+  the User-Agent again (Python 3.15 rebuilt the line without it).
+- **`RuntimeTests`** (UI, the mock): Menu on the sign-in screens, the live player, the
+  hero's auto-advance (it expects the hero to stay when Reduce Motion is on), a
+  transcoded song.
+- **Focus**: the live options row, the audio / subtitle list and the TV tab assign focus
+  at once (they waited 80 and 150 ms).
+- **Live tune-in**: an item that is shown in the turn it becomes ready chooses its
+  tracks once. `live tracks:` log lines per first tune-in / zap / pick: 2 / 3 / 1 before,
+  1 / 2 / 1 after.
+- **Guide pages** (`ChannelGuideGrid.merge`): the server names a programme of several
+  files after its first file inside the queried window and leaves out the files outside
+  it, so a programme cut by a page's edge comes twice, under two ids and two starts. The
+  merge kept the fresh copy only (the programme lost its head, or its tail scrolling
+  back, and changed its key under the focus; tvOS never drew the two over each other).
+  The halves are joined now: the whole span under the key the guide already had.
+- **Kit tests**: the Top Shelf's strings files have the three section titles for `en`
+  and `ru`, the two values a session's language takes.
+
+### Seen in the simulator (tvOS 27.2, Apple TV 4K 3rd generation, the mock server)
+- `RuntimeTests` pass three times in a row; the 16 `ScreenshotTests` pass (run before the
+  guide-page change, which they do not reach).
+- Menu on the QR screen leaves the app; from the server screen it comes back.
+- The live player plays, switches channels, opens the options row on Audio and the
+  list on the playing voice; Menu returns to the row the player was opened from.
+- Reduce Motion on (`defaults write com.apple.Accessibility ReduceMotionEnabled -bool
+  true` in the simulator): the hero stays on its first page for 12 s (it moves on
+  without the setting); the live test passes with the fades.
+- The transcoded song: the player's request is answered 4 s before the app's own one,
+  the clock runs meanwhile, and a seek asks for the stream again with `t=`.
+
+### Known gaps
+- **The audio list opened again within about a second of a pick does not take focus**
+  (it stays on Audio; Up reaches the list). So it was with the 80 ms wait too. The test
+  waits for the list to close before opening it again.
+- A tune-in asks for the master playlist twice (the app's request that starts the
+  channel and reads the renditions, then the player's) and, when the voice chosen is not
+  the stream's default, loads the default rendition's first segments before the chosen
+  one's. Both left: the first is how a channel is started, the second needs the choice
+  to be made before the item loads.
+- The focus changes were checked in the simulator only; a slow Apple TV may differ.
+- The dynamic Top Shelf is still not seen running (the simulator shows the static
+  image and the extension makes no request).
+- In the guide the now line is drawn over a programme's first letters during its first
+  minute. The iOS guide draws the line over the blocks too; left for a decision.
+- A programme whose file boundary falls exactly on a page's edge still comes as two
+  blocks side by side (it cannot be told from the same film shown twice in a row). The
+  mock's guide ignores `from`, so the joined programme was checked by the kit test only.
+- The detail pages' delayed focus (tvOS 17, a linked album) is as it was.
