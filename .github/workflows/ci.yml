@@ -160,16 +160,23 @@ jobs:
       - name: Run the hero test with Reduce Motion on
         # The run above sees the setting off (the hero moves on by itself); with it on
         # the hero must stay. One test, about two minutes, on the build made above.
+        id: reducemotion
         run: |
           xcrun simctl spawn "$SIM_UDID" defaults write com.apple.Accessibility ReduceMotionEnabled -bool true
           if ! TEST_RUNNER_ANTRESOL_EXPECT_REDUCE_MOTION=1 xcodebuild test-without-building \
             -project Antresol.xcodeproj -scheme AntresolTV -destination "id=$SIM_UDID" \
-            -only-testing:AntresolTVUITests/RuntimeTests/testHeroAutoAdvance > reduce-motion.log 2>&1; then
+            -only-testing:AntresolTVUITests/RuntimeTests/testHeroAutoAdvance \
+            -resultBundlePath reduce-motion.xcresult > reduce-motion.log 2>&1; then
             grep -E 'error:|failed|Test Case' reduce-motion.log | head -n 40
             tail -n 40 reduce-motion.log
             exit 1
           fi
           grep -E 'Test Case|Executed' reduce-motion.log | tail -n 4
+          # A test that was renamed is not run at all, and that is not a failure.
+          if ! grep -Eq 'Executed 1 test, with 0 failures' reduce-motion.log; then
+            echo "::error::The Reduce Motion run did not run exactly one test"
+            exit 1
+          fi
       - name: Put Reduce Motion back
         # Also after a failure or a cancelled job: the simulator may be used again.
         if: ${{ always() }}
@@ -179,6 +186,10 @@ jobs:
         run: |
           mkdir -p screenshots
           xcrun xcresulttool export attachments --path ui.xcresult --output-path screenshots
+          if [ -d reduce-motion.xcresult ]; then
+            mkdir -p screenshots/reduce-motion
+            xcrun xcresulttool export attachments --path reduce-motion.xcresult --output-path screenshots/reduce-motion
+          fi
           cp mock-server.log screenshots/
           ls screenshots
           echo "Top Shelf extension requests:"
@@ -194,7 +205,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 scripts/build-gallery.py screenshots gallery "$GITHUB_SHA" "${{ steps.uitests.outcome }}"
+          python3 scripts/build-gallery.py screenshots gallery "$GITHUB_SHA" \
+            "${{ steps.uitests.outcome == 'success' && steps.reducemotion.outcome == 'success' && 'success' || 'failure' }}"
           cd gallery
           git init -q -b screenshots
           git config user.name "github-actions[bot]"

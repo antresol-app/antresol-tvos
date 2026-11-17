@@ -4,7 +4,8 @@
 Usage: build-gallery.py <export-dir> <gallery-dir> <commit-sha> <test-outcome>
 
 <export-dir> is the output of `xcrun xcresulttool export attachments` (PNG files plus
-manifest.json). Every screenshot is saved as `<name>.png` (the attachment name given in
+manifest.json); a second run's export in a folder inside it (the Reduce Motion run) is
+taken too. Every screenshot is saved as `<name>.png` (the attachment name given in
 ScreenshotTests, scaled to at most 1920 pt wide with `sips`) and README.md lists them per test.
 macOS only (uses `sips`).
 """
@@ -19,20 +20,21 @@ sha, outcome = sys.argv[3], sys.argv[4]
 gallery_dir.mkdir(parents=True, exist_ok=True)
 
 tests = {}
-for test in json.loads((export_dir / "manifest.json").read_text()):
-    # "ScreenshotTests/test02OnboardingAndHome()" -> "test02OnboardingAndHome"
-    test_name = re.sub(r"\(\)$", "", test["testIdentifier"].split("/")[-1])
-    for item in test["attachments"]:
-        if not item["exportedFileName"].endswith(".png"):
-            continue
-        # Attachment names come back as "<name>_<index>_<UUID>.png".
-        name = item["suggestedHumanReadableName"].split("_")[0]
-        subprocess.run(
-            ["sips", "-Z", "1920", str(export_dir / item["exportedFileName"]),
-             "--out", str(gallery_dir / f"{name}.png")],
-            check=True, capture_output=True,
-        )
-        tests.setdefault(test_name, []).append(name)
+for manifest in [export_dir / "manifest.json"] + sorted(export_dir.glob("*/manifest.json")):
+    for test in json.loads(manifest.read_text()):
+        # "ScreenshotTests/test02OnboardingAndHome()" -> "test02OnboardingAndHome"
+        test_name = re.sub(r"\(\)$", "", test["testIdentifier"].split("/")[-1])
+        for item in test["attachments"]:
+            if not item["exportedFileName"].endswith(".png"):
+                continue
+            # Attachment names come back as "<name>_<index>_<UUID>.png".
+            name = item["suggestedHumanReadableName"].split("_")[0]
+            subprocess.run(
+                ["sips", "-Z", "1920", str(manifest.parent / item["exportedFileName"]),
+                 "--out", str(gallery_dir / f"{name}.png")],
+                check=True, capture_output=True,
+            )
+            tests.setdefault(test_name, []).append(name)
 
 if not tests:
     sys.exit("no screenshots in the result bundle")
