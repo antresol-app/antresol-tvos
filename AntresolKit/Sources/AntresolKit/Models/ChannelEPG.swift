@@ -100,31 +100,59 @@ public struct ChannelGuideGrid: Hashable, Sendable {
         merge(window)
     }
 
-    /// Adds a window: new channels and programmes come in, a programme already known is
-    /// replaced by the fresh copy (same `key`), the two halves of one cut by the windows'
-    /// common edge become one (`joined`), channels the window no longer has are dropped
-    /// (the profile does not see them any more).
+    /// Adds a window (a page of the guide). The page is the newer word on its span, and
+    /// the server gives a programme's id (`<channel>-<seq>`) to another programme when a
+    /// schedule is rebuilt, so nothing known is trusted over it:
+    /// - the page's programmes all come in; under the same key, or from the same start,
+    ///   the page's copy replaces the known one;
+    /// - a known programme that starts inside the page's span, or overlaps one of the
+    ///   page's, is dropped (the page would have listed it);
+    /// - the two halves of a programme cut by the pages' common edge become one
+    ///   (`joined`), unless that would give two of the page's programmes one key or lay
+    ///   the joined span over another of them (the known half is stale then);
+    /// - keys are unique within a row, and channels the window no longer has are dropped
+    ///   (the profile does not see them any more).
     public mutating func merge(_ window: ChannelEPGWindow) {
         var known: [Int: ChannelEPG] = [:]
         for row in rows { known[row.id] = row }
         rows = window.channels.map { fresh in
-            guard let old = known[fresh.id] else { return fresh }
-            let freshPrograms = fresh.programs.map { Self.joined($0, with: old.programs, in: window) }
-            var byKey: [String: ChannelProgram] = [:]
-            for program in old.programs { byKey[program.key] = program }
-            for program in freshPrograms { byKey[program.key] = program }
-            var row = fresh
-            // Programmes of a rebuilt schedule may overlap old copies: the fresh ones win.
-            row.programs = byKey.values
-                .filter { candidate in
-                    freshPrograms.contains { $0.key == candidate.key }
-                        || !freshPrograms.contains { $0.start < candidate.end && candidate.start < $0.end }
+            guard let old = known[fresh.id] else { return Self.uniqueKeys(fresh) }
+            var page = fresh.programs
+            for index in page.indices {
+                let whole = Self.joined(page[index], with: old.programs, in: window)
+                guard whole != page[index] else { continue }
+                let clashes = fresh.programs.indices.contains { other in
+                    other != index && (fresh.programs[other].key == whole.key
+                        || (fresh.programs[other].start < whole.end && whole.start < fresh.programs[other].end))
                 }
-                .sorted { $0.start < $1.start }
+                if !clashes { page[index] = whole }
+            }
+            var byKey: [String: ChannelProgram] = [:]
+            for program in page { byKey[program.key] = program }
+            let listed = Array(byKey.values)
+            for program in old.programs where byKey[program.key] == nil {
+                if program.start >= window.from && program.start < window.to { continue }
+                let replaced = listed.contains {
+                    $0.start == program.start || ($0.start < program.end && program.start < $0.end)
+                }
+                if !replaced { byKey[program.key] = program }
+            }
+            var row = fresh
+            row.programs = byKey.values.sorted { ($0.start, $0.key) < ($1.start, $1.key) }
             return row
         }
         loadedFrom = min(loadedFrom ?? window.from, window.from)
         loadedTo = max(loadedTo ?? window.to, window.to)
+    }
+
+    /// A row as it came, with one programme per key (the later one in the page).
+    private static func uniqueKeys(_ row: ChannelEPG) -> ChannelEPG {
+        var byKey: [String: ChannelProgram] = [:]
+        for program in row.programs { byKey[program.key] = program }
+        guard byKey.count != row.programs.count else { return row }
+        var row = row
+        row.programs = byKey.values.sorted { ($0.start, $0.key) < ($1.start, $1.key) }
+        return row
     }
 
     /// A programme of several files that a window's edge cuts comes under the id of its

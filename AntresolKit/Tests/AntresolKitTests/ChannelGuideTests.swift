@@ -206,6 +206,90 @@ final class ChannelGuideTests: XCTestCase {
         XCTAssertEqual(grid.rows[0].programs[1].end, t(140))
     }
 
+    private func show(_ id: String, item: Int, _ start: TimeInterval, _ end: TimeInterval) -> ChannelProgram {
+        ChannelProgram(id: id, itemId: item, title: "Item \(item)", start: t(start), end: t(end))
+    }
+
+    private func page(_ from: TimeInterval, _ to: TimeInterval, _ programs: [ChannelProgram]) -> ChannelEPGWindow {
+        ChannelEPGWindow(from: t(from), to: t(to), channels: [ChannelEPG(id: 1, number: 1, name: "A", programs: programs)])
+    }
+
+    /// One key per programme of a row, and no two programmes over the same time.
+    private func assertConsistent(_ grid: ChannelGuideGrid, file: StaticString = #filePath, line: UInt = #line) {
+        let programs = grid.rows[0].programs
+        XCTAssertEqual(Set(programs.map(\.key)).count, programs.count, "keys repeat: \(programs.map(\.key))", file: file, line: line)
+        for (a, b) in zip(programs, programs.dropFirst()) {
+            XCTAssertLessThanOrEqual(a.end, b.start, "\(a.key) and \(b.key) overlap", file: file, line: line)
+        }
+    }
+
+    /// The server gives programme ids again after a rebuild (entries from the rebuilt
+    /// point on are deleted and numbered anew): between two pages "1-2" became another
+    /// programme. The newer page's copy stands, whichever page it is.
+    func testAScheduleRebuiltBetweenTwoPages() {
+        let first = page(0, 120, [show("1-1", item: 1, 0, 60), show("1-2", item: 2, 60, 140)])
+        let rebuilt = page(120, 240, [show("1-2", item: 3, 110, 170), show("1-3", item: 4, 170, 240)])
+        var grid = ChannelGuideGrid(first)
+        grid.merge(rebuilt)
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-2", "1-3"])
+        XCTAssertEqual(grid.rows[0].programs.map(\.itemId), [1, 3, 4])
+        XCTAssertEqual(grid.rows[0].programs[1].start, t(110))
+        assertConsistent(grid)
+
+        // The same programme under the same id with a new end: the newer end.
+        grid = ChannelGuideGrid(page(0, 240, [show("1-1", item: 1, 0, 60), show("1-2", item: 2, 60, 200)]))
+        grid.merge(page(0, 240, [show("1-1", item: 1, 0, 60), show("1-2", item: 2, 60, 150), show("1-3", item: 5, 150, 240)]))
+        XCTAssertEqual(grid.rows[0].programs.map(\.end), [t(60), t(150), t(240)])
+        assertConsistent(grid)
+
+        // Known programmes inside the newer page's span that it no longer lists are gone,
+        // those outside it stay.
+        grid = ChannelGuideGrid(page(0, 240, [show("1-1", item: 1, 0, 60), show("1-2", item: 2, 60, 130), show("1-3", item: 3, 130, 150), show("1-4", item: 4, 150, 240)]))
+        grid.merge(page(120, 240, [show("1-2", item: 2, 60, 200), show("1-3", item: 6, 200, 240)]))
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-2", "1-3"])
+        XCTAssertEqual(grid.rows[0].programs.map(\.itemId), [1, 2, 6])
+        assertConsistent(grid)
+    }
+
+    /// The known half of a film has a key the newer page gives to another programme, and
+    /// the film itself comes under a new one: joining would put two blocks under one key
+    /// (focus moving right from the second would jump back to the first).
+    func testAJoinNeverGivesTwoProgrammesOneKey() {
+        var grid = ChannelGuideGrid(page(0, 120, [show("1-1", item: 1, 0, 60), show("1-2", item: 7, 60, 140)]))
+        grid.merge(page(120, 240, [show("1-2", item: 9, 90, 110), show("1-3", item: 7, 110, 200), show("1-4", item: 4, 200, 240)]))
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-2", "1-3", "1-4"])
+        XCTAssertEqual(grid.rows[0].programs.map(\.itemId), [1, 9, 7, 4])
+        XCTAssertEqual(grid.rows[0].programs[2].start, t(110))
+        assertConsistent(grid)
+
+        // A page that repeats a key itself keeps one programme under it.
+        grid = ChannelGuideGrid(page(0, 120, [show("1-1", item: 1, 0, 60), show("1-1", item: 2, 60, 120)]))
+        XCTAssertEqual(grid.rows[0].programs.map(\.itemId), [2])
+        grid.merge(page(0, 120, [show("1-1", item: 1, 0, 60), show("1-1", item: 2, 60, 120)]))
+        assertConsistent(grid)
+    }
+
+    /// The same film three times back to back, the pages' edge inside the second
+    /// showing: three programmes, each with its own times, in either order of pages and
+    /// after either page again.
+    func testTheSameFilmThreeTimesInARowStaysThreeProgrammes() {
+        let shows = [show("1-1", item: 7, 0, 100), show("1-2", item: 7, 100, 200), show("1-3", item: 7, 200, 300)]
+        let first = page(0, 150, Array(shows[0...1]))
+        let second = page(150, 300, Array(shows[1...2]))
+        for pages in [[first, second], [second, first], [first, second, first, second], [second, first, second]] {
+            var grid = ChannelGuideGrid(pages[0])
+            for next in pages.dropFirst() { grid.merge(next) }
+            XCTAssertEqual(grid.rows[0].programs, shows)
+            assertConsistent(grid)
+        }
+        // The edge exactly between two showings.
+        var grid = ChannelGuideGrid(page(0, 100, [shows[0]]))
+        grid.merge(page(100, 200, [shows[1]]))
+        grid.merge(page(200, 300, [shows[2]]))
+        grid.merge(page(100, 200, [shows[1]]))
+        XCTAssertEqual(grid.rows[0].programs, shows)
+    }
+
     func testCursorLandsOnTheProgrammeOnAirElseTheNearest() {
         let row = ChannelEPG(id: 1, number: 1, name: "A", programs: [program("a", 100, 200), program("b", 300, 400)])
         XCTAssertEqual(row.program(near: t(150))?.id, "a")
