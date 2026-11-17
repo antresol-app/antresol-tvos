@@ -80,3 +80,39 @@ final class TopShelfPlanTests: XCTestCase {
         XCTAssertTrue(TopShelfPlan(home: HomeResponse(hero: [], shelves: [])).sections.isEmpty)
     }
 }
+
+/// The Top Shelf extension titles its sections from `<language>.lproj` of its own bundle,
+/// `language` being the session's (`APIClient.normalizeLanguage`: `en` or `ru`). The
+/// extension has no test target, so its strings files are read from the checkout.
+final class TopShelfStringsTests: XCTestCase {
+    private static let keys = ["Continue Watching", "Recently Added", "On Air Now"]
+
+    func testEverySessionLanguageHasItsSectionTitles() throws {
+        let english = try strings("en")
+        let russian = try strings("ru")
+        for key in Self.keys {
+            XCTAssertEqual(english[key], key)
+            let title = try XCTUnwrap(russian[key], key)
+            XCTAssertFalse(title.isEmpty)
+            XCTAssertNotEqual(title, key, "\(key) is not translated")
+        }
+        // What the app stores in the shared session, whatever the language's spelling.
+        for language in ["ru", "ru-RU", "en", "en-GB", "de", ""] {
+            XCTAssertNoThrow(try strings(APIClient.normalizeLanguage(language)), language)
+        }
+    }
+
+    /// `TopShelf/<language>.lproj/Localizable.strings` as a dictionary.
+    private func strings(_ language: String) throws -> [String: String] {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let file = root.appendingPathComponent("TopShelf/\(language).lproj/Localizable.strings")
+        var out: [String: String] = [:]
+        for line in try String(contentsOf: file, encoding: .utf8).split(whereSeparator: \.isNewline) {
+            let parts = line.components(separatedBy: "\" = \"")
+            guard parts.count == 2, parts[0].hasPrefix("\""), parts[1].hasSuffix("\";") else { continue }
+            out[String(parts[0].dropFirst())] = String(parts[1].dropLast(2))
+        }
+        return out
+    }
+}
