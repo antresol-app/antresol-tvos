@@ -211,6 +211,26 @@ python3 scripts/mock-server.py --port 8421 &
 xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation)'
 ```
 
+- The tests look for the mock server at `127.0.0.1:8421`. Another port goes through the
+  test runner's environment, which `xcodebuild` fills from its own `TEST_RUNNER_…` variables
+  (not from arguments after the command: those are build settings and never reach the tests,
+  which then wait for a server that is not there and fail one by one on their timeouts):
+
+  ```sh
+  python3 scripts/mock-server.py --port 8497 &
+  TEST_RUNNER_ANTRESOL_MOCK_SERVER=127.0.0.1:8497 xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV \
+    -destination "id=$SIM_UDID" -only-testing:AntresolTVUITests/ScreenshotTests/test02OnboardingAndHome
+  ```
+
+- Without an Apple TV simulator yet: `xcrun simctl create "Apple TV 4K (3rd generation)"
+  com.apple.CoreSimulator.SimDeviceType.Apple-TV-4K-3rd-generation-4K <a tvOS runtime of
+  "xcrun simctl list runtimes">`, and boot it before the run (`xcrun simctl bootstatus <udid> -b`).
+- A test takes about a minute and the whole of `ScreenshotTests` about twenty. Run one test
+  first (`-only-testing:`); when it fails at once, look at the mock server's log: no requests
+  after `/api/health` means the app is not reaching it. `ChannelScreenshotTests` and
+  `StoreScreenshotTests` skip themselves without their own variables (`TEST_RUNNER_CHANNELS_…`, `TEST_RUNNER_DEMO_…`:
+  a real server).
+
 ## Architecture
 
 ```
