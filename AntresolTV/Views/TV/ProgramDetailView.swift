@@ -128,7 +128,7 @@ private struct ProgramBackdrop: View {
         ZStack {
             Theme.Colors.background
             if !program.still.isEmpty {
-                RemoteImage(path: program.still, maxPixelSize: 1920)
+                RemoteImage(path: program.still, maxPixelSize: ArtworkPixels.screenWidth, minPixelSize: ArtworkPixels.screenWidth)
                     .mask(
                         LinearGradient(
                             stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.5), .init(color: .clear, location: 1)],

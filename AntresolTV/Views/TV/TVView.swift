@@ -356,7 +356,8 @@ private struct ChannelPreview: View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
             let program = channel.program(at: context.date)
             VStack(alignment: .leading, spacing: 18) {
-                ProgrammeStill(program: program, maxPixelSize: 1400)
+                // About 745 points wide beside the list.
+                ProgrammeStill(program: program, maxPixelSize: 1500)
                     .aspectRatio(16 / 9, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                 HStack(spacing: 16) {

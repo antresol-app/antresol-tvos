@@ -279,7 +279,7 @@ struct HeroBackground: View {
                 endRadius: 1300
             )
             if !card.backdrop.isEmpty {
-                RemoteImage(path: card.backdrop, maxPixelSize: 1920)
+                RemoteImage(path: card.backdrop, maxPixelSize: ArtworkPixels.screenWidth, minPixelSize: ArtworkPixels.screenWidth)
                     .mask(
                         LinearGradient(
                             stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55), .init(color: .clear, location: 1)],

@@ -590,7 +590,7 @@ private struct LiveConnectingView: View {
     var body: some View {
         ZStack {
             if let backdrop = model.onAir(at: Date()).now?.backdrop, !backdrop.isEmpty {
-                RemoteImage(path: backdrop, maxPixelSize: 1920)
+                RemoteImage(path: backdrop, maxPixelSize: ArtworkPixels.screenWidth, minPixelSize: ArtworkPixels.screenWidth)
                     .opacity(0.35)
                     .ignoresSafeArea()
             }

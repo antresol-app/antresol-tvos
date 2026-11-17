@@ -14,6 +14,10 @@ struct RemoteImage: View {
     /// Longest side to decode, in pixels of a 2x screen (Apple TV 4K). Keep it near the
     /// on-screen size; a 1x screen (Apple TV HD) decodes half of it (`pixelSize`).
     var maxPixelSize: CGFloat = 600
+    /// The fewest pixels to decode at any scale: for a picture drawn across more points
+    /// than `maxPixelSize / 2` (a full-screen backdrop passes `ArtworkPixels.screenWidth`
+    /// for both), the points it covers, so a 1x screen still gets its every pixel.
+    var minPixelSize: CGFloat = 0
     /// Fit inside the frame (a logo) instead of filling it (artwork).
     var fit = false
     /// Called with the decoded image, e.g. to derive a tint colour.
@@ -23,9 +27,9 @@ struct RemoteImage: View {
     @Environment(\.displayScale) private var displayScale
     @State private var image: UIImage?
 
-    /// `maxPixelSize` for this screen's scale.
+    /// `maxPixelSize` for this screen's scale, `minPixelSize` at least.
     private var pixelSize: CGFloat {
-        (maxPixelSize * displayScale / 2).rounded(.up)
+        ArtworkPixels.longestSide(maxAt2x: maxPixelSize, atLeast: minPixelSize, scale: displayScale)
     }
 
     var body: some View {

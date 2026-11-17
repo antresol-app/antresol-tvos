@@ -157,3 +157,26 @@ final class PlaybackLogicTests: XCTestCase {
         XCTAssertEqual(APIClient.normalizeLanguage("de"), "en")
     }
 }
+
+/// The size artwork is decoded to follows the screen's scale, and full-screen art never
+/// gets fewer pixels than a 1080p screen has.
+final class ArtworkPixelsTests: XCTestCase {
+    func testArtworkFollowsTheScreensScale() {
+        // A poster 300 points wide (600 pixels of a 2x screen).
+        XCTAssertEqual(ArtworkPixels.longestSide(maxAt2x: 600, scale: 2), 600)
+        XCTAssertEqual(ArtworkPixels.longestSide(maxAt2x: 600, scale: 1), 300)
+        XCTAssertEqual(ArtworkPixels.longestSide(maxAt2x: 175, scale: 1), 88, "rounded up")
+    }
+
+    func testFullScreenArtIsNeverBelowA1080pScreensPixels() {
+        let width = ArtworkPixels.screenWidth
+        XCTAssertEqual(width, 1920)
+        // 1080p: a pixel of the picture for each of the screen's (it was 960 without the floor).
+        XCTAssertEqual(ArtworkPixels.longestSide(maxAt2x: width, atLeast: width, scale: 1), 1920)
+        XCTAssertEqual(ArtworkPixels.longestSide(maxAt2x: width, scale: 1), 960)
+        // 4K: the same 1920, not the screen's 3840.
+        XCTAssertEqual(ArtworkPixels.longestSide(maxAt2x: width, atLeast: width, scale: 2), 1920)
+        // The floor only raises.
+        XCTAssertEqual(ArtworkPixels.longestSide(maxAt2x: 600, atLeast: 100, scale: 2), 600)
+    }
+}
