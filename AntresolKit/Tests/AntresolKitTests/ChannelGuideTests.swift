@@ -329,6 +329,45 @@ final class ChannelGuideTests: XCTestCase {
         assertConsistent(grid)
     }
 
+    /// The server asks its external guide store once for all external channels; when
+    /// that fails it still answers 200, with every external row empty. Such a page says
+    /// nothing about them: what was known stays. With another external row filled, the
+    /// store did answer and an empty row means nothing is on.
+    func testAnEmptyExternalRowOfAFailedGuideQueryWipesNothing() {
+        func window(_ from: TimeInterval, _ to: TimeInterval, x: [ChannelProgram], y: [ChannelProgram], library: [ChannelProgram]) -> ChannelEPGWindow {
+            ChannelEPGWindow(from: t(from), to: t(to), channels: [
+                ChannelEPG(id: 1, number: 1, name: "A", programs: library),
+                ChannelEPG(id: 9, number: 100, name: "X", programs: x, external: true),
+                ChannelEPG(id: 10, number: 101, name: "Y", programs: y, external: true),
+            ])
+        }
+        let x = [entry("x1-60", 60, 120), entry("x1-120", 120, 200)]
+        let y = [entry("x1-60", 60, 130), entry("x1-130", 130, 200)]
+        let library = [show("1-1", item: 1, 60, 150), show("1-2", item: 2, 150, 200)]
+        let first = window(60, 200, x: x, y: y, library: library)
+
+        // Paging back over a part of what is loaded, the guide query failed.
+        var grid = ChannelGuideGrid(first)
+        grid.merge(window(0, 120, x: [], y: [], library: [show("1-0", item: 3, 0, 60), library[0]]))
+        XCTAssertEqual(grid.rows.map(\.id), [1, 9, 10])
+        XCTAssertEqual(grid.rows[1].programs, x)
+        XCTAssertEqual(grid.rows[2].programs, y)
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-0", "1-1", "1-2"])
+        XCTAssertEqual(grid.loadedFrom, t(0))
+
+        // The query answered (Y has programmes): X really has nothing in 0–120.
+        grid = ChannelGuideGrid(first)
+        grid.merge(window(0, 120, x: [], y: [entry("x1-0", 0, 60), y[0]], library: [library[0]]))
+        XCTAssertEqual(grid.rows[1].programs, [x[1]], "what starts inside the page's span is gone")
+        XCTAssertEqual(grid.rows[2].programs.map(\.key), ["x1-0", "x1-60", "x1-130"])
+
+        // A library row that comes empty is the truth (an error there is a 500).
+        grid = ChannelGuideGrid(first)
+        grid.merge(window(0, 120, x: [], y: [], library: []))
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-2"])
+        XCTAssertEqual(grid.rows[1].programs, x)
+    }
+
     /// The same film three times back to back, the pages' edge inside the second
     /// showing: three programmes, each with its own times, in either order of pages and
     /// after either page again.

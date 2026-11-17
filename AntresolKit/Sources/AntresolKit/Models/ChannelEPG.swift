@@ -115,13 +115,24 @@ public struct ChannelGuideGrid: Hashable, Sendable {
     /// - the two halves of a programme cut by the pages' common edge become one
     ///   (`joined`), unless that would give two of the page's programmes one key or lay
     ///   the joined span over another of them (the known half is stale then);
+    /// - an external row that comes empty in a page whose external rows are all empty is
+    ///   no word about that channel, and what is known stays: the server asks its guide
+    ///   store once for all external channels and, when that fails, still answers with
+    ///   every one of them empty. (A library row's emptiness is the truth: an error
+    ///   there fails the whole request.)
     /// - keys are unique within a row, and channels the window no longer has are dropped
     ///   (the profile does not see them any more).
     public mutating func merge(_ window: ChannelEPGWindow) {
         var known: [Int: ChannelEPG] = [:]
         for row in rows { known[row.id] = row }
+        let externalGuideAnswered = window.channels.contains { $0.external && !$0.programs.isEmpty }
         rows = window.channels.map { fresh in
             guard let old = known[fresh.id] else { return Self.uniqueKeys(fresh) }
+            if fresh.external, fresh.programs.isEmpty, !externalGuideAnswered {
+                var row = fresh
+                row.programs = old.programs
+                return row
+            }
             var page = fresh.programs
             for index in page.indices {
                 let whole = Self.joined(page[index], with: old.programs, in: window)
