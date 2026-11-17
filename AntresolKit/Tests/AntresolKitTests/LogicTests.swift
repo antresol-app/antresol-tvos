@@ -181,6 +181,22 @@ final class ArtworkPixelsTests: XCTestCase {
     }
 }
 
+/// The repeated focus request of a list (the TV tab's last channel).
+final class FocusFallbackTests: XCTestCase {
+    func testFocusIsNotPulledBackFromWhereTheViewerMovedIt() {
+        let header = "filters", guideSwitch = "guide", sidebar = "sidebar"
+        // The request was lost and focus is where it was: asked again.
+        XCTAssertTrue(FocusFallback.mayAssign(rowHasFocus: false, placeAtRequest: header, placeNow: header))
+        XCTAssertTrue(FocusFallback.mayAssign(rowHasFocus: false, placeAtRequest: String?.none, placeNow: nil))
+        // A row has focus: done.
+        XCTAssertFalse(FocusFallback.mayAssign(rowHasFocus: true, placeAtRequest: header, placeNow: "row"))
+        // The viewer went on to another control of the header, or to the sidebar.
+        XCTAssertFalse(FocusFallback.mayAssign(rowHasFocus: false, placeAtRequest: header, placeNow: guideSwitch))
+        XCTAssertFalse(FocusFallback.mayAssign(rowHasFocus: false, placeAtRequest: header, placeNow: sidebar))
+        XCTAssertFalse(FocusFallback.mayAssign(rowHasFocus: false, placeAtRequest: header, placeNow: nil))
+    }
+}
+
 /// One guide request at a time, and none of them outlives a start-over.
 final class RequestGateTests: XCTestCase {
     func testARequestBegunBeforeAResetIsStale() throws {
@@ -250,3 +266,4 @@ final class ArtworkDecodingTests: XCTestCase {
     }
 }
 #endif
+

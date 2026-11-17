@@ -1,5 +1,6 @@
 import AntresolKit
 import SwiftUI
+import UIKit
 
 /// The TV tab: the server's live channels («ТВ») as a television has them. One numbered
 /// list (Channels) or the programme guide (Guide), switched at the top; filters All,
@@ -21,6 +22,8 @@ struct TVView: View {
     /// The row that is to take focus as soon as it exists: the last channel may be far
     /// down the lazy list, where there is no row to focus until the list scrolled to it.
     @State private var focusRequest: Int?
+    /// Where focus was when that row was asked for (`FocusPlace`).
+    @State private var focusPlaceAtRequest: CGRect?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -56,6 +59,7 @@ struct TVView: View {
             // last channel once, as a TV does.
             guard phase == .loaded, !placedFocus, model.mode == .channels, let initialRow else { return }
             placedFocus = true
+            focusPlaceAtRequest = FocusPlace.current()
             focusRequest = initialRow
         }
         .task(id: focusRequest) {
@@ -65,9 +69,18 @@ struct TVView: View {
             guard let target = focusRequest else { return }
             for pause in [150, 350, 700] {
                 try? await Task.sleep(for: .milliseconds(pause))
-                guard !Task.isCancelled, focusRequest == target else { return }
-                // On the row, or the viewer is already on another one.
-                if focusedRow != nil { break }
+                guard !Task.isCancelled else {
+                    // The page went away (another tab, a programme's page): the request
+                    // ends with it, or it would take focus when the page comes back.
+                    if focusRequest == target { focusRequest = nil }
+                    return
+                }
+                guard focusRequest == target else { return }
+                // On the row, or the viewer is on another one, or moved focus elsewhere
+                // (the header, the sidebar): it is not pulled back.
+                guard FocusFallback.mayAssign(
+                    rowHasFocus: focusedRow != nil, placeAtRequest: focusPlaceAtRequest, placeNow: FocusPlace.current()
+                ) else { break }
                 focusedRow = target
             }
             focusRequest = nil
@@ -121,6 +134,22 @@ struct TVView: View {
     private func watchLast() {
         guard let last = model.list.last else { return }
         playback.watch(last, channels: model.list.channels, filter: model.activeFilter)
+    }
+}
+
+/// Where the focus is on the screen: the focused item's frame in the window, nil when
+/// nothing has focus. Tells "focus has not moved" from "the viewer moved it" for places
+/// SwiftUI's focus state of this page does not cover (the header, the sidebar).
+@MainActor
+enum FocusPlace {
+    static func current() -> CGRect? {
+        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
+        guard let window = windows.first(where: \.isKeyWindow) ?? windows.first,
+              let item = UIFocusSystem.focusSystem(for: window)?.focusedItem
+        else { return nil }
+        // An item's frame is in its container's coordinates.
+        guard let space = item.parentFocusEnvironment?.focusItemContainer?.coordinateSpace else { return item.frame }
+        return space.convert(item.frame, to: window.coordinateSpace)
     }
 }
 
