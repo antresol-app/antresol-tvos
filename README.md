@@ -225,12 +225,15 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
 - `RuntimeTests` use the same mock server for what the screenshots do not show: Menu on the
   sign-in screens, the live player (every channel of the mock plays one short looped stream,
   `scripts/fixtures/live`), a transcoded song, a failed progress request with Try Again, a
-  last channel far down the list and the hero's auto-advance. The hero test expects the
+  last channel far down the list, the guide's rows of two external channels with the same
+  programme ids, and the hero's auto-advance. The hero test expects the
   hero to stay when the simulator has Reduce Motion on (`xcrun simctl spawn <udid> defaults
   write com.apple.Accessibility ReduceMotionEnabled -bool true`); CI runs it a second time
   that way, with `TEST_RUNNER_ANTRESOL_EXPECT_REDUCE_MOTION=1` so the run fails if the
-  setting is not on. The mock also listens on the next port (8422 for `--port 8421`): the
-  same server with QR sign-in, a long channel list and its test hooks (`/mock/events`,
+  setting is not on. The mock
+  also listens on the next port (8422 for `--port 8421`): the
+  same server with QR sign-in, a long channel list, a longer guide with external channels,
+  and its test hooks (`/mock/events`,
   `/mock/reset`, `/mock/fail-progress/<id>`; see the script's header), none of which the
   main port has, so the screenshot tests keep seeing what they saw.
 - Without an Apple TV simulator yet: `xcrun simctl create "Apple TV 4K (3rd generation)"

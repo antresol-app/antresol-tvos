@@ -67,6 +67,14 @@ struct GuideView: View {
         "empty-\(channelId)"
     }
 
+    /// A block's focus identity: its row and its programme. A programme's key is unique
+    /// in its row only: two external channels of one guide source have the same key for
+    /// programmes that start at the same instant, and focus moving between two such
+    /// blocks must be a change of the focused value.
+    private static func focusKey(_ channelId: Int, _ program: ChannelProgram) -> String {
+        "\(channelId)|\(program.key)"
+    }
+
     @ViewBuilder
     private var grid: some View {
         let rows = rows
@@ -190,7 +198,7 @@ struct GuideView: View {
     }
 
     private func channelCell(_ row: ChannelEPG) -> some View {
-        let isCurrent = row.programs.contains { $0.key == focused } || focused == Self.emptyKey(row.id)
+        let isCurrent = row.programs.contains { Self.focusKey(row.id, $0) == focused } || focused == Self.emptyKey(row.id)
         return HStack(spacing: 18) {
             Text(verbatim: String(row.number))
                 .font(.system(size: 30, weight: .semibold))
@@ -254,7 +262,7 @@ struct GuideView: View {
                         .frame(width: max(8, right - left - Self.blockGap), height: Self.rowHeight)
                 }
                 .buttonStyle(GuideBlockStyle(fill: fill(program, now: now)))
-                .focused($focused, equals: program.key)
+                .focused($focused, equals: Self.focusKey(row.id, program))
                 .onPlayPauseCommand {
                     if program.isOnAir(at: Date()) { watch(model.channel(row.id) ?? row.channel) }
                 }
@@ -297,15 +305,15 @@ struct GuideView: View {
 
     /// The programme of `row` on at the anchor (the row's focus target).
     private func target(in row: ChannelEPG) -> String {
-        row.program(near: anchor)?.key ?? Self.emptyKey(row.id)
+        row.program(near: anchor).map { Self.focusKey(row.id, $0) } ?? Self.emptyKey(row.id)
     }
 
-    /// Where a key is: its row and programme.
+    /// Where a focus key is: its row and programme.
     private func locate(_ key: String?, in rows: [ChannelEPG]) -> (row: Int, program: ChannelProgram?)? {
         guard let key else { return nil }
         for (index, row) in rows.enumerated() {
             if key == Self.emptyKey(row.id) { return (index, nil) }
-            if let program = row.programs.first(where: { $0.key == key }) { return (index, program) }
+            if let program = row.programs.first(where: { Self.focusKey(row.id, $0) == key }) { return (index, program) }
         }
         return nil
     }

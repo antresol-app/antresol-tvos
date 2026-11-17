@@ -14,6 +14,9 @@ shows its sign-in code there, and the profile picker on the main port, as the sc
 tests expect. There the channel list is long (24 channels, the last one watched is the
 18th) and the third song of the sample album is one the server transcodes (no
 ranges, `X-Vault-Transcode: 1`), and it is slow to answer the app's own question about it.
+Its guide has twelve rows and then three external channels, two of them from one guide
+source with programmes at the same instants (so with the same programme ids, as the
+server builds them: `x<guide>-<start ms>`).
 
 The second port also keeps what it was asked, for the UI tests (never on the main port):
 
@@ -370,6 +373,35 @@ def many_channels(data):
     data["lastChannel"] = FAR_LAST_CHANNEL
 
 
+GUIDE_ROWS = 12
+# (id and number, name, guide source, programme title, minutes off the half-hour grid)
+EXTERNAL_ROWS = [(100, "Альфа ТВ", 7, "Альфа-новости", 0), (101, "Бета ТВ", 7, "Бета-кино", 0),
+                 (102, "Гамма ТВ", 8, "Гамма-спорт", 10)]
+
+
+def guide_with_externals(data):
+    """The second port's guide: twelve rows (the sample's three, then copies), then three
+    external channels with half-hour programmes on a fixed grid. Alpha and Beta take
+    theirs from one guide source at the same instants: every programme id of the one is
+    also an id of the other."""
+    sample = list(data["channels"])
+    for number in range(len(sample) + 1, GUIDE_ROWS + 1):
+        row = json.loads(json.dumps(sample[(number - 1) % len(sample)]))
+        row.update(id=number, number=number, name=f"Канал {number}", favorite=False)
+        for n, program in enumerate(row["programs"]):
+            program["id"] = f"{number}-{n + 1}"
+        data["channels"].append(row)
+    slot = 1800
+    first = int(time.time()) // slot * slot - slot
+    stamp = lambda seconds: datetime.datetime.fromtimestamp(seconds, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for number, name, source, title, minutes in EXTERNAL_ROWS:
+        starts = [first + n * slot + minutes * 60 for n in range(5)]
+        programs = [{"id": f"x{source}-{start * 1000}", "kind": "external", "title": title,
+                     "start": stamp(start), "end": stamp(start + slot)} for start in starts]
+        data["channels"].append({"id": number, "number": number, "name": name, "category": "", "favorite": False,
+                                 "programs": programs, "external": True})
+
+
 def live_master():
     """A channel's master playlist: one picture, a rendition per voice."""
     lines = ["#EXTM3U", "#EXT-X-VERSION:4"]
@@ -518,7 +550,10 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET" and re.fullmatch(r"/api/channels/\d+/guide", path):
             return self.send(200, json.dumps(on_air_now("channel-guide.json")).encode(), "application/json")
         if method == "GET" and path == "/api/channels/epg":
-            return self.send(200, json.dumps(on_air_now("channel-epg.json")).encode(), "application/json")
+            guide = on_air_now("channel-epg.json")
+            if getattr(self.server, "pairing", False):
+                guide_with_externals(guide)
+            return self.send(200, json.dumps(guide).encode(), "application/json")
         if method in ("PUT", "DELETE") and re.fullmatch(r"/api/channels/(\d+/favorite|last)", path):
             return self.send(204, b"", "application/json")
         if method == "POST" and path == "/api/channels/opened":

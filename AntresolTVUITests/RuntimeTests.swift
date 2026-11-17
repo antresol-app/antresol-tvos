@@ -286,6 +286,47 @@ final class RuntimeTests: XCTestCase {
         print("mock progress writes for item 19 (positionMs): \(writes); progress requests: \(asked.count)")
     }
 
+    /// Two external channels of one guide source have the same programme ids (the mock's
+    /// second port: Alpha and Beta, the 13th and 14th rows, below the first screen). Down
+    /// from Alpha's programme lands on Beta's, the grid scrolls with it, and Select opens
+    /// Beta's programme.
+    func testGuideMovesBetweenRowsWithTheSameProgrammeIds() {
+        // The TV tab opens in the guide (the view the viewer chose last).
+        app.launchArguments += ["-tv.mode", "guide"]
+        signInOnSecondPort()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        func onScreen() -> Bool { focused.exists && focused.frame.minY >= 0 && focused.frame.maxY <= 1080 }
+        for _ in 0..<24 where !focusedLabel.contains("Альфа ТВ") {
+            remote.press(.down)
+            sleep(1)
+        }
+        XCTAssertTrue(focusedLabel.contains("100 · Альфа ТВ, Альфа-новости"), "focus did not reach Alpha's programme: \(focusedLabel)")
+        XCTAssertTrue(onScreen(), "Alpha's programme is off the screen: \(focusedLabel)")
+        snapshot("rt-60-guide-alpha")
+
+        remote.press(.down)
+        sleep(2)
+        XCTAssertTrue(focusedLabel.contains("101 · Бета ТВ, Бета-кино"), "Down did not land on Beta's programme: \(focusedLabel)")
+        XCTAssertTrue(onScreen(), "the grid did not follow focus to Beta's row: \(focusedLabel)")
+        snapshot("rt-61-guide-beta")
+
+        // The row after them, with ids of its own: the grid still follows.
+        remote.press(.down)
+        sleep(2)
+        XCTAssertTrue(focusedLabel.contains("102 · Гамма ТВ, Гамма-спорт"), "Down did not go on to the next row: \(focusedLabel)")
+        XCTAssertTrue(onScreen(), "the grid did not follow focus to the last row: \(focusedLabel)")
+        remote.press(.up)
+        sleep(2)
+        XCTAssertTrue(focusedLabel.contains("101 · Бета ТВ, Бета-кино"), "Up did not come back to Beta's programme: \(focusedLabel)")
+
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Бета-кино"].waitForExistence(timeout: 10), "Select did not open Beta's programme")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Бета ТВ")).firstMatch.exists, "not Beta's channel")
+        XCTAssertFalse(app.staticTexts["Альфа-новости"].exists)
+        snapshot("rt-62-guide-beta-programme")
+    }
+
     // MARK: - Helpers
 
     /// Fresh session on the mock's second port (QR sign-in, the mock's test hooks), then
