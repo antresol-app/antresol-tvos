@@ -269,6 +269,41 @@ final class ChannelGuideTests: XCTestCase {
         assertConsistent(grid)
     }
 
+    private func entry(_ id: String, _ start: TimeInterval, _ end: TimeInterval) -> ChannelProgram {
+        ChannelProgram(id: id, itemId: 0, kind: "external", title: id, start: t(start), end: t(end))
+    }
+
+    private func externalPage(_ from: TimeInterval, _ to: TimeInterval, _ programs: [ChannelProgram]) -> ChannelEPGWindow {
+        ChannelEPGWindow(from: t(from), to: t(to), channels: [ChannelEPG(id: 9, number: 100, name: "X", programs: programs, external: true)])
+    }
+
+    /// A sloppy external guide: O 10:00–11:59 and A 11:30–12:10 overlap. The page
+    /// 06:00–12:00 lists both, the page 12:00–18:00 only A (O is over before it). O is
+    /// outside the newer page's span and stays, in either order of the pages.
+    func testAnExternalProgrammeOutsideThePageStaysThoughItOverlapsOneOfThePages() {
+        let h: TimeInterval = 3600
+        let o = entry("x1-36000", 10 * h, 12 * h - 60)
+        let a = entry("x1-41400", 11.5 * h, 12 * h + 600)
+        let b = entry("x1-43800", 12 * h + 600, 13 * h)
+        let morning = externalPage(6 * h, 12 * h, [o, a])
+        let afternoon = externalPage(12 * h, 18 * h, [a, b])
+        for pages in [[morning, afternoon], [afternoon, morning], [morning, afternoon, afternoon], [afternoon, morning, afternoon]] {
+            var grid = ChannelGuideGrid(pages[0])
+            for next in pages.dropFirst() { grid.merge(next) }
+            XCTAssertEqual(grid.rows[0].programs, [o, a, b])
+        }
+        // An entry that reaches into the newer page's span and is not in it is gone (the
+        // page lists all that do), and so is one that starts inside it.
+        var grid = ChannelGuideGrid(externalPage(6 * h, 12 * h, [o, entry("x1-old", 11.5 * h, 12.5 * h)]))
+        grid.merge(externalPage(12 * h, 18 * h, [entry("x1-new", 11.75 * h, 13 * h)]))
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["x1-36000", "x1-new"])
+        // A library programme outside the span that lies over one of the page's is stale.
+        grid = ChannelGuideGrid(page(0, 120, [show("1-1", item: 1, 0, 60), show("1-2", item: 2, 60, 110)]))
+        grid.merge(page(120, 240, [show("1-7", item: 3, 100, 170), show("1-8", item: 4, 170, 240)]))
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-7", "1-8"])
+        assertConsistent(grid)
+    }
+
     /// The same film three times back to back, the pages' edge inside the second
     /// showing: three programmes, each with its own times, in either order of pages and
     /// after either page again.

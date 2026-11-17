@@ -105,8 +105,13 @@ public struct ChannelGuideGrid: Hashable, Sendable {
     /// schedule is rebuilt, so nothing known is trusted over it:
     /// - the page's programmes all come in; under the same key, or from the same start,
     ///   the page's copy replaces the known one;
-    /// - a known programme that starts inside the page's span, or overlaps one of the
-    ///   page's, is dropped (the page would have listed it);
+    /// - a known programme that starts inside the page's span is dropped (the page would
+    ///   have listed it);
+    /// - a known programme that starts outside the span and lies over one of the page's
+    ///   is dropped when it is a library programme (a channel's own schedule has no two
+    ///   programmes at once: it is stale) or reaches into the span (the page lists all
+    ///   that do). An external guide's entry wholly outside the span stays: such guides
+    ///   do overlap, and the page says nothing about it;
     /// - the two halves of a programme cut by the pages' common edge become one
     ///   (`joined`), unless that would give two of the page's programmes one key or lay
     ///   the joined span over another of them (the known half is stale then);
@@ -132,8 +137,10 @@ public struct ChannelGuideGrid: Hashable, Sendable {
             let listed = Array(byKey.values)
             for program in old.programs where byKey[program.key] == nil {
                 if program.start >= window.from && program.start < window.to { continue }
+                let isExternal = fresh.external || program.kind == "external"
+                let superseded = !isExternal || (program.end > window.from && program.start < window.to)
                 let replaced = listed.contains {
-                    $0.start == program.start || ($0.start < program.end && program.start < $0.end)
+                    $0.start == program.start || (superseded && $0.start < program.end && program.start < $0.end)
                 }
                 if !replaced { byKey[program.key] = program }
             }
