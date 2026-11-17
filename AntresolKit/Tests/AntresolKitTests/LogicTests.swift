@@ -180,3 +180,24 @@ final class ArtworkPixelsTests: XCTestCase {
         XCTAssertEqual(ArtworkPixels.longestSide(maxAt2x: 600, atLeast: 100, scale: 2), 600)
     }
 }
+
+/// One guide request at a time, and none of them outlives a start-over.
+final class RequestGateTests: XCTestCase {
+    func testARequestBegunBeforeAResetIsStale() throws {
+        var gate = RequestGate()
+        let page = try XCTUnwrap(gate.begin())
+        XCTAssertNil(gate.begin(), "one at a time")
+        // The guide is started over while the page is on its way: the first window may
+        // be asked for at once, and the late page's answer is not used.
+        gate.reset()
+        let first = try XCTUnwrap(gate.begin(), "a stale request does not block the new one")
+        XCTAssertFalse(gate.finish(page))
+        XCTAssertTrue(gate.isBusy, "the stale answer did not end the new request")
+        XCTAssertTrue(gate.finish(first))
+        XCTAssertFalse(gate.isBusy)
+        // Without a reset: the answer is used and the next request may begin.
+        let next = try XCTUnwrap(gate.begin())
+        XCTAssertTrue(gate.finish(next))
+        XCTAssertNotNil(gate.begin())
+    }
+}

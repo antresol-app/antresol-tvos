@@ -28,8 +28,10 @@ final class TVModel {
         didSet { deriveGuide() }
     }
     private(set) var guidePhase: Phase = .loading
-    /// A guide window is being fetched.
-    private(set) var isLoadingWindow = false
+    /// The guide's requests: one at a time, and none outlives `reloadGuide` (a page on
+    /// its way when the guide is started over would be merged into the empty grid, and
+    /// would keep the first window from being asked for).
+    @ObservationIgnored private var guideRequests = RequestGate()
 
     var mode: Mode {
         didSet { defaults.set(mode.rawValue, forKey: Self.modeKey) }
@@ -116,21 +118,22 @@ final class TVModel {
 
     /// The guide's first window: from a little before now.
     func loadGuide(now: Date = Date()) async {
-        guard let service, grid.loadedFrom == nil, !isLoadingWindow else { return }
-        isLoadingWindow = true
-        defer { isLoadingWindow = false }
+        guard let service, grid.loadedFrom == nil, let ticket = guideRequests.begin() else { return }
         do {
             let from = now.addingTimeInterval(-3600)
-            grid = ChannelGuideGrid(try await service.epg(from: from, hours: Self.windowHours))
+            let window = try await service.epg(from: from, hours: Self.windowHours)
+            guard guideRequests.finish(ticket) else { return }
+            grid = ChannelGuideGrid(window)
             guidePhase = .loaded
         } catch {
-            guard !Task.isCancelled else { return }
+            guard guideRequests.finish(ticket), !Task.isCancelled else { return }
             if let message = appState?.message(for: error) { guidePhase = .failed(message) }
         }
     }
 
     /// The guide again from scratch (Try Again, or a long time on the page).
     func reloadGuide() async {
+        guideRequests.reset()
         grid = ChannelGuideGrid()
         guidePhase = .loading
         await loadGuide()
@@ -138,7 +141,7 @@ final class TVModel {
 
     /// The next window after what is loaded (`forward`) or the one before it.
     func loadWindow(forward: Bool, now: Date = Date()) async {
-        guard let service, !isLoadingWindow, let loadedFrom = grid.loadedFrom, let loadedTo = grid.loadedTo else { return }
+        guard let service, !guideRequests.isBusy, let loadedFrom = grid.loadedFrom, let loadedTo = grid.loadedTo else { return }
         let from: Date
         let hours: Int
         if forward {
@@ -151,11 +154,11 @@ final class TVModel {
             from = max(earliest, loadedFrom.addingTimeInterval(-Double(Self.windowHours) * 3600))
             hours = max(1, Int((loadedFrom.timeIntervalSince(from) / 3600).rounded(.up)))
         }
-        isLoadingWindow = true
-        defer { isLoadingWindow = false }
-        if let window = try? await service.epg(from: from, hours: hours) {
-            grid.merge(window)
-        }
+        guard let ticket = guideRequests.begin() else { return }
+        let window = try? await service.epg(from: from, hours: hours)
+        // Started over meanwhile: the page belongs to the guide that was thrown away.
+        guard guideRequests.finish(ticket), let window else { return }
+        grid.merge(window)
     }
 
     /// Whether the guide may still page back (it shows from three hours ago).
