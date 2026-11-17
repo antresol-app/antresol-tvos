@@ -142,10 +142,15 @@ jobs:
             xcrun simctl erase "$SIM_UDID"
             boot
           fi
+          # A run that failed or was cancelled before it could put the setting back
+          # (the Reduce Motion step below) must not decide what this one sees.
+          xcrun simctl spawn "$SIM_UDID" defaults delete com.apple.Accessibility ReduceMotionEnabled || true
       - name: Run UI tests
         id: uitests
+        # The hero test fails if Reduce Motion is on here: with it on it would pass the
+        # other way, and every screenshot would be taken with the setting on.
         run: |
-          if ! xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV \
+          if ! TEST_RUNNER_ANTRESOL_EXPECT_REDUCE_MOTION=0 xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV \
             -destination "id=$SIM_UDID" -resultBundlePath ui.xcresult > uitest.log 2>&1; then
             grep -E 'error:|failed|Test Case' uitest.log | head -n 80
             tail -n 40 uitest.log
@@ -165,7 +170,10 @@ jobs:
             exit 1
           fi
           grep -E 'Test Case|Executed' reduce-motion.log | tail -n 4
-          xcrun simctl spawn "$SIM_UDID" defaults delete com.apple.Accessibility ReduceMotionEnabled || true
+      - name: Put Reduce Motion back
+        # Also after a failure or a cancelled job: the simulator may be used again.
+        if: ${{ always() }}
+        run: xcrun simctl spawn "$SIM_UDID" defaults delete com.apple.Accessibility ReduceMotionEnabled || true
       - name: Export screenshots
         if: ${{ !cancelled() }}
         run: |

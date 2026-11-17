@@ -119,9 +119,12 @@ final class RuntimeTests: XCTestCase {
         let dots = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Featured ")).firstMatch
         XCTAssertTrue(dots.waitForExistence(timeout: 10), "no hero page dots")
         let reduceMotion = UIAccessibility.isReduceMotionEnabled
-        // The run that is meant to see the setting on says so (CI's second step).
-        if ProcessInfo.processInfo.environment["ANTRESOL_EXPECT_REDUCE_MOTION"] == "1" {
-            XCTAssertTrue(reduceMotion, "Reduce Motion is not on in this simulator")
+        // A run that is meant to see the setting on, or off, says so (CI's two steps): a
+        // setting left on in the simulator would turn the main run into the other one.
+        switch ProcessInfo.processInfo.environment["ANTRESOL_EXPECT_REDUCE_MOTION"] {
+        case "1": XCTAssertTrue(reduceMotion, "Reduce Motion is not on in this simulator")
+        case "0": XCTAssertFalse(reduceMotion, "Reduce Motion is on in this simulator")
+        default: break
         }
         let first = dots.label
         snapshot(reduceMotion ? "rt-22-hero-reduce-motion" : "rt-20-hero")
