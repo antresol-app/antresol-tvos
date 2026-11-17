@@ -162,7 +162,11 @@ final class ImagePipeline: @unchecked Sendable {
             return task
         }
         let image = await task.value
-        lock.withLock { decoding[key as String] = nil }
+        // Only this decode's entry: a waiter that comes back late must not remove a
+        // newer decode of the same picture (others would start it once more).
+        lock.withLock {
+            if decoding[key as String] == task { decoding[key as String] = nil }
+        }
         return image
     }
 
