@@ -334,10 +334,12 @@ final class AudioPlayer {
         player.insert(playerItem, after: nil)
         if known == nil, offset <= 0 {
             // Learn it before anyone seeks in the song.
+            // (For this entry's item only: by the time the answer comes the item may be
+            // gone and another song's item may live at its address.)
             let id = ObjectIdentifier(playerItem)
             Task {
                 let transcoded = await transcoding(entry.element)
-                loaded[id]?.transcoded = transcoded
+                if loaded[id]?.entryId == entry.id { loaded[id]?.transcoded = transcoded }
             }
         }
         pendingSeek = (!isTranscoded && offset > 0) ? offset : nil
@@ -369,7 +371,7 @@ final class AudioPlayer {
             let id = ObjectIdentifier(next)
             Task {
                 let transcoded = await transcoding(wanted.element)
-                loaded[id]?.transcoded = transcoded
+                if loaded[id]?.entryId == wanted.id { loaded[id]?.transcoded = transcoded }
             }
         }
     }
