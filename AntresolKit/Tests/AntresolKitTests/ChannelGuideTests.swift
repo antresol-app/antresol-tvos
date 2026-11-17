@@ -101,6 +101,51 @@ final class ChannelGuideTests: XCTestCase {
         XCTAssertEqual(grid.rows[0].programs.map(\.id), ["1-1", "1-9", "1-10"])
     }
 
+    /// A film of three files, 60–180 (files 60–100, 100–140, 140–180), and the windows'
+    /// edge at 120: the server names a programme after its first file inside the window
+    /// and leaves out the files outside it.
+    func testAProgrammeCutByTheWindowsEdgeIsOneProgramme() {
+        func film(_ id: String, _ start: TimeInterval, _ end: TimeInterval) -> ChannelProgram {
+            ChannelProgram(id: id, itemId: 7, title: "Film", start: t(start), end: t(end))
+        }
+        let before = ChannelEPGWindow(from: t(0), to: t(120), channels: [
+            ChannelEPG(id: 1, number: 1, name: "A", programs: [program("1-1", 0, 60), film("1-2", 60, 140)]),
+        ])
+        let after = ChannelEPGWindow(from: t(120), to: t(240), channels: [
+            ChannelEPG(id: 1, number: 1, name: "A", programs: [film("1-3", 100, 180), program("1-5", 180, 240)]),
+        ])
+        // Scrolling right: the film keeps its key and gets its end.
+        var grid = ChannelGuideGrid(before)
+        grid.merge(after)
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-2", "1-5"])
+        XCTAssertEqual(grid.rows[0].programs[1].start, t(60))
+        XCTAssertEqual(grid.rows[0].programs[1].end, t(180))
+        // Either window again changes nothing.
+        let once = grid
+        grid.merge(after)
+        grid.merge(before)
+        XCTAssertEqual(grid.rows[0].programs, once.rows[0].programs)
+
+        // Scrolling left: the same, under the key the film had first.
+        grid = ChannelGuideGrid(after)
+        grid.merge(before)
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-3", "1-5"])
+        XCTAssertEqual(grid.rows[0].programs[1].start, t(60))
+        XCTAssertEqual(grid.rows[0].programs[1].end, t(180))
+        for (a, b) in zip(grid.rows[0].programs, grid.rows[0].programs.dropFirst()) {
+            XCTAssertLessThanOrEqual(a.end, b.start, "programmes of one channel do not overlap")
+        }
+
+        // The same film shown twice in a row is two programmes.
+        grid = ChannelGuideGrid(ChannelEPGWindow(from: t(0), to: t(120), channels: [
+            ChannelEPG(id: 1, number: 1, name: "A", programs: [film("1-1", 0, 120)]),
+        ]))
+        grid.merge(ChannelEPGWindow(from: t(120), to: t(240), channels: [
+            ChannelEPG(id: 1, number: 1, name: "A", programs: [film("1-2", 120, 240)]),
+        ]))
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-1", "1-2"])
+    }
+
     func testCursorLandsOnTheProgrammeOnAirElseTheNearest() {
         let row = ChannelEPG(id: 1, number: 1, name: "A", programs: [program("a", 100, 200), program("b", 300, 400)])
         XCTAssertEqual(row.program(near: t(150))?.id, "a")

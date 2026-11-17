@@ -101,19 +101,20 @@ public struct ChannelGuideGrid: Hashable, Sendable {
     }
 
     /// Adds a window: new channels and programmes come in, a programme already known is
-    /// replaced by the fresh copy (same `key`), channels the window no longer has are
-    /// dropped (the profile does not see them any more).
+    /// replaced by the fresh copy (same `key`), the two halves of one cut by the windows'
+    /// common edge become one (`joined`), channels the window no longer has are dropped
+    /// (the profile does not see them any more).
     public mutating func merge(_ window: ChannelEPGWindow) {
         var known: [Int: ChannelEPG] = [:]
         for row in rows { known[row.id] = row }
         rows = window.channels.map { fresh in
             guard let old = known[fresh.id] else { return fresh }
+            let freshPrograms = fresh.programs.map { Self.joined($0, with: old.programs, in: window) }
             var byKey: [String: ChannelProgram] = [:]
             for program in old.programs { byKey[program.key] = program }
-            for program in fresh.programs { byKey[program.key] = program }
+            for program in freshPrograms { byKey[program.key] = program }
             var row = fresh
             // Programmes of a rebuilt schedule may overlap old copies: the fresh ones win.
-            let freshPrograms = fresh.programs
             row.programs = byKey.values
                 .filter { candidate in
                     freshPrograms.contains { $0.key == candidate.key }
@@ -124,6 +125,26 @@ public struct ChannelGuideGrid: Hashable, Sendable {
         }
         loadedFrom = min(loadedFrom ?? window.from, window.from)
         loadedTo = max(loadedTo ?? window.to, window.to)
+    }
+
+    /// A programme of several files that a window's edge cuts comes under the id of its
+    /// first file inside that window and without the files outside it: the next window has
+    /// the same programme under another id, from another start. With the part already
+    /// known (the same item, overlapping, reaching past the edge that cut `fresh`) it is
+    /// one programme: the whole span, under the key it already had (the guide's identity
+    /// and focus).
+    static func joined(_ fresh: ChannelProgram, with known: [ChannelProgram], in window: ChannelEPGWindow) -> ChannelProgram {
+        guard !fresh.id.isEmpty else { return fresh }
+        let part = known.first { old in
+            !old.id.isEmpty && old.itemId == fresh.itemId && old.start < fresh.end && fresh.start < old.end
+                && ((fresh.start <= window.from && old.start < fresh.start) || (fresh.end >= window.to && old.end > fresh.end))
+        }
+        guard let part else { return fresh }
+        var whole = fresh
+        whole.id = part.id
+        whole.start = min(part.start, fresh.start)
+        whole.end = max(part.end, fresh.end)
+        return whole
     }
 
     /// Gives rows that came without a logo the channel list's one.
