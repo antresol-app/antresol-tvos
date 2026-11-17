@@ -18,6 +18,9 @@ struct TVView: View {
     @FocusState private var focusedRow: Int?
     /// The first load put focus on the last channel (once per visit of the page).
     @State private var placedFocus = false
+    /// The row that is to take focus as soon as it exists: the last channel may be far
+    /// down the lazy list, where there is no row to focus until the list scrolled to it.
+    @State private var focusRequest: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -53,7 +56,21 @@ struct TVView: View {
             // last channel once, as a TV does.
             guard phase == .loaded, !placedFocus, model.mode == .channels, let initialRow else { return }
             placedFocus = true
-            focusedRow = initialRow
+            focusRequest = initialRow
+        }
+        .task(id: focusRequest) {
+            // The list scrolls to the row and the row takes focus as it appears
+            // (`ChannelListView`). Should that not have happened, the assignment is
+            // repeated after a pause, as it used to be made, a few times at most.
+            guard let target = focusRequest else { return }
+            for pause in [150, 350, 700] {
+                try? await Task.sleep(for: .milliseconds(pause))
+                guard !Task.isCancelled, focusRequest == target else { return }
+                // On the row, or the viewer is already on another one.
+                if focusedRow != nil { break }
+                focusedRow = target
+            }
+            focusRequest = nil
         }
         .onChange(of: playback.liveSessions) {
             // The player may have changed favourites and the last channel.
@@ -83,7 +100,7 @@ struct TVView: View {
             } else {
                 switch model.mode {
                 case .channels:
-                    ChannelListView(model: model, focused: $focusedRow, initial: initialRow, watch: watch)
+                    ChannelListView(model: model, focused: $focusedRow, initial: initialRow, focusRequest: focusRequest, watch: watch)
                 case .guide:
                     GuideView(model: model, open: { details = $0 }, watch: watch)
                 }
@@ -169,6 +186,8 @@ private struct ChannelListView: View {
     let model: TVModel
     var focused: FocusState<Int?>.Binding
     let initial: Int?
+    /// The row to put focus on once it exists (see `TVView.focusRequest`).
+    let focusRequest: Int?
     let watch: (Channel) -> Void
 
     var body: some View {
@@ -230,6 +249,10 @@ private struct ChannelListView: View {
                                 }
                             }
                             .onPlayPauseCommand { watch(channel) }
+                            .onAppear {
+                                // The requested row came into being (the list scrolled to it).
+                                if focusRequest == channel.id { focused.wrappedValue = channel.id }
+                            }
                         }
                     }
                     .padding(.leading, Theme.Layout.margin)
@@ -246,6 +269,13 @@ private struct ChannelListView: View {
                 .focusSection()
                 .onAppear {
                     if let initial { proxy.scrollTo(initial, anchor: .center) }
+                }
+                .onChange(of: focusRequest, initial: true) { _, target in
+                    // Scroll first: a row far down the lazy stack exists only after it.
+                    // A row that is already there takes focus now, the others in `onAppear`.
+                    guard let target else { return }
+                    proxy.scrollTo(target, anchor: .center)
+                    focused.wrappedValue = target
                 }
             }
     }

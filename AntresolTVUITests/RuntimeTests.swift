@@ -93,6 +93,21 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-16-back-on-tv-tab")
     }
 
+    /// A last channel far down the list (the mock's second port: the 18th of 24, off the
+    /// first screen): the TV tab scrolls to it and puts focus on it.
+    func testTVTabOpensOnAFarLastChannel() {
+        signInOnSecondPort()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Канал 18")).firstMatch
+        XCTAssertTrue(waitForFocus(row), "the list did not open on the last channel: \(focusedLabel)")
+        let frame = row.frame
+        XCTAssertTrue(frame.minY >= 0 && frame.maxY <= 1080, "the focused row is off the screen: \(frame)")
+        snapshot("rt-50-tv-far-last-channel")
+        // It stays there (nothing takes focus back once the list settled).
+        sleep(2)
+        XCTAssertTrue(row.exists && row.hasFocus, "focus left the last channel: \(focusedLabel)")
+    }
+
     /// With focus off its buttons the hero moves on by itself every 8 s, unless Reduce
     /// Motion is on (Settings > Accessibility > Motion), when it stays.
     func testHeroAutoAdvance() {

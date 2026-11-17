@@ -11,7 +11,8 @@ seconds of the video fixture, looped, with three audio renditions).
 
 The next port (8422) is the same server with QR sign-in (`/api/auth/pair/…`): the app
 shows its sign-in code there, and the profile picker on the main port, as the screenshot
-tests expect. There the third song of the sample album is one the server transcodes (no
+tests expect. There the channel list is long (24 channels, the last one watched is the
+18th) and the third song of the sample album is one the server transcodes (no
 ranges, `X-Vault-Transcode: 1`), and it is slow to answer the app's own question about it.
 
 The second port also keeps what it was asked, for the UI tests (never on the main port):
@@ -354,6 +355,21 @@ def on_air_now(sample):
     return data
 
 
+MANY_CHANNELS = 24
+FAR_LAST_CHANNEL = 18
+
+
+def many_channels(data):
+    """The second port's list: 24 channels (the sample's four, then copies of them), the
+    last one watched far down it, off the first screen."""
+    sample = list(data["channels"])
+    for number in range(len(sample) + 1, MANY_CHANNELS + 1):
+        channel = json.loads(json.dumps(sample[(number - 1) % len(sample)]))
+        channel.update(id=number, number=number, name=f"Канал {number}", favorite=False)
+        data["channels"].append(channel)
+    data["lastChannel"] = FAR_LAST_CHANNEL
+
+
 def live_master():
     """A channel's master playlist: one picture, a rendition per voice."""
     lines = ["#EXTM3U", "#EXT-X-VERSION:4"]
@@ -495,7 +511,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, json.dumps(home_with_hero()).encode(), "application/json")
         # Live channels: the list and guides, on air now; every channel plays the same stream.
         if method == "GET" and path == "/api/channels":
-            return self.send(200, json.dumps(on_air_now("channels.json")).encode(), "application/json")
+            channels = on_air_now("channels.json")
+            if getattr(self.server, "pairing", False):
+                many_channels(channels)
+            return self.send(200, json.dumps(channels).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/channels/\d+/guide", path):
             return self.send(200, json.dumps(on_air_now("channel-guide.json")).encode(), "application/json")
         if method == "GET" and path == "/api/channels/epg":
