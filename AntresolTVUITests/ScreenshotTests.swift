@@ -408,7 +408,9 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(moveFocus(.down, to: card(app, "Test Show"), limit: 3))
         remote.press(.select)
         pause(4)
-        let downloaded = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Downloaded")).firstMatch
+        // The first episode by name: the row's elements are not listed left to right, and
+        // the cast row below takes the focus of a Down that is one too many.
+        let downloaded = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "Episode 1", "Downloaded")).firstMatch
         let missing = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Not downloaded")).firstMatch
         let upcoming = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Airs ")).firstMatch
         XCTAssertTrue(missing.waitForExistence(timeout: 20), hierarchy(app, mentioning: "E3"))
