@@ -111,6 +111,9 @@ final class VideoPlayerModel {
     /// and its start are known; before that the card is opened again, which asks for its
     /// saved position again (a failed progress request must not become a start at 0).
     func retry() async {
+        // Only from the error screen: a second press that arrives while the first retry
+        // is under way must not open the item a second time.
+        guard case .failed = state else { return }
         let plan = PlaybackRetry.plan(
             resolvedItemId: item?.id, cardId: card.id, startResolved: startResolved,
             playerPosition: currentFilePosition, requestedPosition: requestedPosition
