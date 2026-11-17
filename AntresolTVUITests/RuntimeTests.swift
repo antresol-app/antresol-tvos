@@ -178,7 +178,128 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-31-transcoded-song-after-seek")
     }
 
+    /// The saved position survives a failed progress request and the error screen's Try
+    /// Again: the mock (second port) answers the player's `GET /api/progress/19` with 503
+    /// once; Try Again asks again, the film resumes at its saved 0:15, and nothing near
+    /// 0 is ever written for it.
+    func testTryAgainResumesAtTheSavedPosition() {
+        signInOnSecondPort()
+        remote.press(.right)
+        sleep(2)
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Big Buck Demo")).firstMatch
+        XCTAssertTrue(moveFocus(.down, to: card, limit: 2), "focus: \(focusedLabel)")
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        XCTAssertNotNil(mock("POST", "/mock/fail-progress/19"))
+
+        remote.press(.select)
+        let tryAgain = app.buttons["Try Again"]
+        XCTAssertTrue(tryAgain.waitForExistence(timeout: 20), "no error screen for the failed progress request")
+        XCTAssertTrue(waitForFocus(tryAgain), "focus: \(focusedLabel)")
+        snapshot("rt-40-progress-failed")
+        remote.press(.select)
+        // The card asks before it resumes; the prompt is there again after the retry.
+        let resume = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Resume")).firstMatch
+        XCTAssertTrue(resume.waitForExistence(timeout: 20), "no resume prompt after Try Again")
+        XCTAssertTrue(resume.label.contains("0:15"), "the prompt is not for the saved position: \(resume.label)")
+        XCTAssertTrue(waitForFocus(resume), "focus: \(focusedLabel)")
+        snapshot("rt-41-resume-prompt-after-retry")
+        remote.press(.select)
+
+        // The player's clock (file seconds; debug builds expose it): from 0:15 on.
+        let clock = app.descendants(matching: .any).matching(identifier: "player.position").firstMatch
+        XCTAssertTrue(clock.waitForExistence(timeout: 30), "the player did not start")
+        var first: Int?
+        let started = Date()
+        while first == nil, Date().timeIntervalSince(started) < 20 {
+            first = (clock.value as? String).flatMap(Int.init)
+            if first == nil { usleep(300_000) }
+        }
+        let waited = Int(Date().timeIntervalSince(started))
+        XCTAssertNotNil(first, "the player has no position")
+        XCTAssertGreaterThanOrEqual(first ?? 0, 14, "playback did not start at the saved position")
+        XCTAssertLessThanOrEqual(first ?? 0, 15 + waited + 5, "playback is not near the saved position")
+        snapshot("rt-42-resumed-at-saved-position")
+        // Long enough for the periodic progress write (10 s), then Menu for the final one.
+        sleep(12)
+        let later = (clock.value as? String).flatMap(Int.init) ?? 0
+        XCTAssertGreaterThan(later, first ?? 0, "the clock does not run")
+        for _ in 0..<4 where clock.exists {
+            remote.press(.menu)
+            sleep(2)
+        }
+        XCTAssertFalse(clock.exists, "Menu did not leave the player")
+        sleep(2)
+
+        let events = mockEvents()
+        let asked = events.filter { $0["method"] as? String == "GET" && $0["path"] as? String == "/api/progress/19" }
+        XCTAssertGreaterThanOrEqual(asked.count, 2, "Try Again did not ask for the saved position again: \(asked)")
+        XCTAssertEqual(asked.first?["failed"] as? Bool, true, "the first progress request was not the failed one")
+        let writes = events.filter { $0["method"] as? String == "PUT" && $0["path"] as? String == "/api/progress/19" }
+            .compactMap { $0["positionMs"] as? Int }
+        XCTAssertFalse(writes.isEmpty, "no progress write at all")
+        XCTAssertTrue(writes.allSatisfy { $0 >= 14_000 }, "a position before the saved one was written: \(writes)")
+        print("mock progress writes for item 19 (positionMs): \(writes); progress requests: \(asked.count)")
+    }
+
     // MARK: - Helpers
+
+    /// Fresh session on the mock's second port (QR sign-in, the mock's test hooks), then
+    /// the passwordless second profile through the profile picker.
+    private func signInOnSecondPort() {
+        launch(server: pairingServer)
+        XCTAssertTrue(app.staticTexts["Sign in with your phone"].waitForExistence(timeout: 30), "no QR sign-in screen")
+        XCTAssertTrue(waitForFocus(app.buttons["Sign In with the Remote"]), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
+        sleep(2)
+        remote.press(.right)
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30))
+        sleep(3)
+    }
+
+    /// A request to the mock's second port (its `/mock/…` hooks); the answer's body, nil
+    /// when there was none. A plain socket: the runner has no exception for clear-text
+    /// HTTP of its own.
+    @discardableResult
+    private func mock(_ method: String, _ path: String) -> Data? {
+        let parts = pairingServer.split(separator: ":")
+        guard parts.count == 2, let port = Int(parts[1]) else { return nil }
+        var input: InputStream?
+        var output: OutputStream?
+        Stream.getStreamsToHost(withName: String(parts[0]), port: port, inputStream: &input, outputStream: &output)
+        guard let input, let output else { return nil }
+        input.open()
+        output.open()
+        defer {
+            input.close()
+            output.close()
+        }
+        let request = Array("\(method) \(path) HTTP/1.1\r\nHost: \(pairingServer)\r\nConnection: close\r\nContent-Length: 0\r\n\r\n".utf8)
+        guard output.write(request, maxLength: request.count) == request.count else { return nil }
+        var answer = Data()
+        var buffer = [UInt8](repeating: 0, count: 16_384)
+        while true {
+            let count = input.read(&buffer, maxLength: buffer.count)
+            if count <= 0 { break }
+            answer.append(buffer, count: count)
+        }
+        guard let headerEnd = answer.range(of: Data("\r\n\r\n".utf8)),
+              String(decoding: answer.prefix(12), as: UTF8.self).hasSuffix("200")
+        else { return nil }
+        return answer.subdata(in: headerEnd.upperBound..<answer.count)
+    }
+
+    /// What the mock's second port was asked since the last `/mock/reset`.
+    private func mockEvents() -> [[String: Any]] {
+        guard let data = mock("GET", "/mock/events"),
+              let events = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else {
+            XCTFail("the mock's second port did not list its requests")
+            return []
+        }
+        return events
+    }
 
     /// The mock's port with QR sign-in: the one after the main port.
     private var pairingServer: String {

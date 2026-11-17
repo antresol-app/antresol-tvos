@@ -82,6 +82,41 @@ final class ClientTests: XCTestCase {
         }
     }
 
+    /// Try Again after the error screen: while the item's saved position has not arrived
+    /// the card is opened again (which asks for it again); a start at 0, or at the
+    /// previous episode's offset, would write over the saved position.
+    func testTryAgainAsksForTheSavedPositionThatDidNotArrive() {
+        // The item arrived, its progress request failed; nothing was ever requested.
+        XCTAssertEqual(
+            PlaybackRetry.plan(resolvedItemId: 19, cardId: 19, startResolved: false, playerPosition: nil, requestedPosition: 0),
+            .reopen
+        )
+        // Up Next: the next episode's progress failed; the previous one started at 600 s.
+        XCTAssertEqual(
+            PlaybackRetry.plan(resolvedItemId: 5, cardId: 5, startResolved: false, playerPosition: nil, requestedPosition: 600),
+            .reopen
+        )
+        // The item itself did not arrive (first open, or a failed episode switch).
+        XCTAssertEqual(
+            PlaybackRetry.plan(resolvedItemId: nil, cardId: 19, startResolved: false, playerPosition: nil, requestedPosition: 0),
+            .reopen
+        )
+        XCTAssertEqual(
+            PlaybackRetry.plan(resolvedItemId: 4, cardId: 5, startResolved: true, playerPosition: nil, requestedPosition: 600),
+            .reopen
+        )
+        // A session was begun: the player's position, else where it was asked to start
+        // (the item is torn down behind the error screen).
+        XCTAssertEqual(
+            PlaybackRetry.plan(resolvedItemId: 19, cardId: 19, startResolved: true, playerPosition: 100, requestedPosition: 45),
+            .restart(at: 100)
+        )
+        XCTAssertEqual(
+            PlaybackRetry.plan(resolvedItemId: 19, cardId: 19, startResolved: true, playerPosition: nil, requestedPosition: 45),
+            .restart(at: 45)
+        )
+    }
+
     func testErrorMapping() async {
         let transport = MockTransport { request in
             switch request.url?.path {

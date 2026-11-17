@@ -13,6 +13,13 @@ The next port (8422) is the same server with QR sign-in (`/api/auth/pair/…`): 
 shows its sign-in code there, and the profile picker on the main port, as the screenshot
 tests expect. There the third song of the sample album is one the server transcodes (no
 ranges, `X-Vault-Transcode: 1`), and it is slow to answer the app's own question about it.
+
+The second port also keeps what it was asked, for the UI tests (never on the main port):
+
+    GET  /mock/events              the requests so far (time, method, path, query, client;
+                                   `positionMs` of a progress write, `answered` of the slow one)
+    POST /mock/reset               forgets them, and the failures still armed
+    POST /mock/fail-progress/<id>  the next `GET /api/progress/<id>` answers 503, once
 """
 import argparse
 import datetime
@@ -406,6 +413,14 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length else b""
         path, _, query = self.path.partition("?")
+        if method == "PUT" and re.fullmatch(r"/api/progress/\d+", path):
+            try:
+                self.progress_write = json.loads(body or b"{}").get("positionMs")
+            except ValueError:
+                self.progress_write = None
+            sys.stderr.write(f"progress write: item {path.rsplit('/', 1)[1]} positionMs {self.progress_write}\n")
+        if getattr(self.server, "pairing", False) and self.test_hooks(method, path, query):
+            return
         # Profile 2 is a kid profile, as on the sample server.
         if method == "POST" and path == "/api/auth/token" and json.loads(body or b"{}").get("userId") == 2:
             return self.send(200, json.dumps({"token": KID_TOKEN, "user": KID_USER}).encode(), "application/json")
@@ -515,6 +530,50 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, (SAMPLES / sample).read_bytes(), "application/json")
         self.send(404, json.dumps({"error": "Not found"}).encode(), "application/json")
 
+    def test_hooks(self, method, path, query):
+        """The second port's record of its requests and its one-off failures; True when
+        the request was answered here."""
+        server = self.server
+        if path.startswith("/mock/"):
+            match = re.fullmatch(r"/mock/fail-progress/(\d+)", path)
+            with server.hooks_lock:
+                if method == "GET" and path == "/mock/events":
+                    payload = json.dumps(server.events).encode()
+                elif method == "POST" and path == "/mock/reset":
+                    server.events.clear()
+                    server.fail_progress.clear()
+                    payload = b"{}"
+                elif method == "POST" and match:
+                    server.fail_progress.add(int(match.group(1)))
+                    payload = b"{}"
+                else:
+                    payload = None
+            if payload is None:
+                self.send(404, json.dumps({"error": "Not found"}).encode(), "application/json")
+            else:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            return True
+        self.event = {"t": time.time(), "method": method, "path": path, "query": query,
+                      "agent": self.headers.get("User-Agent", "")}
+        if method == "PUT" and path.startswith("/api/progress/"):
+            self.event["positionMs"] = self.progress_write
+        match = re.fullmatch(r"/api/progress/(\d+)", path)
+        with server.hooks_lock:
+            server.events.append(self.event)
+            del server.events[:-4000]
+            fail = method == "GET" and match and int(match.group(1)) in server.fail_progress
+            if fail:
+                server.fail_progress.discard(int(match.group(1)))
+                self.event["failed"] = True
+        if fail:
+            self.send(503, json.dumps({"error": "Server is busy"}).encode(), "application/json")
+            return True
+        return False
+
     def send_file(self, file, content_type):
         """A fixture file with Range support, as the server serves original files."""
         data = file.read_bytes()
@@ -543,6 +602,8 @@ class Handler(BaseHTTPRequestHandler):
         player gets it at once; the app's own request for the headers waits four seconds."""
         if "AppleCoreMedia" not in (self.headers.get("User-Agent") or ""):
             time.sleep(4)
+        with self.server.hooks_lock:
+            self.event["answered"] = time.time()
         self.send_response(200)
         self.send_header("Content-Type", "audio/aac")
         self.send_header("Accept-Ranges", "none")
@@ -571,6 +632,7 @@ def main():
     args = parser.parse_args()
     pairing = ThreadingHTTPServer(("127.0.0.1", args.port + 1), Handler)
     pairing.pairing = True
+    pairing.events, pairing.fail_progress, pairing.hooks_lock = [], set(), threading.Lock()
     threading.Thread(target=pairing.serve_forever, daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 

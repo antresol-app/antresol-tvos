@@ -45,6 +45,9 @@ struct VideoPlayerView: View {
                         }
                     }
                     .animation(Theme.Motion.easeOut, value: model.notice)
+                    #if DEBUG
+                    .background { PlayerClockProbe(model: model) }
+                    #endif
             case .failed(let message):
                 PlaybackErrorView(card: model.card, message: message) {
                     Task { await model.retry() }
@@ -72,6 +75,25 @@ struct VideoPlayerView: View {
         }
     }
 }
+
+#if DEBUG
+/// The player's file position in whole seconds as an accessibility value, for the UI
+/// tests (the system transport bar is not theirs to read). Debug builds only.
+private struct PlayerClockProbe: View {
+    let model: VideoPlayerModel
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+            Color.clear
+                .frame(width: 2, height: 2)
+                .accessibilityElement()
+                .accessibilityIdentifier("player.position")
+                .accessibilityValue(Text(verbatim: model.filePositionForTests.map { String(Int($0)) } ?? ""))
+        }
+        .allowsHitTesting(false)
+    }
+}
+#endif
 
 /// `AVPlayerViewController` with the system transport bar and info panel, plus the
 /// app's Audio / Subtitles / Quality menus, the subtitle overlay and Up Next.

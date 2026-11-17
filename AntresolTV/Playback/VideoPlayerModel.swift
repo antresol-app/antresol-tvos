@@ -70,6 +70,9 @@ final class VideoPlayerModel {
     /// Where playback should (re)start: the requested start, updated when the item is torn
     /// down after a failure, so Try Again resumes there and not at 0.
     private var requestedPosition: Double = 0
+    /// `item`'s start is known (a session was begun for it). Not yet while its saved
+    /// position is being asked for: a retry then asks again (`PlaybackRetry`).
+    private var startResolved = false
     /// The player item still waiting for its initial seek; until then the player's time is
     /// not the file position, so progress reads `source.startPosition` instead.
     private var pendingSeek: (item: ObjectIdentifier, playerTime: Double, autoplay: Bool)?
@@ -100,12 +103,19 @@ final class VideoPlayerModel {
         await open(request.card, from: request.start)
     }
 
-    /// Retries after an error: from the last known (or requested) position.
+    /// Retries after an error: from the last known (or requested) position, once the item
+    /// and its start are known; before that the card is opened again, which asks for its
+    /// saved position again (a failed progress request must not become a start at 0).
     func retry() async {
-        if let item, item.id == card.id {
-            await begin(at: currentFilePosition ?? requestedPosition)
-        } else {
-            // Nothing resolved yet for this card (first open, or a failed episode switch).
+        let plan = PlaybackRetry.plan(
+            resolvedItemId: item?.id, cardId: card.id, startResolved: startResolved,
+            playerPosition: currentFilePosition, requestedPosition: requestedPosition
+        )
+        switch plan {
+        case .restart(let position):
+            await begin(at: position)
+        case .reopen:
+            // First open, a failed episode switch, or a saved position that did not arrive.
             await open(card, from: card.id == request.card.id ? request.start : .resume)
         }
     }
@@ -218,6 +228,7 @@ final class VideoPlayerModel {
     private func open(_ target: Card, from start: PlaybackCoordinator.StartPoint) async {
         guard let client else { return }
         card = target
+        startResolved = false
         if state == .playing {
             isSwitching = true
         } else {
@@ -271,6 +282,7 @@ final class VideoPlayerModel {
     private func begin(at position: Double) async {
         guard let client, let coordinator, let item, let file else { return }
         requestedPosition = position
+        startResolved = true
         if state != .playing { state = .preparing }
         pendingOptions = nil
         await session?.stop()
@@ -679,6 +691,11 @@ final class VideoPlayerModel {
         pendingSeek = nil
         subtitleText = nil
     }
+
+    #if DEBUG
+    /// The player's file position, for the UI tests' clock probe.
+    var filePositionForTests: Double? { currentFilePosition }
+    #endif
 
     /// The file position of the player, if it has one.
     private var currentFilePosition: Double? {
