@@ -289,6 +289,40 @@ final class RuntimeTests: XCTestCase {
         print("mock progress writes for item 19 (positionMs): \(writes); progress requests: \(asked.count)")
     }
 
+    /// Try Again asks the way the card was opened: a series card of Continue Watching
+    /// (the mock's second port) asks where to start and plays the series' next episode,
+    /// whose progress request the mock fails once. After Try Again the resume prompt is
+    /// there again; the episode does not just start at its saved position.
+    func testTryAgainAsksAgainForASeriesCard() {
+        signInOnSecondPort()
+        remote.press(.right)
+        sleep(2)
+        let first = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Big Buck Demo")).firstMatch
+        XCTAssertTrue(moveFocus(.down, to: first, limit: 2), "focus: \(focusedLabel)")
+        for _ in 0..<5 where !focusedLabel.contains("Test Show") {
+            remote.press(.right)
+            sleep(1)
+        }
+        XCTAssertTrue(focusedLabel.contains("Test Show"), "focus: \(focusedLabel)")
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        // The series' next episode is item 4.
+        XCTAssertNotNil(mock("POST", "/mock/fail-progress/4"))
+
+        remote.press(.select)
+        let tryAgain = app.buttons["Try Again"]
+        XCTAssertTrue(tryAgain.waitForExistence(timeout: 20), "no error screen for the failed progress request")
+        XCTAssertTrue(waitForFocus(tryAgain), "focus: \(focusedLabel)")
+        remote.press(.select)
+        // ("Resume from …": Home's hero behind the player has a plain "Resume".)
+        let resume = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Resume from")).firstMatch
+        XCTAssertTrue(resume.waitForExistence(timeout: 20), "no resume prompt after Try Again for a series card")
+        XCTAssertTrue(resume.label.contains("0:15"), "the prompt is not for the saved position: \(resume.label)")
+        snapshot("rt-45-series-resume-prompt-after-retry")
+        let asked = mockEvents().filter { $0["method"] as? String == "GET" && $0["path"] as? String == "/api/progress/4" }
+        XCTAssertEqual(asked.count, 2, "the episode's saved position was not asked for twice: \(asked)")
+        XCTAssertEqual(asked.first?["failed"] as? Bool, true, "the first progress request was not the failed one")
+    }
+
     /// Two external channels of one guide source have the same programme ids (the mock's
     /// second port: Alpha and Beta, the 13th and 14th rows, below the first screen). Down
     /// from Alpha's programme lands on Beta's, the grid scrolls with it, and Select opens

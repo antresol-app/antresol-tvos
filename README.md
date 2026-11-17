@@ -234,7 +234,7 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   (`defaults delete com.apple.Accessibility ReduceMotionEnabled` puts it back). The mock
   also listens on the next port (8422 for `--port 8421`): the
   same server with QR sign-in, a long channel list, a longer guide with external channels,
-  and its test hooks (`/mock/events`,
+  a series in Continue Watching and its test hooks (`/mock/events`,
   `/mock/reset`, `/mock/fail-progress/<id>`; see the script's header), none of which the
   main port has, so the screenshot tests keep seeing what they saw.
 - Without an Apple TV simulator yet: `xcrun simctl create "Apple TV 4K (3rd generation)"

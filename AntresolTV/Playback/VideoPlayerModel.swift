@@ -73,6 +73,10 @@ final class VideoPlayerModel {
     /// `item`'s start is known (a session was begun for it). Not yet while its saved
     /// position is being asked for: a retry then asks again (`PlaybackRetry`).
     private var startResolved = false
+    /// The start point the card was last opened with: a retry that opens it again asks
+    /// the same way (a series card resolves to an episode, which is not the request's
+    /// card any more, and "ask" must still ask).
+    private var lastStart: PlaybackCoordinator.StartPoint = .resume
     /// The player item still waiting for its initial seek; until then the player's time is
     /// not the file position, so progress reads `source.startPosition` instead.
     private var pendingSeek: (item: ObjectIdentifier, playerTime: Double, autoplay: Bool)?
@@ -116,7 +120,7 @@ final class VideoPlayerModel {
             await begin(at: position)
         case .reopen:
             // First open, a failed episode switch, or a saved position that did not arrive.
-            await open(card, from: card.id == request.card.id ? request.start : .resume)
+            await open(card, from: lastStart)
         }
     }
 
@@ -228,6 +232,7 @@ final class VideoPlayerModel {
     private func open(_ target: Card, from start: PlaybackCoordinator.StartPoint) async {
         guard let client else { return }
         card = target
+        lastStart = start
         startResolved = false
         if state == .playing {
             isSwitching = true

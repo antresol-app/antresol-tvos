@@ -16,7 +16,7 @@ tests expect. There the channel list is long (24 channels, the last one watched 
 ranges, `X-Vault-Transcode: 1`), and it is slow to answer the app's own question about it.
 Its guide has twelve rows and then three external channels, two of them from one guide
 source with programmes at the same instants (so with the same programme ids, as the
-server builds them: `x<guide>-<start ms>`).
+server builds them: `x<guide>-<start ms>`), and its Continue Watching ends with a series.
 
 The second port also keeps what it was asked, for the UI tests (never on the main port):
 
@@ -402,6 +402,15 @@ def guide_with_externals(data):
                                  "programs": programs, "external": True})
 
 
+def home_with_series(home):
+    """The second port's Continue Watching ends with a series card (Select on it asks
+    where to start, and plays the series' next episode)."""
+    cards = {c["id"]: c for shelf in home["shelves"] for c in shelf["cards"]}
+    for shelf in home["shelves"]:
+        if shelf["id"] == "continue" and 2 in cards:
+            shelf["cards"].append(dict(cards[2], progress=0.3))
+
+
 def live_master():
     """A channel's master playlist: one picture, a rendition per voice."""
     lines = ["#EXTM3U", "#EXT-X-VERSION:4"]
@@ -540,7 +549,10 @@ class Handler(BaseHTTPRequestHandler):
         if method in ("PUT", "DELETE") and path.startswith("/api/hls/"):
             return self.send(204, b"", "application/json")
         if method == "GET" and path == "/api/home":
-            return self.send(200, json.dumps(home_with_hero()).encode(), "application/json")
+            home = home_with_hero()
+            if getattr(self.server, "pairing", False):
+                home_with_series(home)
+            return self.send(200, json.dumps(home).encode(), "application/json")
         # Live channels: the list and guides, on air now; every channel plays the same stream.
         if method == "GET" and path == "/api/channels":
             channels = on_air_now("channels.json")
