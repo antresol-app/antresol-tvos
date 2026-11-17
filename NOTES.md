@@ -1070,3 +1070,41 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
 - Left as they were: the delayed focus assignments (live controls, track menu, TV tab, the
   two detail pages), the Home refetch behind a shelf's See All, and the song stream probe
   before the first play.
+
+## App review round, second pass, 2026-11-17 (first run in the simulator)
+
+### What changed
+- **Artwork**: at most four decodes at once (`ConcurrencyLimiter`, kit), one thread of the
+  shared pool left free.
+- **Music**: a song not played before starts without waiting for the stream probe; whether
+  the server transcodes it is learned beside the playback (as for the queued next song).
+- **Reduce Motion**: the hero does not advance by itself, the live player's banner, channel
+  row and track menu fade instead of sliding, Now Playing's artwork resizes unanimated.
+- **Top Shelf**: section titles in the session's language (they were in the system's);
+  the artwork sweep runs once per load.
+- **Files**: `LiveNowPlaying` and `StreamOption` / `LiveLegibleReceiver` left
+  `LivePlayerModel.swift`; one `ImagePipeline.nowPlayingArtwork` for music and live TV.
+- **UI tests**: `test01ServerEntry` (stale since 4481d42) and `test12EpisodeGuide` (red
+  since b83eb9f added it) repaired; README says how a run reaches the mock server.
+
+### Seen in the simulator (tvOS 27.2, Apple TV 4K 3rd generation, the mock server)
+- All 16 `ScreenshotTests` pass, in three runs of a few tests each.
+- Menu on the QR sign-in screen leaves the app; from the server screen (Change Server) and
+  from the profile picker it comes back to the QR screen. (A mock with the pairing
+  endpoints: `scripts/mock-server.py` has none, so the committed tests never see it.)
+- Subtitles with the system's default caption style look as on main's screenshots.
+- Artwork made of line gratings is drawn at the screen's resolution at 2x and at 1x.
+- The TV tab opens on the last channel; the guide moves and opens a programme.
+
+### Known gaps
+- Not run: the live player (the mock has no streams), so its delayed focus assignments
+  stay as they were, as do the detail pages' (tvOS 17 only; no linked album in the mock)
+  and the TV tab's (it lands on the last channel as it is).
+- Not seen running: the dynamic Top Shelf (the simulator shows the static image), Reduce
+  Motion on, a transcoded song, a caption style other than the default.
+- Left on purpose: the Home refetch behind See All (it is also the grid's refresh), the
+  resting card shadow (a visual change), the repeated track discovery on a live tune-in,
+  `@State` engines built in `MainShellView.init`, Top Shelf artwork downscaling.
+- Kit API nothing in the app calls (tests only), kept: `Models/Books.swift` beyond
+  `isBook` / `withoutBooks`, `devices()`, `revokeDevice(id:)`, `searchSubtitles`,
+  `downloadSubtitle`, `libraryStatus()`, `ServerURLs.download`, `ServerURLs.events`.
