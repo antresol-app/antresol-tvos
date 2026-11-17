@@ -1216,3 +1216,70 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   is checked by kit tests only), and a tune-in with a voice other than the stream's
   default loads the default rendition's first segments (needs the choice before the
   item loads: a restructuring).
+
+## App review round, fifth pass, 2026-11-17 (the delta review's findings)
+
+### What changed
+- **Guide focus** (D-1): a block's focus identity is its row and its programme
+  (`GuideView.focusKey`). Two external channels of one guide source have the same
+  programme ids (`x<guide>-<start ms>`), so Down between two such blocks did not change
+  the focused value: the grid did not scroll with it and both rows were marked.
+- **Guide pages** (D-3, D-4, D-5), the merge rule now:
+  - the page's programmes come in; same key or same start: the page's copy;
+  - a known programme that starts inside the page's span is dropped;
+  - one that starts outside it and lies over one of the page's is dropped when it is a
+    library programme or reaches into the span; an external entry wholly outside the
+    span stays (XMLTV guides overlap: O 10:00–11:59 and A 11:30–12:10);
+  - a programme cut by the edge is joined; under another id the known part may also end
+    where the fresh one does (the film's tail seen first keeps its key scrolling back);
+  - an external row that is empty in a page whose external rows are all empty is no
+    word (the server asks the guide store once for all of them and answers 200 with
+    empty rows when that fails); a library row's emptiness is the truth (an error there
+    is a 500).
+- **Guide requests**: none outlives `reloadGuide` (`RequestGate`, kit). A page on its
+  way when the guide was started over (the TV tab coming back from a programme's page
+  does that) was merged into the empty grid and kept the first window from being asked
+  for: the guide stayed on its spinner.
+- **Artwork** (D-6): a cached file is removed only when it does not decode at 16 px
+  either (`ArtworkDecoding`, kit: the ImageIO part of the pipeline, with tests).
+- **Music** (D-7): a held seek that finds no ranges at ready no longer marks the song as
+  transcoded for the session (`HeldSongSeek`, kit): the reload asks the server first;
+  the server's "original" means the ranges are late (the player seeks); only a second
+  time without ranges and without an answer is remembered.
+- **TV tab focus** (D-8): the repeated focus request is made only while focus is where
+  it was when the row was asked for (`FocusPlace`: the focused item's frame;
+  `FocusFallback`, kit), and the request ends when the page goes away.
+- **Player** (D-9): Try Again opens the card the way it was last opened (`lastStart`): a
+  series card opened with "ask" asks again. `retry()` runs only from the error screen
+  (a second press while the first is under way did open the item twice).
+- **CI** (D-2, D-10): Reduce Motion is put back in an `always()` step and after the
+  boot; the main run fails if it is on (`…EXPECT_REDUCE_MOTION=0`); the Reduce Motion
+  run has a result bundle (exported, in the gallery) and fails unless exactly one test
+  ran.
+- **Mock, second port only**: a guide of twelve rows and three external channels (two
+  with the same programme ids), a series card at the end of Continue Watching.
+  `RuntimeTests`: `testGuideMovesBetweenRowsWithTheSameProgrammeIds`,
+  `testTryAgainAsksAgainForASeriesCard`.
+
+### Known gaps
+- No unit test for RV-7 (one comparison of queue entry ids) and RV-11 (the late waiter:
+  needs a hook between a decode's end and its waiter). RV-9 has one now
+  (`ArtworkDecodingTests`).
+- `FocusPlace` and the fallback it guards are not seen at work: the first assignment has
+  always landed in the simulator. If an item's frame changed without focus moving, the
+  fallback would not be made (focus would stay where it was).
+- D-6 and D-7 are rules with unit tests; no memory pressure and no late ranges were
+  produced in the simulator.
+- The server joins "last file + first file of the repeat" when a window starts inside
+  the last file of a film that is shown again right after (`programs()` compares the
+  next file with the first one listed, not with the film's first file): the client then
+  joins that with the known first showing. A server fix (not made here).
+- `testTVTabOpensOnAFarLastChannel` does not fail on the code before bf34ad6 (the TV tab
+  of bf34ad6^ in a scratch copy): it passed six times, also with the last channel at the
+  90th row of 100. The focus assigned after a pause lands in the simulator; the case
+  bf34ad6 fixed was not reproduced there, and the test guards the result, not the fix.
+- An external row kept as "no word" (a failed external guide query) keeps only what was
+  known: the window counts as loaded, and its span is not asked for again until the
+  guide is reloaded.
+- The CI workflow was not run; its commands were run by hand on the Mac.
+
