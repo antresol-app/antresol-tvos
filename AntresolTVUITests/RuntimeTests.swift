@@ -93,6 +93,33 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-16-back-on-tv-tab")
     }
 
+    /// With focus off its buttons the hero moves on by itself every 8 s, unless Reduce
+    /// Motion is on (Settings > Accessibility > Motion), when it stays.
+    func testHeroAutoAdvance() {
+        signInAsKid()
+        // Onto the first shelf: the hero does not move under its own buttons' focus.
+        remote.press(.right)
+        sleep(2)
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Big Buck Demo")).firstMatch
+        XCTAssertTrue(moveFocus(.down, to: card, limit: 2), "focus: \(focusedLabel)")
+        let dots = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Featured ")).firstMatch
+        XCTAssertTrue(dots.waitForExistence(timeout: 10), "no hero page dots")
+        let reduceMotion = UIAccessibility.isReduceMotionEnabled
+        let first = dots.label
+        snapshot(reduceMotion ? "rt-22-hero-reduce-motion" : "rt-20-hero")
+        var seen = Set([first])
+        for _ in 0..<12 {
+            sleep(1)
+            seen.insert(dots.label)
+        }
+        snapshot(reduceMotion ? "rt-23-hero-reduce-motion-12s-later" : "rt-21-hero-12s-later")
+        if reduceMotion {
+            XCTAssertEqual(seen, [first], "the hero moved with Reduce Motion on")
+        } else {
+            XCTAssertGreaterThan(seen.count, 1, "the hero did not move in 12 s: \(focusedLabel)")
+        }
+    }
+
     // MARK: - Helpers
 
     /// The mock's port with QR sign-in: the one after the main port.
