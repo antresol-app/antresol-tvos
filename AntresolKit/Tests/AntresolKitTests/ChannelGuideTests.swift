@@ -304,6 +304,31 @@ final class ChannelGuideTests: XCTestCase {
         assertConsistent(grid)
     }
 
+    /// A film in two files, 110–150 and 150–190, and the first window starts at 160: the
+    /// guide first has the film's tail (150–190, the second file's id). Scrolling back,
+    /// the earlier page lists the whole film under the first file's id, ending where the
+    /// known tail ends. It is one programme under the key it had (the focus is on it:
+    /// it is the leftmost block, where paging back begins).
+    func testScrollingBackKeepsTheKeyOfAProgrammesTail() {
+        let tail = show("1-5", item: 7, 150, 190)
+        let later = page(160, 280, [tail, show("1-6", item: 8, 190, 280)])
+        let earlier = page(40, 160, [show("1-3", item: 6, 40, 110), show("1-4", item: 7, 110, 190)])
+        for pages in [[later, earlier], [later, earlier, earlier], [later, earlier, later], [later, earlier, later, earlier]] {
+            var grid = ChannelGuideGrid(pages[0])
+            for next in pages.dropFirst() { grid.merge(next) }
+            XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-3", "1-5", "1-6"], "\(pages.count) pages")
+            XCTAssertEqual(grid.rows[0].programs[1].start, t(110))
+            XCTAssertEqual(grid.rows[0].programs[1].end, t(190))
+            assertConsistent(grid)
+        }
+        // The other way round the film has the first file's key from the start.
+        var grid = ChannelGuideGrid(earlier)
+        grid.merge(later)
+        XCTAssertEqual(grid.rows[0].programs.map(\.key), ["1-3", "1-4", "1-6"])
+        XCTAssertEqual(grid.rows[0].programs[1].start, t(110))
+        assertConsistent(grid)
+    }
+
     /// The same film three times back to back, the pages' edge inside the second
     /// showing: three programmes, each with its own times, in either order of pages and
     /// after either page again.

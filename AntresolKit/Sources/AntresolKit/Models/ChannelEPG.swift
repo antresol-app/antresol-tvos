@@ -184,8 +184,10 @@ public struct ChannelGuideGrid: Hashable, Sendable {
             let sameId = old.id == fresh.id
             // Cut at the window's start: the known part has the head.
             let head = fresh.start <= window.from && old.start < fresh.start && (!sameId || old.end == fresh.end)
-            // Cut at the window's end: the known part has the tail.
-            let tail = fresh.end >= window.to && old.end > fresh.end && (!sameId || old.start == fresh.start)
+            // Cut at the window's end: the known part has the tail. Under another id it
+            // may also end where the fresh one does: the programme's last files, seen
+            // first from the later window under their own id, and now listed whole.
+            let tail = fresh.end >= window.to && (sameId ? old.end > fresh.end && old.start == fresh.start : old.end >= fresh.end)
             return head || tail
         }
         guard let part else { return fresh }
