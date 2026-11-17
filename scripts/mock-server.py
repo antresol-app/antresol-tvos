@@ -4,7 +4,8 @@
 Serves the recorded API samples from AntresolKit/Tests/AntresolKitTests/Samples,
 generates gradient PNGs for every /api/images/ path and comic page, and streams small
 fixture clips for video, music and audiobooks, so the app can be driven through every
-screen without a real library.
+screen without a real library. Every channel plays one short live stream (the first
+seconds of the video fixture, looped, with three audio renditions).
 
     python3 scripts/mock-server.py --port 8421
 
@@ -18,6 +19,7 @@ import hashlib
 import json
 import re
 import struct
+import sys
 import threading
 import time
 import zlib
@@ -29,6 +31,12 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 VIDEO = FIXTURES / "sample.mp4"
 TRACK = FIXTURES / "track.m4a"
 AUDIOBOOK = FIXTURES / "audiobook.m4a"
+# `ffmpeg -i sample.mp4 -t 12 -map 0:v -c copy -f hls -hls_time 4 …` and the same with 0:a.
+LIVE = FIXTURES / "live"
+LIVE_SEGMENTS = 3
+LIVE_SEGMENT_SECONDS = 4
+# The voices of the sample programme on channel 1 (`now.audio[].name`).
+LIVE_AUDIO = [("Русский", "ru"), ("English", "en"), ("Оригинал", "fr")]
 
 KID_TOKEN = "mock-kid-token"
 KID_USER = {"id": 2, "name": "Kiddo", "avatar": "grad-4", "hasPassword": False, "isAdmin": False,
@@ -335,6 +343,30 @@ def on_air_now(sample):
     return data
 
 
+def live_master():
+    """A channel's master playlist: one picture, a rendition per voice."""
+    lines = ["#EXTM3U", "#EXT-X-VERSION:4"]
+    for n, (name, lang) in enumerate(LIVE_AUDIO):
+        default = "YES" if n == 0 else "NO"
+        lines.append(f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="{name}",LANGUAGE="{lang}",'
+                     f'DEFAULT={default},AUTOSELECT=YES,URI="audio-{n}.m3u8"')
+    lines += ['#EXT-X-STREAM-INF:BANDWIDTH=64000,CODECS="avc1.4d401f,mp4a.40.2",RESOLUTION=640x360,AUDIO="audio"',
+              "video.m3u8", ""]
+    return "\n".join(lines).encode()
+
+
+def live_playlist(kind):
+    """The last three segments by the clock; the clip starts again after its last one."""
+    first = int(time.time() // LIVE_SEGMENT_SECONDS) - LIVE_SEGMENTS
+    lines = ["#EXTM3U", "#EXT-X-VERSION:4", f"#EXT-X-TARGETDURATION:{LIVE_SEGMENT_SECONDS}",
+             f"#EXT-X-MEDIA-SEQUENCE:{first}", f"#EXT-X-DISCONTINUITY-SEQUENCE:{(first - 1) // LIVE_SEGMENTS}"]
+    for sequence in range(first, first + LIVE_SEGMENTS):
+        if sequence % LIVE_SEGMENTS == 0:
+            lines.append("#EXT-X-DISCONTINUITY")
+        lines += [f"#EXTINF:{LIVE_SEGMENT_SECONDS:.3f},", f"{kind}-{sequence}.ts"]
+    return "\n".join(lines + [""]).encode()
+
+
 def pairing_code(port):
     """`POST /api/auth/pair/start`: a code nobody approves (the poll stays pending)."""
     expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5)
@@ -347,8 +379,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         # The client's User-Agent tells the app's requests from the Top Shelf extension's.
+        # (Written here: newer Pythons rebuild a request's line and drop what was added.)
         agent = self.headers.get("User-Agent", "-") if hasattr(self, "headers") else "-"
-        super().log_message(format + " [%s]", *args, agent)
+        sys.stderr.write(f"{self.address_string()} - - [{self.log_date_time_string()}] {format % args} [{agent}]\n")
 
     def do_GET(self):
         self.route("GET")
@@ -439,7 +472,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(204, b"", "application/json")
         if method == "GET" and path == "/api/home":
             return self.send(200, json.dumps(home_with_hero()).encode(), "application/json")
-        # Live channels: the list and guides, on air now (the mock has no live streams).
+        # Live channels: the list and guides, on air now; every channel plays the same stream.
         if method == "GET" and path == "/api/channels":
             return self.send(200, json.dumps(on_air_now("channels.json")).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/channels/\d+/guide", path):
@@ -448,6 +481,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, json.dumps(on_air_now("channel-epg.json")).encode(), "application/json")
         if method in ("PUT", "DELETE") and re.fullmatch(r"/api/channels/(\d+/favorite|last)", path):
             return self.send(204, b"", "application/json")
+        if method == "POST" and path == "/api/channels/opened":
+            return self.send(204, b"", "application/json")
+        match = re.fullmatch(r"/api/channels/live/\d+/([a-z]+)(?:-(\d+))?\.(m3u8|ts)", path)
+        if method == "GET" and match:
+            kind, number, extension = match.groups()
+            if extension == "ts" and kind in ("video", "audio") and number:
+                return self.send_file(LIVE / f"{kind}-{int(number) % LIVE_SEGMENTS}.ts", "video/mp2t")
+            if extension == "m3u8" and kind in ("index", "video", "audio"):
+                playlist = live_master() if kind == "index" else live_playlist(kind)
+                return self.send(200, playlist, "application/vnd.apple.mpegurl")
         if method == "GET" and path == "/api/me/playback-prefs":
             return self.send(200, (SAMPLES / "playback-prefs.json").read_bytes(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/items/(19|22)", path):

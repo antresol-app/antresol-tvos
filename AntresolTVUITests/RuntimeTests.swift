@@ -37,6 +37,62 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-03-left-the-app")
     }
 
+    /// The TV tab opens on the last channel; the player plays it, zaps, opens the options
+    /// row and the audio list with focus where the viewer expects it, and Menu comes back
+    /// to the channel's row.
+    func testLivePlayer() {
+        signInAsKid()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        // The mock's last channel is 2.
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Комедии")).firstMatch
+        XCTAssertTrue(waitForFocus(row), "the list did not open on the last channel: \(focusedLabel)")
+        snapshot("rt-10-tv-last-channel")
+
+        // The banner goes away only once the picture plays.
+        remote.press(.select)
+        let hints = app.staticTexts["Switch Channel"]
+        XCTAssertTrue(hints.waitForExistence(timeout: 10), "no banner")
+        XCTAssertTrue(picture("2 · Комедии").waitForExistence(timeout: 5), "not on channel 2")
+        XCTAssertTrue(hints.waitForNonExistence(timeout: 30), "channel 2 did not start playing")
+        snapshot("rt-11-live-playing")
+
+        remote.press(.up)
+        XCTAssertTrue(picture("3 · Драмы").waitForExistence(timeout: 5), "Up did not switch to channel 3")
+        snapshot("rt-12-zap-banner")
+        XCTAssertTrue(hints.waitForNonExistence(timeout: 30), "channel 3 did not start playing")
+
+        // Select: the options row, focus on Audio (the stream has three voices).
+        remote.press(.select)
+        let audio = app.buttons["live.audio"]
+        XCTAssertTrue(audio.waitForExistence(timeout: 5), "no Audio control")
+        XCTAssertTrue(waitForFocus(audio), "the options row did not take focus on Audio: \(focusedLabel)")
+        snapshot("rt-13-options-row")
+
+        // The list opens on the voice that plays (the device's language, the second of
+        // three); a pick closes it, focus back on Audio.
+        remote.press(.select)
+        XCTAssertTrue(waitForFocus(app.buttons["live.track.English"]), "the audio list did not open on the playing voice: \(focusedLabel)")
+        snapshot("rt-14-audio-list")
+        remote.press(.up)
+        sleep(1)
+        remote.press(.select)
+        XCTAssertTrue(waitForFocus(audio), "focus did not return to Audio after a pick: \(focusedLabel)")
+        XCTAssertTrue(app.buttons["live.track.English"].waitForNonExistence(timeout: 5), "the audio list did not close")
+        sleep(1)
+        remote.press(.select)
+        XCTAssertTrue(waitForFocus(app.buttons["live.track.Русский"]), "the audio list did not open on the picked voice: \(focusedLabel)")
+        snapshot("rt-15-audio-picked")
+
+        // Menu: the list, the options row, then the player.
+        for _ in 0..<4 where picture("3 · Драмы").exists {
+            remote.press(.menu)
+            sleep(2)
+        }
+        XCTAssertFalse(picture("3 · Драмы").exists, "Menu did not leave the player")
+        XCTAssertTrue(waitForFocus(row), "back on the TV tab, focus is not on the channel's row: \(focusedLabel)")
+        snapshot("rt-16-back-on-tv-tab")
+    }
+
     // MARK: - Helpers
 
     /// The mock's port with QR sign-in: the one after the main port.
