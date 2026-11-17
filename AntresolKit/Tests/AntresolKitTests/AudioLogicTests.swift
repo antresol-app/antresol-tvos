@@ -139,3 +139,24 @@ final class ScrobbleTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.playedSeconds, 1)
     }
 }
+
+/// A seek inside a song: natively in an original file, by asking for the stream again
+/// in a transcoded one, and held while the item of a song not known yet is not ready.
+final class SongSeekTests: XCTestCase {
+    func testASeekBeforeAnUnknownSongIsReadyIsHeldAndDecidedThen() {
+        // The song started without waiting for the probe; the seek comes before the item is ready.
+        XCTAssertEqual(SongSeek.plan(knownTranscoded: false, isReady: false, hasSeekableRanges: false), .hold)
+        // Ready, and it has no ranges after all: the held seek reloads the stream
+        // (a native seek would do nothing and the bar would fall back to 0).
+        XCTAssertEqual(SongSeek.plan(knownTranscoded: false, isReady: true, hasSeekableRanges: false), .reload)
+        // The probe answered meanwhile.
+        XCTAssertEqual(SongSeek.plan(knownTranscoded: true, isReady: true, hasSeekableRanges: false), .reload)
+        // Ready with ranges: an original file.
+        XCTAssertEqual(SongSeek.plan(knownTranscoded: false, isReady: true, hasSeekableRanges: true), .native)
+    }
+
+    func testAKnownTranscodedSongReloadsWhateverTheItemsState() {
+        XCTAssertEqual(SongSeek.plan(knownTranscoded: true, isReady: false, hasSeekableRanges: false), .reload)
+        XCTAssertEqual(SongSeek.plan(knownTranscoded: true, isReady: true, hasSeekableRanges: true), .reload)
+    }
+}

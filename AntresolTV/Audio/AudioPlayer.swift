@@ -282,19 +282,22 @@ final class AudioPlayer {
         let target = max(0, seconds)
         position = target
         scrobble?.resetPosition()
-        // A stream with nothing seekable once ready is a transcode the headers did not reveal.
-        let transcoded = info.transcoded || (playerItem.status == .readyToPlay && playerItem.seekableTimeRanges.isEmpty)
-        if !transcoded {
-            if playerItem.status == .readyToPlay {
-                player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-            } else {
-                pendingSeek = target
-            }
+        let plan = SongSeek.plan(
+            knownTranscoded: info.transcoded, isReady: playerItem.status == .readyToPlay,
+            hasSeekableRanges: !playerItem.seekableTimeRanges.isEmpty
+        )
+        switch plan {
+        case .native:
+            player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
             nowPlaying.update()
-            return
+        case .hold:
+            // Decided when the item is ready (`statusChanged`).
+            pendingSeek = target
+            nowPlaying.update()
+        case .reload:
+            guard let index = queue.currentIndex else { return }
+            Task { await load(index: index, at: target) }
         }
-        guard let index = queue.currentIndex else { return }
-        Task { await load(index: index, at: target) }
     }
 
     // MARK: - Loading
@@ -481,7 +484,16 @@ final class AudioPlayer {
             if playerItem === player.currentItem { consecutiveFailures = 0 }
             if playerItem === player.currentItem, let seek = pendingSeek {
                 pendingSeek = nil
-                player.seek(to: CMTime(seconds: seek, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                let plan = SongSeek.plan(knownTranscoded: info.transcoded, isReady: true, hasSeekableRanges: !playerItem.seekableTimeRanges.isEmpty)
+                if plan == .reload, let index = queue.currentIndex, let entry = queue.current, entry.id == info.entryId {
+                    // A seek made before the item was ready, in a song that turned out
+                    // to be transcoded (a seek in it does nothing): the stream is asked
+                    // for again from there. Remembered, so the reload is a transcoded one.
+                    transcodedStreams[entry.element.track.id] = true
+                    Task { await load(index: index, at: seek) }
+                } else {
+                    player.seek(to: CMTime(seconds: seek, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                }
             }
         case .failed:
             itemFailed(playerItem, info: info)
