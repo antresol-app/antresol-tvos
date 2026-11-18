@@ -9,15 +9,18 @@ public struct PlaybackPrefs: Decodable, Hashable, Sendable {
     public var subLangs: [String]
     /// «Выбирать очищенную озвучку».
     public var preferCleaned: Bool
+    /// «Пропускать сам»: the profile's, on every device; absent on older servers (all off).
+    public var autoSkip: AutoSkip
 
-    public init(audioLangs: [String] = ["ru"], subMode: String = "off", subLangs: [String] = [], preferCleaned: Bool = false) {
+    public init(audioLangs: [String] = ["ru"], subMode: String = "off", subLangs: [String] = [], preferCleaned: Bool = false, autoSkip: AutoSkip = AutoSkip()) {
         self.audioLangs = audioLangs
         self.subMode = subMode
         self.subLangs = subLangs
         self.preferCleaned = preferCleaned
+        self.autoSkip = autoSkip
     }
 
-    enum CodingKeys: String, CodingKey { case audioLangs, subMode, subLangs, preferCleaned }
+    enum CodingKeys: String, CodingKey { case audioLangs, subMode, subLangs, preferCleaned, autoSkip }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -25,6 +28,40 @@ public struct PlaybackPrefs: Decodable, Hashable, Sendable {
         subMode = c.value(.subMode, default: "off")
         subLangs = c.value(.subLangs, default: [])
         preferCleaned = c.value(.preferCleaned, default: false)
+        autoSkip = c.value(.autoSkip, default: AutoSkip())
+    }
+}
+
+/// `PlaybackPrefs.autoSkip`: skip the recap or the intro by itself, and at the credits go on
+/// to the next episode (or end a film).
+public struct AutoSkip: Codable, Hashable, Sendable {
+    public var recap: Bool
+    public var intro: Bool
+    public var credits: Bool
+
+    public init(recap: Bool = false, intro: Bool = false, credits: Bool = false) {
+        self.recap = recap
+        self.intro = intro
+        self.credits = credits
+    }
+
+    enum CodingKeys: String, CodingKey { case recap, intro, credits }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        recap = c.value(.recap, default: false)
+        intro = c.value(.intro, default: false)
+        credits = c.value(.credits, default: false)
+    }
+
+    /// Whether `kind` ("recap", "intro" or "credits") is skipped by itself.
+    public func isOn(_ kind: String) -> Bool {
+        switch kind {
+        case SkipSegments.recap: return recap
+        case SkipSegments.intro: return intro
+        case SkipSegments.credits: return credits
+        default: return false
+        }
     }
 }
 

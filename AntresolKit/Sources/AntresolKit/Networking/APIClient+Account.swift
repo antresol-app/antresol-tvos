@@ -39,6 +39,12 @@ extension APIClient {
         try await send(.get, "/api/me/playback-prefs")
     }
 
+    /// `PUT /api/me/playback-prefs/auto-skip`: turns «Пропускать сам» on or off for one kind
+    /// ("recap", "intro" or "credits"); the others stay. Answers with the profile's prefs.
+    public func setAutoSkip(_ kind: String, _ on: Bool) async throws -> PlaybackPrefs {
+        try await send(.put, "/api/me/playback-prefs/auto-skip", json: [kind: on])
+    }
+
     /// `POST /api/logout`: revokes the current token and forgets it.
     public func signOut() async throws {
         defer { token = nil }

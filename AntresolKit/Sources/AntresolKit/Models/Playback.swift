@@ -144,10 +144,12 @@ public struct PlayResponse: Decodable, Hashable, Sendable {
     /// A complete VOD playlist is served when requested with a media key.
     public var hlsComplete: Bool
     public var burnedSubtitle: Int?
+    /// The recap, intro and credits of the file (file seconds); empty on older servers.
+    public var segments: [PlaySegment]
 
     enum CodingKeys: String, CodingKey {
         case mode, url, reason, startSec, durationMs, audioIndex, audio, subtitles, quality
-        case hlsComplete, burnedSubtitle
+        case hlsComplete, burnedSubtitle, segments
     }
 
     public init(from decoder: Decoder) throws {
@@ -163,11 +165,35 @@ public struct PlayResponse: Decodable, Hashable, Sendable {
         quality = c.value(.quality, default: PlayQuality())
         hlsComplete = c.value(.hlsComplete, default: false)
         burnedSubtitle = c.optional(.burnedSubtitle)
+        segments = c.value(.segments, default: [])
     }
 
     /// The HLS session id parsed from `url`, nil for direct play.
     public var hlsSessionID: String? {
         HLSSessionID.parse(url)
+    }
+}
+
+/// One skip segment of `PlayResponse.segments`: `kind` is "recap", "intro" or "credits",
+/// the times are seconds on the file timeline.
+public struct PlaySegment: Decodable, Hashable, Sendable {
+    public var kind: String
+    public var startSec: Double
+    public var endSec: Double
+
+    public init(kind: String, startSec: Double, endSec: Double) {
+        self.kind = kind
+        self.startSec = startSec
+        self.endSec = endSec
+    }
+
+    enum CodingKeys: String, CodingKey { case kind, startSec, endSec }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = c.value(.kind, default: "")
+        startSec = c.value(.startSec, default: 0)
+        endSec = c.value(.endSec, default: 0)
     }
 }
 
