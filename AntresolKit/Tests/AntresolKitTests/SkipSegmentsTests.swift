@@ -69,9 +69,29 @@ final class SkipSegmentsTests: XCTestCase {
         XCTAssertTrue(SkipSegments.creditsToEnd(credits, durationSec: 2590.5))
         XCTAssertFalse(SkipSegments.creditsToEnd(credits, durationSec: 2600))
         XCTAssertTrue(SkipSegments.creditsToEnd(credits, durationSec: 0))
-        XCTAssertEqual(SkipSegments.countdown(enteredAt: 2500, time: 2505), 0.5, accuracy: 1e-9)
-        XCTAssertEqual(SkipSegments.countdown(enteredAt: 2500, time: 2600), 1, accuracy: 1e-9)
-        XCTAssertEqual(SkipSegments.countdown(enteredAt: 2500, time: 2490), 0, accuracy: 1e-9)
+        XCTAssertEqual(SkipSegments.countdown(playedSec: 5), 0.5, accuracy: 1e-9)
+        XCTAssertEqual(SkipSegments.countdown(playedSec: 100), 1, accuracy: 1e-9)
+        XCTAssertEqual(SkipSegments.countdown(playedSec: -3), 0, accuracy: 1e-9)
+    }
+
+    func testTheNextPillWaitsForTheSystemPanelAtTheCreditsStartOnly() {
+        // playback has just reached the credits and a proposal waits: the panel comes
+        XCTAssertTrue(SkipSegments.upNextPanelPending(position: 2500.3, creditsStartSec: 2500, proposalAttached: true))
+        // no proposal (not attached yet, or declined): the pill is the offer
+        XCTAssertFalse(SkipSegments.upNextPanelPending(position: 2500.3, creditsStartSec: 2500, proposalAttached: false))
+        // credits entered by a resume or a seek: the panel's time is long gone
+        XCTAssertFalse(SkipSegments.upNextPanelPending(position: 2540, creditsStartSec: 2500, proposalAttached: true))
+        XCTAssertFalse(SkipSegments.upNextPanelPending(position: 2501.5, creditsStartSec: 2500, proposalAttached: true))
+    }
+
+    func testAResetTrackerOffersNothingAtTheCredits() {
+        // what the player swaps in while it goes on to the next episode: the old file's
+        // credits must not show «Skip Credits» (it would end the player) or run an auto-skip
+        var reset = SkipTracker(segments: [])
+        XCTAssertFalse(reset.hasSegments)
+        let step = reset.at(2500, hasNext: false, auto: AutoSkip(recap: true, intro: true, credits: true))
+        XCTAssertNil(step.pill)
+        XCTAssertNil(step.auto)
     }
 
     func testIntroPillShowsAloneForEightSecondsThenOnlyWithTheControls() {
@@ -107,22 +127,59 @@ final class SkipSegmentsTests: XCTestCase {
 
     func testCreditsOfAnEpisodeOfferNextAndCountDown() {
         var t = SkipTracker(segments: episode)
-        XCTAssertEqual(t.at(2500).pill, .next(fill: 0, countdown: true, enteredAt: 2500))
-        XCTAssertEqual(t.at(2505).pill, .next(fill: 0.5, countdown: true, enteredAt: 2500))
-        XCTAssertNil(t.at(2509).auto)
-        XCTAssertEqual(t.at(2510).auto, .next)
+        // a tick a second, playing: ten seconds of it fill the pill
+        XCTAssertEqual(t.at(2500, now: 0).pill, .next(fill: 0, countdown: true))
+        for s in 1..<5 { _ = t.at(2500 + Double(s), now: Double(s)) }
+        XCTAssertEqual(t.at(2505, now: 5).pill, .next(fill: 0.5, countdown: true))
+        for s in 6..<10 { XCTAssertNil(t.at(2500 + Double(s), now: Double(s)).auto) }
+        XCTAssertEqual(t.at(2510, now: 10).auto, .next)
         // only once
-        XCTAssertNil(t.at(2511).auto)
+        XCTAssertNil(t.at(2511, now: 11).auto)
         XCTAssertFalse(t.takeNext())
+    }
+
+    func testSeekingForwardInTheCreditsDoesNotSkipTheCountdown() {
+        var t = SkipTracker(segments: episode)
+        _ = t.at(2500, now: 0)
+        _ = t.at(2501, now: 1)
+        // +30 s, then the position moves on: the fill follows the playing time, not the file's
+        let after = t.at(2580, now: 1.5)
+        XCTAssertEqual(after.pill, .next(fill: 0.15, countdown: true))
+        XCTAssertNil(after.auto)
+        XCTAssertEqual(t.at(2581, now: 2).pill, .next(fill: 0.2, countdown: true))
+        // a jump back into the credits keeps counting too
+        XCTAssertEqual(t.at(2510, now: 2.5).pill, .next(fill: 0.25, countdown: true))
+    }
+
+    func testCountdownCountsOnlyPlayingTime() {
+        var t = SkipTracker(segments: episode)
+        _ = t.at(2500, now: 0)
+        // paused for half a minute: nothing fills, and resuming does not add the pause
+        XCTAssertEqual(t.at(2500, now: 5, playing: false).pill, .next(fill: 0, countdown: true))
+        XCTAssertEqual(t.at(2500, now: 30, playing: false).pill, .next(fill: 0, countdown: true))
+        XCTAssertEqual(t.at(2500.25, now: 30.25).pill, .next(fill: 0, countdown: true))
+        XCTAssertEqual(t.at(2500.75, now: 30.75).pill, .next(fill: 0.05, countdown: true))
+        // a stall (no tick for 30 s while "playing") counts for one second at most
+        XCTAssertEqual(t.at(2501, now: 60.75).pill, .next(fill: 0.15, countdown: true))
+    }
+
+    func testLeavingAndEnteringTheCreditsFillsAfresh() {
+        var t = SkipTracker(segments: episode)
+        _ = t.at(2500, now: 0)
+        _ = t.at(2504, now: 1)
+        _ = t.at(2505, now: 2)
+        XCTAssertNil(t.at(2400, now: 3).pill)
+        XCTAssertEqual(t.at(2500, now: 4).pill, .next(fill: 0, countdown: true))
+        XCTAssertEqual(t.at(2501, now: 5).pill, .next(fill: 0.1, countdown: true))
     }
 
     func testNoCountdownWithAPostCreditsSceneOrAutoplayOff() {
         var scene = SkipTracker(segments: episode)
-        XCTAssertEqual(scene.at(2500, duration: 2700).pill, .next(fill: 0, countdown: false, enteredAt: 2500))
+        XCTAssertEqual(scene.at(2500, duration: 2700).pill, .next(fill: 0, countdown: false))
         var t = SkipTracker(segments: episode)
-        _ = t.at(2500, autoplay: false)
-        let later = t.at(2550, autoplay: false)
-        XCTAssertEqual(later.pill, .next(fill: 0, countdown: false, enteredAt: 2500))
+        _ = t.at(2500, now: 0, autoplay: false)
+        let later = t.at(2550, now: 50, autoplay: false)
+        XCTAssertEqual(later.pill, .next(fill: 0, countdown: false))
         XCTAssertNil(later.auto)
     }
 

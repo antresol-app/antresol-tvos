@@ -218,6 +218,10 @@ final class VideoPlayerModel {
     func acceptUpNext() {
         guard let offer = upNext else { return }
         upNext = nil
+        // The old file keeps playing its credits until the switch has its answer: its skip
+        // state must not step meanwhile («Skip Credits» there would end the player).
+        isSwitching = true
+        resetSkip(SkipTracker(segments: []))
         Task {
             await finishCurrent(atEnd: false)
             await open(offer.episode.card, from: .resume)
@@ -228,6 +232,7 @@ final class VideoPlayerModel {
         upNextDeclined = true
         // «Смотреть титры»: no next episode by itself at these credits either.
         skip.creditsDismissed = true
+        updateSkip()
     }
 
     /// The Up Next panel is the credits' «Следующая серия» («Смотреть титры» beside it).
@@ -240,11 +245,10 @@ final class VideoPlayerModel {
     /// down (autoplay off, or a scene follows the credits).
     var creditsCountdownFill: Double? {
         guard preferences.autoplayNext, let credits = skip.credits, upNextAtCredits,
-              !SkipSegments.postCreditsScene(credits, durationSec: durationSec),
-              let position = currentFilePosition
+              !SkipSegments.postCreditsScene(credits, durationSec: durationSec)
         else { return nil }
-        if case .next(let fill, true, _)? = skipPill { return fill }
-        return SkipSegments.countdown(enteredAt: credits.startSec, time: position)
+        if case .next(let fill, true)? = skipPill { return fill }
+        return 0
     }
 
     /// The offered episode's synopsis, for the Up Next panel.
@@ -266,7 +270,10 @@ final class VideoPlayerModel {
     // MARK: - Opening an item
 
     private func open(_ target: Card, from start: PlaybackCoordinator.StartPoint) async {
-        guard let client else { return }
+        guard let client else {
+            isSwitching = false
+            return
+        }
         card = target
         lastStart = start
         startResolved = false
@@ -365,10 +372,7 @@ final class VideoPlayerModel {
             upNextDeclined = false
             lastRecovery = nil
             notice = nil
-            skip = SkipTracker(segments: source.response.segments)
-            skipPill = nil
-            skipNote = nil
-            skipOverlay = SkipOverlay()
+            resetSkip(SkipTracker(segments: source.response.segments))
             apply(source)
             load(source)
             await reporter.start()
@@ -661,11 +665,18 @@ final class VideoPlayerModel {
 
     /// The skip pill on screen was pressed.
     func pressSkip() {
-        guard case .skip(_, _, let action)? = skipPill else { return }
-        switch action {
-        case .seek(let position): seekFile(to: position)
-        case .next: goNext()
-        case .end: playbackEnded()
+        switch skipPill {
+        case .skip(_, _, let action)?:
+            switch action {
+            case .seek(let position): seekFile(to: position)
+            case .next: goNext()
+            case .end: playbackEnded()
+            }
+        case .next?:
+            // The countdown may have taken it a moment ago: once only.
+            if skip.takeNext() { goNext() }
+        case nil:
+            break
         }
     }
 
@@ -721,11 +732,30 @@ final class VideoPlayerModel {
         player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
     }
 
+    /// Starts the skip state afresh for another file (or none: the old file's is dropped).
+    private func resetSkip(_ tracker: SkipTracker) {
+        skip = tracker
+        skipPill = nil
+        skipNote = nil
+        skipOverlay = SkipOverlay()
+    }
+
+    /// The credits' Up Next panel is on screen or about to be: the «Next Episode» pill leaves it.
+    private func upNextPanelShows(at position: Double) -> Bool {
+        if proposalController != nil { return true }
+        guard let credits = skip.credits, upNextAtCredits, !upNextDeclined else { return false }
+        return SkipSegments.upNextPanelPending(
+            position: position, creditsStartSec: credits.startSec,
+            proposalAttached: player.currentItem?.nextContentProposal != nil
+        )
+    }
+
     /// Steps the skip state at the current position (every 0.25 s) and runs what
-    /// «Пропускать сам» does by itself.
+    /// «Пропускать сам» does by itself. Not while another file or stream is being prepared:
+    /// the position then is the old file's.
     private func updateSkip() {
-        guard state == .playing, !isStopped, pendingSeek == nil, skip.hasSegments, source != nil,
-              let position = currentFilePosition
+        guard state == .playing, !isStopped, !isSwitching, !isRecovering, pendingSeek == nil,
+              skip.hasSegments, source != nil, let position = currentFilePosition
         else { return }
         let now = ProcessInfo.processInfo.systemUptime
         let step = skip.step(
@@ -745,11 +775,17 @@ final class VideoPlayerModel {
         case nil:
             break
         }
+        // It went on to the next episode just now: its state is already dropped.
+        if isSwitching { return }
         if let until = skipNote?.until, now >= until { skipNote = nil }
         var overlay = SkipOverlay(note: skipNote?.note.kind)
         var button: SkipOverlay.Button?
         if case .skip(let kind, _, _)? = step.pill, step.pill?.isShown(controlsVisible: controlsVisible) == true {
             button = .skip(kind: kind)
+        } else if case .next? = step.pill, !upNextPanelShows(at: position) {
+            // Inside the credits whatever way playback got there (resume, a seek, autoplay off):
+            // the system panel only comes at the credits' start.
+            button = .next
         } else if skipNote != nil {
             button = .undo
         }
@@ -1012,6 +1048,8 @@ struct SkipOverlay: Equatable {
     enum Button: Equatable {
         /// «Пропустить пересказ / вступление / титры».
         case skip(kind: String)
+        /// «Следующая серия» at the credits of an episode with a next one.
+        case next
         /// «Вернуть» after an automatic skip.
         case undo
     }

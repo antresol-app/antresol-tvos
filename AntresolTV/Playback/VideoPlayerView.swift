@@ -100,7 +100,7 @@ private struct PlayerClockProbe: View {
                 .accessibilityValue(Text(verbatim: model.filePositionForTests.map { String(Int($0)) } ?? ""))
                 .overlay {
                     // The skip pill on screen (the player's contextual actions are not in
-                    // the app's accessibility tree): "intro", "recap", "credits", "undo" or "".
+                    // the app's accessibility tree): "intro", "recap", "credits", "next", "undo" or "".
                     Color.clear
                         .frame(width: 2, height: 2)
                         .accessibilityElement()
@@ -114,6 +114,7 @@ private struct PlayerClockProbe: View {
     private var skipValue: String {
         switch model.skipOverlay.button {
         case .skip(let kind)?: return kind
+        case .next?: return "next"
         case .undo?: return "undo"
         case nil: return ""
         }
@@ -176,6 +177,17 @@ private struct PlayerViewController: UIViewControllerRepresentable {
             return [UIAction(title: SkipLabels.skip(kind), image: UIImage(systemName: "forward.end.fill")) { [weak model] _ in
                 MainActor.assumeIsolated { model?.pressSkip() }
             }]
+        case .next?:
+            // The Up Next panel's pair, for credits entered without it: «Watch Credits» also
+            // stops the countdown.
+            return [
+                UIAction(title: String(localized: "Next Episode", bundle: .localized), image: UIImage(systemName: "play.fill")) { [weak model] _ in
+                    MainActor.assumeIsolated { model?.pressSkip() }
+                },
+                UIAction(title: String(localized: "Watch Credits", bundle: .localized)) { [weak model] _ in
+                    MainActor.assumeIsolated { model?.declineUpNext() }
+                },
+            ]
         case .undo?:
             return [UIAction(title: String(localized: "Go Back", bundle: .localized), image: UIImage(systemName: "arrow.uturn.backward")) { [weak model] _ in
                 MainActor.assumeIsolated { model?.undoSkip() }

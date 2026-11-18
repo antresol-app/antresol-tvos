@@ -48,8 +48,10 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Audio, subtitle and quality menus. Text subtitles are side-loaded, image subtitles are
     burned in.
   - Up Next with a countdown. At the credits of an episode (server segments) it is "Next
-    Episode", filling over 10 s, beside "Watch Credits"; no countdown when a scene follows
-    the credits.
+    Episode", filling over 10 s of playing, beside "Watch Credits"; no countdown when a scene
+    follows the credits. Credits entered another way (resume, a seek, autoplay off) offer the
+    same two as buttons over the video, since the system panel comes only when playback
+    reaches the credits' start.
   - Skip pills from the server's recap, intro and credits segments (3 s or longer): "Skip
     Recap" / "Skip Intro" over the video for 8 s after the segment starts (Select presses
     it), later as a button of the transport bar; "Skip Credits" of a film or last episode.

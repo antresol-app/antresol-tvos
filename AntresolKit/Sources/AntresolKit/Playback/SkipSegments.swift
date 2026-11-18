@@ -2,7 +2,7 @@ import Foundation
 
 /// Skip segments of a file (`/api/play` `segments`): the recap, the intro and the credits, in
 /// seconds on the file timeline. The player offers «Пропустить пересказ / вступление» while
-/// playback is inside one, and «Следующая серия» (filling over 10 s, then playing it) at the
+/// playback is inside one, and «Следующая серия» (filling over 10 s of playing, then playing it) at the
 /// credits. The rules are the web player's (`skipSegments.ts`, `SkipControls.tsx`) and the
 /// Android app's (`SkipSegments`, `SkipTracker`).
 public enum SkipSegments {
@@ -17,10 +17,16 @@ public enum SkipSegments {
     public static let pillAloneSec: Double = 8
     /// «Следующая серия» fills over this long, then plays it.
     public static let nextCountdownSec: Double = 10
+    /// A gap between two position ticks longer than this is a stall, not playback: it counts
+    /// for no more than this much toward the countdown.
+    public static let maxTickGapSec: Double = 1
     /// Credits ending this long before the file does leave a scene after them: no autoplay.
     public static let postCreditsSec: Double = 20
     /// The note after an automatic skip («Вступление пропущено · Вернуть») stays this long.
     public static let skippedNoteSec: Double = 6
+    /// The system's Up Next panel presents itself when playback reaches the credits' start;
+    /// it may still do so this long after.
+    public static let upNextPanelGraceSec: Double = 1.5
 
     /// The segments the player uses: known kinds, at least `minSegmentSec`, in time order.
     public static func usable(_ segments: [PlaySegment]) -> [PlaySegment] {
@@ -45,9 +51,17 @@ public enum SkipSegments {
         durationSec <= 0 || durationSec - credits.endSec < 1
     }
 
-    /// How far «Следующая серия» has filled (0…1), from where playback entered the credits.
-    public static func countdown(enteredAt: Double, time: Double) -> Double {
-        min(1, max(0, (time - enteredAt) / nextCountdownSec))
+    /// The system's Up Next panel is about to present itself (a proposal waits and playback
+    /// has only just reached the credits' start). Its «Следующая серия» is then not repeated
+    /// as a pill over the video; credits entered later (a resume, a seek) get the pill.
+    public static func upNextPanelPending(position: Double, creditsStartSec: Double, proposalAttached: Bool) -> Bool {
+        proposalAttached && position < creditsStartSec + upNextPanelGraceSec
+    }
+
+    /// How far «Следующая серия» has filled (0…1) after `playedSec` of playback in the credits.
+    /// Playing time, not file position: a seek forward inside the credits does not fill it.
+    public static func countdown(playedSec: Double) -> Double {
+        min(1, max(0, playedSec / nextCountdownSec))
     }
 }
 
@@ -69,8 +83,8 @@ public enum SkipPill: Hashable, Sendable {
     case skip(kind: String, alone: Bool, action: SkipAction)
     /// «Следующая серия» beside «Смотреть титры» at the credits of an episode with a next
     /// one. With `countdown` it fills (`fill`, 0…1) and then plays it; never when a scene
-    /// follows the credits. `enteredAt`: the file position where playback entered the credits.
-    case next(fill: Double, countdown: Bool, enteredAt: Double)
+    /// follows the credits.
+    case next(fill: Double, countdown: Bool)
 
     /// Whether the pill is on screen now.
     public func isShown(controlsVisible: Bool) -> Bool {
@@ -103,7 +117,11 @@ public struct SkipTracker: Sendable {
     public var creditsDismissed = false
 
     private var autoDone: Set<String> = []
-    private var entered: (key: String, at: TimeInterval, atSec: Double)?
+    private var entered: (key: String, at: TimeInterval)?
+    /// Playing time spent in the segment entered, which fills «Следующая серия», and the
+    /// clock of the last tick that was playing (nil after a pause, a stall or a segment change).
+    private var playedSec: Double = 0
+    private var lastPlayingTick: TimeInterval?
     private var nexted = false
 
     public init(segments: [PlaySegment]) {
@@ -131,7 +149,8 @@ public struct SkipTracker: Sendable {
     }
 
     /// The state at `time` (file seconds) at `now` (a monotonic clock, seconds, for the
-    /// pill's 8 s). `durationSec` is the file's (0: unknown), `hasNext`: an episode follows,
+    /// pill's 8 s and the countdown's playing time, which counts only ticks with `playing`).
+    /// `durationSec` is the file's (0: unknown), `hasNext`: an episode follows,
     /// `autoplayNext`: the device plays it after a countdown, `autoSkip`: the profile's
     /// «Пропускать сам».
     public mutating func step(
@@ -140,11 +159,25 @@ public struct SkipTracker: Sendable {
     ) -> Step {
         guard let active = SkipSegments.at(segments, time: time) else {
             entered = nil
+            lastPlayingTick = nil
             return Step(pill: nil, auto: nil)
         }
         let key = "\(active.kind):\(active.startSec)"
-        if entered?.key != key { entered = (key, now, time) }
+        if entered?.key != key {
+            entered = (key, now)
+            playedSec = 0
+            lastPlayingTick = nil
+        }
         let enteredAt = entered!
+        // Real playback time since entry: a seek inside the segment moves the position, not this.
+        if playing {
+            if let last = lastPlayingTick {
+                playedSec += min(max(0, now - last), SkipSegments.maxTickGapSec)
+            }
+            lastPlayingTick = now
+        } else {
+            lastPlayingTick = nil
+        }
 
         var auto: Auto?
         if playing, !autoDone.contains(key) {
@@ -167,9 +200,9 @@ public struct SkipTracker: Sendable {
         if hasNext {
             guard !creditsDismissed else { return Step(pill: nil, auto: auto) }
             let countdown = autoplayNext && !SkipSegments.postCreditsScene(active, durationSec: durationSec)
-            let fill = countdown ? SkipSegments.countdown(enteredAt: enteredAt.atSec, time: time) : 0
+            let fill = countdown ? SkipSegments.countdown(playedSec: playedSec) : 0
             if countdown, fill >= 1, auto == nil { auto = next() }
-            return Step(pill: .next(fill: fill, countdown: countdown, enteredAt: enteredAt.atSec), auto: auto)
+            return Step(pill: .next(fill: fill, countdown: countdown), auto: auto)
         }
         let action: SkipAction = SkipSegments.creditsToEnd(active, durationSec: durationSec) ? .end : .seek(toSec: active.endSec)
         return Step(pill: .skip(kind: active.kind, alone: alone, action: action), auto: auto)
