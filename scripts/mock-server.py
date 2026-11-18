@@ -24,6 +24,11 @@ The second port also keeps what it was asked, for the UI tests (never on the mai
                                    `positionMs` of a progress write, `answered` of the slow one)
     POST /mock/reset               forgets them, and the failures still armed
     POST /mock/fail-progress/<id>  the next `GET /api/progress/<id>` answers 503, once
+
+Its play answers carry skip segments: the film (file 12) an intro at 0:18–0:30 and credits
+running to its end from 0:44, the episode (file 2, a 60 s file there) credits from 0:18;
+`PUT /api/me/playback-prefs/auto-skip` is kept (the event has its `body`) and the playback
+prefs answer with it, until `/mock/reset`.
 """
 import argparse
 import datetime
@@ -197,11 +202,19 @@ def comic_page(index):
     return _images[key]
 
 
-def play_response(file_id):
-    """Direct play of the fixture clip, with the tracks of the sample movie or episode."""
+# The second port's skip segments (file seconds) of the film and the episode.
+SEGMENTS = {
+    12: [{"kind": "intro", "startSec": 18, "endSec": 30}, {"kind": "credits", "startSec": 44, "endSec": 59.5}],
+    2: [{"kind": "credits", "startSec": 18, "endSec": 59.5}],
+}
+
+
+def play_response(file_id, segments=False):
+    """Direct play of the fixture clip, with the tracks of the sample movie or episode
+    (and, on the second port, its skip segments)."""
     sample = "item-episode.json" if file_id == 2 else "item-movie.json"
     file = json.loads((SAMPLES / sample).read_text())["files"][0]
-    return {
+    answer = {
         "mode": "direct",
         "url": f"/api/stream/{file_id}",
         "reason": "",
@@ -212,6 +225,11 @@ def play_response(file_id):
         "subtitles": file.get("subs", []),
         "quality": {"selected": "auto", "applied": "original", "remote": False},
     }
+    if segments:
+        answer["segments"] = SEGMENTS.get(file_id, [])
+        # The episode plays the whole 60 s fixture there, so its credits can count down.
+        answer["durationMs"] = 60046
+    return answer
 
 
 def subtitles():
@@ -469,6 +487,7 @@ class Handler(BaseHTTPRequestHandler):
     def route(self, method):
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length else b""
+        self.request_body = body
         path, _, query = self.path.partition("?")
         if method == "PUT" and re.fullmatch(r"/api/progress/\d+", path):
             try:
@@ -526,7 +545,8 @@ class Handler(BaseHTTPRequestHandler):
         if method == "PUT" and re.fullmatch(r"/api/progress/\d+", path):
             return self.send(204, b"", "application/json")
         if method == "POST" and re.fullmatch(r"/api/play/\d+", path):
-            return self.send(200, json.dumps(play_response(int(path.rsplit("/", 1)[1]))).encode(), "application/json")
+            answer = play_response(int(path.rsplit("/", 1)[1]), segments=getattr(self.server, "pairing", False))
+            return self.send(200, json.dumps(answer).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/stream/\d+", path):
             return self.send_file(VIDEO, "video/mp4")
         if method == "GET" and path == f"/api/tracks/{TRANSCODED_TRACK}/stream" and getattr(self.server, "pairing", False):
@@ -578,8 +598,14 @@ class Handler(BaseHTTPRequestHandler):
             if extension == "m3u8" and kind in ("index", "video", "audio"):
                 playlist = live_master() if kind == "index" else live_playlist(kind)
                 return self.send(200, playlist, "application/vnd.apple.mpegurl")
-        if method == "GET" and path == "/api/me/playback-prefs":
-            return self.send(200, (SAMPLES / "playback-prefs.json").read_bytes(), "application/json")
+        if method == "PUT" and path == "/api/me/playback-prefs/auto-skip":
+            change = json.loads(body or b"{}")
+            self.server.auto_skip.update({k: bool(v) for k, v in change.items() if k in ("recap", "intro", "credits")})
+        if path in ("/api/me/playback-prefs", "/api/me/playback-prefs/auto-skip") and method in ("GET", "PUT"):
+            prefs = json.loads((SAMPLES / "playback-prefs.json").read_text())
+            if self.server.auto_skip:
+                prefs["autoSkip"] = dict({"recap": False, "intro": False, "credits": False}, **self.server.auto_skip)
+            return self.send(200, json.dumps(prefs).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/items/(19|22)", path):
             item_id = int(path.rsplit("/", 1)[1])
             return self.send(200, json.dumps(item_with_extras(item_id, "item-movie.json")).encode(), "application/json")
@@ -608,6 +634,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif method == "POST" and path == "/mock/reset":
                     server.events.clear()
                     server.fail_progress.clear()
+                    server.auto_skip.clear()
                     payload = b"{}"
                 elif method == "POST" and match:
                     server.fail_progress.add(int(match.group(1)))
@@ -627,6 +654,8 @@ class Handler(BaseHTTPRequestHandler):
                       "agent": self.headers.get("User-Agent", "")}
         if method == "PUT" and path.startswith("/api/progress/"):
             self.event["positionMs"] = self.progress_write
+        if method == "PUT" and path == "/api/me/playback-prefs/auto-skip":
+            self.event["body"] = self.request_body.decode("utf-8", "replace")
         match = re.fullmatch(r"/api/progress/(\d+)", path)
         with server.hooks_lock:
             server.events.append(self.event)
@@ -699,8 +728,11 @@ def main():
     pairing = ThreadingHTTPServer(("127.0.0.1", args.port + 1), Handler)
     pairing.pairing = True
     pairing.events, pairing.fail_progress, pairing.hooks_lock = [], set(), threading.Lock()
+    pairing.auto_skip = {}
     threading.Thread(target=pairing.serve_forever, daemon=True).start()
-    ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
+    main_server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    main_server.auto_skip = {}
+    main_server.serve_forever()
 
 
 if __name__ == "__main__":

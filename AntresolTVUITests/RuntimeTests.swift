@@ -364,7 +364,150 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-62-guide-beta-programme")
     }
 
+    /// The skip pills (the mock's second port: the film has an intro at 0:18–0:30 and
+    /// credits to its end from 0:44, and it resumes at 0:15). «Skip Intro» shows with the
+    /// transport bar hidden and Select presses it; «Skip Automatically» saves Intro on the
+    /// profile; the film opened again skips its intro by itself with a note and Go Back,
+    /// which returns into it; «Skip Credits» of a film ends it. The pills are the player's
+    /// contextual actions, outside the app's accessibility tree: the debug probe
+    /// `player.skip` says which one is over the video (with the transport bar hidden).
+    func testSkipPills() {
+        signInOnSecondPort()
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        let clock = app.descendants(matching: .any).matching(identifier: "player.position").firstMatch
+        let pill = app.descendants(matching: .any).matching(identifier: "player.skip").firstMatch
+        let showing = { (kind: String) in self.wait(30) { (pill.value as? String) == kind } }
+        playFilmFromItsSavedPosition()
+        XCTAssertTrue(clock.waitForExistence(timeout: 30), "the player did not start")
+
+        XCTAssertTrue(showing("intro"), "no Skip Intro at the intro: clock \(seconds(clock) ?? -1)")
+        sleep(1)
+        snapshot("rt-60-skip-intro")
+        remote.press(.select)
+        XCTAssertTrue(wait(10) { (self.seconds(clock) ?? 0) >= 30 }, "Select did not skip to 0:30: \(seconds(clock) ?? -1)")
+        XCTAssertTrue(showing(""), "Skip Intro stayed after the intro")
+        snapshot("rt-61-after-skip-intro")
+
+        // The transport bar: «Skip Automatically», the fourth button (Audio, Subtitles,
+        // Quality, it), turns Intro (its second row) on.
+        remote.press(.select)
+        sleep(2)
+        remote.press(.up)
+        sleep(2)
+        for _ in 0..<3 {
+            remote.press(.right)
+            sleep(1)
+        }
+        snapshot("rt-62-auto-skip-button")
+        remote.press(.select)
+        sleep(2)
+        remote.press(.down)
+        sleep(1)
+        snapshot("rt-63-auto-skip-menu")
+        remote.press(.select)
+        sleep(2)
+        let saved = mockEvents().filter { $0["path"] as? String == "/api/me/playback-prefs/auto-skip" }
+        XCTAssertEqual(saved.compactMap { $0["body"] as? String }, [#"{"intro":true}"#], "Intro was not saved alone: \(saved)")
+        leavePlayer(clock)
+
+        // Opened again: the intro goes by itself, with the note and Go Back.
+        playFilmFromItsSavedPosition()
+        XCTAssertTrue(clock.waitForExistence(timeout: 30), "the player did not start again")
+        let note = app.descendants(matching: .any).matching(identifier: "player.skip.note").firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 20), "no note of the automatic skip: clock \(seconds(clock) ?? -1)")
+        XCTAssertGreaterThanOrEqual(seconds(clock) ?? 0, 29, "the intro was not skipped by itself")
+        snapshot("rt-64-intro-skipped")
+        // Go Back over the video once the transport bar (up since the start) is gone.
+        XCTAssertTrue(wait(8) { (pill.value as? String) == "undo" }, "no Go Back beside the note")
+        sleep(1)
+        snapshot("rt-64b-go-back")
+        remote.press(.select)
+        XCTAssertTrue(wait(10) { (self.seconds(clock) ?? 99) < 26 }, "Go Back did not return into the intro: \(seconds(clock) ?? -1)")
+        XCTAssertTrue(showing("intro"), "back in the intro, no Skip Intro (it must not skip again)")
+        snapshot("rt-65-back-in-the-intro")
+
+        // The film's credits run to its end: Skip Credits ends it.
+        XCTAssertTrue(wait(45) { (pill.value as? String) == "credits" }, "no Skip Credits at the credits: clock \(seconds(clock) ?? -1)")
+        sleep(1)
+        snapshot("rt-66-skip-credits")
+        remote.press(.select)
+        XCTAssertTrue(clock.waitForNonExistence(timeout: 15), "Skip Credits of a film did not end it")
+    }
+
+    /// At the credits of an episode with a next one (the mock's second port: from 0:18;
+    /// the series card resumes its episode at 0:15) the Up Next panel offers «Next Episode»,
+    /// filling over 10 s, beside «Watch Credits», and then plays it.
+    func testCreditsCountDownToTheNextEpisode() {
+        signInOnSecondPort()
+        remote.press(.right)
+        sleep(2)
+        let first = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Big Buck Demo")).firstMatch
+        XCTAssertTrue(moveFocus(.down, to: first, limit: 2), "focus: \(focusedLabel)")
+        for _ in 0..<5 where !focusedLabel.contains("Test Show") {
+            remote.press(.right)
+            sleep(1)
+        }
+        XCTAssertTrue(focusedLabel.contains("Test Show"), "focus: \(focusedLabel)")
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        remote.press(.select)
+        let resume = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Resume from")).firstMatch
+        XCTAssertTrue(resume.waitForExistence(timeout: 20), "no resume prompt")
+        remote.press(.select)
+
+        let next = app.buttons["player.upNext.next"]
+        XCTAssertTrue(next.waitForExistence(timeout: 30), "no Next Episode at the credits")
+        XCTAssertTrue(app.buttons["Watch Credits"].exists, "no Watch Credits beside it")
+        sleep(4)
+        snapshot("rt-67-next-episode-filling")
+        // Ten seconds from the credits' start the next episode (item 5) opens by itself.
+        XCTAssertTrue(wait(20) {
+            self.mockEvents().contains { $0["method"] as? String == "GET" && $0["path"] as? String == "/api/items/5" }
+        }, "the next episode did not open after the countdown")
+        sleep(3)
+        snapshot("rt-68-next-episode-playing")
+    }
+
     // MARK: - Helpers
+
+    /// Big Buck Demo from Continue Watching, resumed at its saved 0:15.
+    private func playFilmFromItsSavedPosition() {
+        if !focusedLabel.contains("Big Buck Demo") {
+            remote.press(.right)
+            sleep(2)
+            let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Big Buck Demo")).firstMatch
+            XCTAssertTrue(moveFocus(.down, to: card, limit: 2), "focus: \(focusedLabel)")
+        }
+        remote.press(.select)
+        let resume = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Resume from")).firstMatch
+        XCTAssertTrue(resume.waitForExistence(timeout: 20), "no resume prompt")
+        XCTAssertTrue(waitForFocus(resume), "focus: \(focusedLabel)")
+        remote.press(.select)
+    }
+
+    /// Menu until the player is gone.
+    private func leavePlayer(_ clock: XCUIElement) {
+        for _ in 0..<5 where clock.exists {
+            remote.press(.menu)
+            sleep(2)
+        }
+        XCTAssertFalse(clock.exists, "Menu did not leave the player")
+        sleep(2)
+    }
+
+    /// The player's file position in whole seconds (debug builds).
+    private func seconds(_ clock: XCUIElement) -> Int? {
+        (clock.value as? String).flatMap(Int.init)
+    }
+
+    /// Whether `condition` holds within `limit` seconds.
+    private func wait(_ limit: TimeInterval, until condition: () -> Bool) -> Bool {
+        let from = Date()
+        while Date().timeIntervalSince(from) < limit {
+            if condition() { return true }
+            usleep(300_000)
+        }
+        return condition()
+    }
 
     /// Fresh session on the mock's second port (QR sign-in, the mock's test hooks), then
     /// the passwordless second profile through the profile picker.
