@@ -47,7 +47,15 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   - Resume prompt.
   - Audio, subtitle and quality menus. Text subtitles are side-loaded, image subtitles are
     burned in.
-  - Up Next with a countdown.
+  - Up Next with a countdown. At the credits of an episode (server segments) it is "Next
+    Episode", filling over 10 s, beside "Watch Credits"; no countdown when a scene follows
+    the credits.
+  - Skip pills from the server's recap, intro and credits segments (3 s or longer): "Skip
+    Recap" / "Skip Intro" over the video for 8 s after the segment starts (Select presses
+    it), later as a button of the transport bar; "Skip Credits" of a film or last episode.
+    "Skip Automatically" in the transport bar turns on, per profile and on every device,
+    skipping the recap or intro by itself (once per segment, with a note and Go Back) and
+    going on from the credits.
   - Progress is synced every 10 s, and items are marked watched at 92 %.
 - **Music**: Listen Now, albums, artists, songs, genres and playlists.
   - Gapless queue with shuffle and repeat, favourites, and play reporting. Choosing a song in
@@ -234,7 +242,8 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   (`defaults delete com.apple.Accessibility ReduceMotionEnabled` puts it back). The mock
   also listens on the next port (8422 for `--port 8421`): the
   same server with QR sign-in, a long channel list, a longer guide with external channels,
-  a series in Continue Watching and its test hooks (`/mock/events`,
+  a series in Continue Watching, skip segments in its play answers (the skip pill on screen
+  is the debug probe `player.skip`) and its test hooks (`/mock/events`,
   `/mock/reset`, `/mock/fail-progress/<id>`; see the script's header), none of which the
   main port has, so the screenshot tests keep seeing what they saw.
 - Without an Apple TV simulator yet: `xcrun simctl create "Apple TV 4K (3rd generation)"
