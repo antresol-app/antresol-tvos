@@ -334,3 +334,17 @@
 "This trailer is no longer available." = "Этот трейлер больше недоступен.";
 "YouTube isn't installed on this Apple TV. Point your phone's camera at the code to watch the trailer there." = "На этом Apple TV нет YouTube. Наведите камеру телефона на код, чтобы посмотреть трейлер на нём.";
 "Done" = "Готово";
+
+/* Skip segments: the player's pills and «Пропускать сам» */
+"Skip Recap" = "Пропустить пересказ";
+"Skip Intro" = "Пропустить вступление";
+"Skip Credits" = "Пропустить титры";
+"Next Episode" = "Следующая серия";
+"Watch Credits" = "Смотреть титры";
+"Recap skipped" = "Пересказ пропущен";
+"Intro skipped" = "Вступление пропущено";
+"Go Back" = "Вернуть";
+"Skip Automatically" = "Пропускать сам";
+"Recap" = "Пересказ";
+"Intro" = "Вступление";
+"Credits" = "Титры";

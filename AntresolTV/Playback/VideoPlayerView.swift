@@ -28,7 +28,7 @@ struct VideoPlayerView: View {
                     Task { await model.choose(resume: resume) }
                 }
             case .playing:
-                PlayerViewController(model: model, subtitle: model.subtitleText, subtitleRaised: model.isPaused, menus: model.menus)
+                PlayerViewController(model: model, subtitle: model.subtitleText, subtitleRaised: model.isPaused, menus: model.menus, skip: model.skipOverlay)
                     .ignoresSafeArea()
                     .overlay {
                         if model.isSwitching {
@@ -38,13 +38,21 @@ struct VideoPlayerView: View {
                         }
                     }
                     .overlay(alignment: .top) {
-                        if let notice = model.notice {
-                            NoticeBanner(message: notice, systemImage: "exclamationmark.circle")
-                                .padding(.top, 60)
-                                .transition(.move(edge: .top).combined(with: .opacity))
+                        VStack(spacing: 16) {
+                            if let notice = model.notice {
+                                NoticeBanner(message: notice, systemImage: "exclamationmark.circle")
+                                    .transition(.move(edge: .top).combined(with: .opacity))
+                            }
+                            if let kind = model.skipOverlay.note {
+                                NoticeBanner(message: SkipLabels.skipped(kind), systemImage: "forward.end")
+                                    .accessibilityIdentifier("player.skip.note")
+                                    .transition(.move(edge: .top).combined(with: .opacity))
+                            }
                         }
+                        .padding(.top, 60)
                     }
                     .animation(Theme.Motion.easeOut, value: model.notice)
+                    .animation(Theme.Motion.easeOut, value: model.skipOverlay.note)
                     #if DEBUG
                     .background { PlayerClockProbe(model: model) }
                     #endif
@@ -77,8 +85,9 @@ struct VideoPlayerView: View {
 }
 
 #if DEBUG
-/// The player's file position in whole seconds as an accessibility value, for the UI
-/// tests (the system transport bar is not theirs to read). Debug builds only.
+/// The player's file position in whole seconds and the skip pill on screen as
+/// accessibility values, for the UI tests (the system transport bar and contextual actions
+/// are not theirs to read). Debug builds only.
 private struct PlayerClockProbe: View {
     let model: VideoPlayerModel
 
@@ -89,19 +98,39 @@ private struct PlayerClockProbe: View {
                 .accessibilityElement()
                 .accessibilityIdentifier("player.position")
                 .accessibilityValue(Text(verbatim: model.filePositionForTests.map { String(Int($0)) } ?? ""))
+                .overlay {
+                    // The skip pill on screen (the player's contextual actions are not in
+                    // the app's accessibility tree): "intro", "recap", "credits", "undo" or "".
+                    Color.clear
+                        .frame(width: 2, height: 2)
+                        .accessibilityElement()
+                        .accessibilityIdentifier("player.skip")
+                        .accessibilityValue(Text(verbatim: skipValue))
+                }
         }
         .allowsHitTesting(false)
+    }
+
+    private var skipValue: String {
+        switch model.skipOverlay.button {
+        case .skip(let kind)?: return kind
+        case .undo?: return "undo"
+        case nil: return ""
+        }
     }
 }
 #endif
 
 /// `AVPlayerViewController` with the system transport bar and info panel, plus the
-/// app's Audio / Subtitles / Quality menus, the subtitle overlay and Up Next.
+/// app's Audio / Subtitles / Quality / «Пропускать сам» menus, the subtitle overlay, Up Next
+/// and the skip pills (the system's contextual actions, bottom right: focused while the
+/// transport bar is hidden, so Select presses them).
 private struct PlayerViewController: UIViewControllerRepresentable {
     let model: VideoPlayerModel
     let subtitle: String?
     let subtitleRaised: Bool
     let menus: PlayerMenuState
+    let skip: SkipOverlay
 
     func makeCoordinator() -> Coordinator {
         Coordinator(model: model)
@@ -128,9 +157,31 @@ private struct PlayerViewController: UIViewControllerRepresentable {
         }
         context.coordinator.subtitleView?.text = subtitle
         context.coordinator.subtitleView?.raised = subtitleRaised
-        if context.coordinator.menus != menus {
+        if context.coordinator.menus != menus || context.coordinator.skip.barButton != skip.barButton {
             context.coordinator.menus = menus
-            controller.transportBarCustomMenuItems = PlayerMenus.make(menus, model: model)
+            controller.transportBarCustomMenuItems = Self.actions(for: skip.barButton, model: model)
+                + PlayerMenus.make(menus, model: model)
+        }
+        if context.coordinator.skip.button != skip.button {
+            controller.contextualActions = Self.actions(for: skip.button, model: model)
+        }
+        context.coordinator.skip = skip
+    }
+
+    /// The skip pill: a contextual action over the video, or the first button of the
+    /// transport bar while that is up.
+    private static func actions(for button: SkipOverlay.Button?, model: VideoPlayerModel) -> [UIAction] {
+        switch button {
+        case .skip(let kind)?:
+            return [UIAction(title: SkipLabels.skip(kind), image: UIImage(systemName: "forward.end.fill")) { [weak model] _ in
+                MainActor.assumeIsolated { model?.pressSkip() }
+            }]
+        case .undo?:
+            return [UIAction(title: String(localized: "Go Back", bundle: .localized), image: UIImage(systemName: "arrow.uturn.backward")) { [weak model] _ in
+                MainActor.assumeIsolated { model?.undoSkip() }
+            }]
+        case nil:
+            return []
         }
     }
 
@@ -139,6 +190,7 @@ private struct PlayerViewController: UIViewControllerRepresentable {
         let model: VideoPlayerModel
         var subtitleView: SubtitleOverlayView?
         var menus: PlayerMenuState?
+        var skip = SkipOverlay()
 
         init(model: VideoPlayerModel) {
             self.model = model
@@ -154,6 +206,14 @@ private struct PlayerViewController: UIViewControllerRepresentable {
 
         func playerViewController(_ playerViewController: AVPlayerViewController, didReject proposal: AVContentProposal) {
             MainActor.assumeIsolated { model.declineUpNext() }
+        }
+
+        func playerViewController(
+            _ playerViewController: AVPlayerViewController,
+            willTransitionToVisibilityOfTransportBar visible: Bool,
+            with coordinator: AVPlayerViewControllerAnimationCoordinator
+        ) {
+            MainActor.assumeIsolated { model.setControlsVisible(visible) }
         }
 
         func playerViewController(
@@ -292,6 +352,25 @@ struct PlaybackErrorView: View {
             }
             .padding(Theme.Layout.margin)
         }
+    }
+}
+
+/// The skip pills' words.
+enum SkipLabels {
+    /// «Пропустить пересказ / вступление / титры».
+    static func skip(_ kind: String) -> String {
+        switch kind {
+        case SkipSegments.recap: return String(localized: "Skip Recap", bundle: .localized)
+        case SkipSegments.intro: return String(localized: "Skip Intro", bundle: .localized)
+        default: return String(localized: "Skip Credits", bundle: .localized)
+        }
+    }
+
+    /// «Пересказ пропущен» / «Вступление пропущено».
+    static func skipped(_ kind: String) -> String {
+        kind == SkipSegments.recap
+            ? String(localized: "Recap skipped", bundle: .localized)
+            : String(localized: "Intro skipped", bundle: .localized)
     }
 }
 

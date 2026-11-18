@@ -10,7 +10,8 @@ import VideoToolbox
 /// play it (`/api/play`), drives an `AVPlayer` with the media-key URL and keeps the
 /// server in sync — progress every 10 s and on pause, HLS keepalive, session cleanup.
 /// It also owns the transport-bar menus (audio, subtitles, quality), the side-loaded
-/// WebVTT subtitles and the "Up Next" episode proposal.
+/// WebVTT subtitles, the "Up Next" episode proposal and the skip pills of the recap, intro
+/// and credits (`SkipTracker`).
 @MainActor
 @Observable
 final class VideoPlayerModel {
@@ -46,6 +47,8 @@ final class VideoPlayerModel {
     private(set) var subtitleText: String?
     /// Paused: the transport bar is up, so subtitles move above it.
     private(set) var isPaused = false
+    /// What the skip pills show over the video (the player's contextual actions).
+    private(set) var skipOverlay = SkipOverlay()
 
     let player = AVPlayer()
 
@@ -65,6 +68,16 @@ final class VideoPlayerModel {
     private var metadata: [AVMetadataItem] = []
     private var upNext: UpNextOffer?
     private var upNextDeclined = false
+    /// The skip state of the current file.
+    private var skip = SkipTracker(segments: [])
+    /// The pill of the segment playing, as of the last position tick.
+    private var skipPill: SkipPill?
+    /// The note of an automatic skip and when it goes.
+    private var skipNote: (note: SkipNote, until: TimeInterval)?
+    /// The profile's «Пропускать сам» (all off until it arrives, and on older servers).
+    private var autoSkip = AutoSkip()
+    /// The system transport bar is on screen.
+    private var controlsVisible = false
     private var lastRecovery: Date?
     private var isStopped = false
     /// Where playback should (re)start: the requested start, updated when the item is torn
@@ -104,6 +117,7 @@ final class VideoPlayerModel {
     func start(appState: AppState, coordinator: PlaybackCoordinator) async {
         self.appState = appState
         self.coordinator = coordinator
+        loadAutoSkip()
         await open(request.card, from: request.start)
     }
 
@@ -212,6 +226,25 @@ final class VideoPlayerModel {
 
     func declineUpNext() {
         upNextDeclined = true
+        // «Смотреть титры»: no next episode by itself at these credits either.
+        skip.creditsDismissed = true
+    }
+
+    /// The Up Next panel is the credits' «Следующая серия» («Смотреть титры» beside it).
+    var upNextAtCredits: Bool {
+        guard let credits = skip.credits, let start = proposalFileTime else { return false }
+        return start == credits.startSec
+    }
+
+    /// How far «Следующая серия» has filled at the credits (0…1), nil when it does not count
+    /// down (autoplay off, or a scene follows the credits).
+    var creditsCountdownFill: Double? {
+        guard preferences.autoplayNext, let credits = skip.credits, upNextAtCredits,
+              !SkipSegments.postCreditsScene(credits, durationSec: durationSec),
+              let position = currentFilePosition
+        else { return nil }
+        if case .next(let fill, true, _)? = skipPill { return fill }
+        return SkipSegments.countdown(enteredAt: credits.startSec, time: position)
     }
 
     /// The offered episode's synopsis, for the Up Next panel.
@@ -332,6 +365,10 @@ final class VideoPlayerModel {
             upNextDeclined = false
             lastRecovery = nil
             notice = nil
+            skip = SkipTracker(segments: source.response.segments)
+            skipPill = nil
+            skipNote = nil
+            skipOverlay = SkipOverlay()
             apply(source)
             load(source)
             await reporter.start()
@@ -474,7 +511,8 @@ final class VideoPlayerModel {
                 subtitles.contains { $0.index == index && $0.isText } ? index : nil
             }),
             quality: VideoQuality(rawValue: response.quality.selected) ?? options.quality ?? .auto,
-            appliedQuality: response.quality.applied
+            appliedQuality: response.quality.applied,
+            autoSkip: menuAutoSkip
         )
     }
 
@@ -554,7 +592,7 @@ final class VideoPlayerModel {
     /// player view presents it at the transition time.
     private func attachProposal() {
         guard let offer = upNext, !upNextDeclined, let source, let playerItem = player.currentItem,
-              let fileTime = UpNext.proposalTime(durationSec: durationSec)
+              let fileTime = proposalFileTime
         else { return }
         let playerTime = source.playerTime(filePosition: fileTime)
         guard playerTime > 0 else { return }
@@ -566,6 +604,17 @@ final class VideoPlayerModel {
         // Autoplay happens when the episode ends (`playbackEnded`), not on a system timer.
         proposal.automaticAcceptanceInterval = 0
         playerItem.nextContentProposal = proposal
+    }
+
+    /// When the next episode is offered, in file seconds: at the credits when the file has
+    /// them («Следующая серия»), unless «Пропускать сам» goes on from them by itself;
+    /// otherwise 25 s before the end.
+    private var proposalFileTime: Double? {
+        if let credits = skip.credits,
+           !(autoSkip.credits && !SkipSegments.postCreditsScene(credits, durationSec: durationSec)) {
+            return credits.startSec
+        }
+        return UpNext.proposalTime(durationSec: durationSec)
     }
 
     /// Ends the current episode: final progress, watched mark when finished, and
@@ -585,16 +634,133 @@ final class VideoPlayerModel {
         }
     }
 
+    /// On to the offered episode, through the Up Next panel when it is on screen.
+    private func goNext() {
+        proposalController?.dismissContentProposal(for: .accept, animated: true, completion: nil)
+        acceptUpNext()
+    }
+
     private func playbackEnded() {
         if upNext != nil, !upNextDeclined, preferences.autoplayNext {
-            proposalController?.dismissContentProposal(for: .accept, animated: true, completion: nil)
-            acceptUpNext()
+            goNext()
             return
         }
         Task {
             await finishCurrent(atEnd: true)
             didFinish = true
         }
+    }
+
+    // MARK: - Skip segments
+
+    /// The transport bar appeared or went: a skip pill past its first 8 s shows only with it.
+    func setControlsVisible(_ visible: Bool) {
+        controlsVisible = visible
+        updateSkip()
+    }
+
+    /// The skip pill on screen was pressed.
+    func pressSkip() {
+        guard case .skip(_, _, let action)? = skipPill else { return }
+        switch action {
+        case .seek(let position): seekFile(to: position)
+        case .next: goNext()
+        case .end: playbackEnded()
+        }
+    }
+
+    /// «Вернуть»: back to the start of the recap or intro skipped by itself (it is not
+    /// skipped again in this file).
+    func undoSkip() {
+        guard let note = skipNote?.note else { return }
+        skipNote = nil
+        seekFile(to: note.backSec)
+        updateSkip()
+    }
+
+    /// Turns «Пропускать сам» on or off for one kind: for this player at once, and for the
+    /// profile on the server (every device), sending only that kind. An older server or a
+    /// locked kid profile refuses: the choice then holds for this player only.
+    func setAutoSkip(_ kind: String, _ on: Bool) {
+        autoSkip.set(kind, on)
+        refreshAutoSkipMenu()
+        attachProposal()
+        guard let client else { return }
+        Task { _ = try? await client.setAutoSkip(kind, on) }
+    }
+
+    /// Asks for the profile's «Пропускать сам» once per player screen.
+    private func loadAutoSkip() {
+        guard let client else { return }
+        let task = Task { [weak self] in
+            guard let prefs = try? await client.playbackPrefs(), !Task.isCancelled, let self else { return }
+            self.autoSkip = prefs.autoSkip
+            self.refreshAutoSkipMenu()
+            self.attachProposal()
+        }
+        sideTasks.append(task)
+    }
+
+    /// The «Пропускать сам» menu: only for a file with segments.
+    private var menuAutoSkip: AutoSkip? {
+        skip.hasSegments ? autoSkip : nil
+    }
+
+    private func refreshAutoSkipMenu() {
+        let value = menuAutoSkip
+        if menus.autoSkip != value { menus.autoSkip = value }
+    }
+
+    /// Seeks to a file position the way a transport-bar seek goes (a new session outside
+    /// a growing playlist).
+    private func seekFile(to position: Double) {
+        guard let source, player.currentItem != nil else { return }
+        let target = CMTime(seconds: source.playerTime(filePosition: position), preferredTimescale: 600)
+        let resolved = resolveUserSeek(from: player.currentTime(), to: target)
+        guard resolved == target else { return }
+        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    /// Steps the skip state at the current position (every 0.25 s) and runs what
+    /// «Пропускать сам» does by itself.
+    private func updateSkip() {
+        guard state == .playing, !isStopped, pendingSeek == nil, skip.hasSegments, source != nil,
+              let position = currentFilePosition
+        else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let step = skip.step(
+            time: position, now: now, playing: player.timeControlStatus == .playing,
+            durationSec: durationSec, hasNext: upNext != nil,
+            autoplayNext: preferences.autoplayNext, autoSkip: autoSkip
+        )
+        skipPill = step.pill
+        switch step.auto {
+        case .skipped(let target, let note)?:
+            skipNote = (note, now + SkipSegments.skippedNoteSec)
+            seekFile(to: target)
+        case .next?:
+            goNext()
+        case .end?:
+            playbackEnded()
+        case nil:
+            break
+        }
+        if let until = skipNote?.until, now >= until { skipNote = nil }
+        var overlay = SkipOverlay(note: skipNote?.note.kind)
+        var button: SkipOverlay.Button?
+        if case .skip(let kind, _, _)? = step.pill, step.pill?.isShown(controlsVisible: controlsVisible) == true {
+            button = .skip(kind: kind)
+        } else if skipNote != nil {
+            button = .undo
+        }
+        // The system hides the contextual actions while the transport bar is up: there the
+        // pill is a button of the bar instead.
+        if controlsVisible {
+            overlay.barButton = button
+        } else {
+            overlay.button = button
+        }
+        if overlay != skipOverlay { skipOverlay = overlay }
     }
 
     // MARK: - Player item
@@ -613,6 +779,7 @@ final class VideoPlayerModel {
             MainActor.assumeIsolated {
                 self?.recordPosition()
                 self?.updateSubtitle()
+                self?.updateSkip()
             }
         }
         let center = NotificationCenter.default
@@ -834,6 +1001,38 @@ struct PlayerMenuState: Equatable {
     var quality: VideoQuality = .auto
     /// What the server uses, e.g. "original" or "720".
     var appliedQuality: String = "original"
+    /// «Пропускать сам», nil when the menu is not offered.
+    var autoSkip: AutoSkip?
+}
+
+/// The skip pills over the video: a skip pill or «Вернуть» (one contextual action of the
+/// player, or a button of its transport bar while that is up) and the note of an
+/// automatic skip.
+struct SkipOverlay: Equatable {
+    enum Button: Equatable {
+        /// «Пропустить пересказ / вступление / титры».
+        case skip(kind: String)
+        /// «Вернуть» after an automatic skip.
+        case undo
+    }
+
+    /// The kind of segment skipped by itself, while its note shows.
+    var note: String?
+    /// The contextual action over the video (the transport bar hidden).
+    var button: Button?
+    /// The same pill as a button of the transport bar, while the bar is up.
+    var barButton: Button?
+}
+
+extension AutoSkip {
+    mutating func set(_ kind: String, _ on: Bool) {
+        switch kind {
+        case SkipSegments.recap: recap = on
+        case SkipSegments.intro: intro = on
+        case SkipSegments.credits: credits = on
+        default: break
+        }
+    }
 }
 
 enum PlayerError: LocalizedError {

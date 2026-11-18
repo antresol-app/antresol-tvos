@@ -1,7 +1,7 @@
 import AntresolKit
 import UIKit
 
-/// The Audio, Subtitles and Quality menus of the player's transport bar.
+/// The Audio, Subtitles, Quality and «Пропускать сам» menus of the player's transport bar.
 @MainActor
 enum PlayerMenus {
     static func make(_ state: PlayerMenuState, model: VideoPlayerModel) -> [UIMenuElement] {
@@ -14,7 +14,30 @@ enum PlayerMenus {
             menus.append(subtitleMenu(state, model: model))
         }
         menus.append(qualityMenu(state, model: model))
+        if let autoSkip = state.autoSkip {
+            menus.append(autoSkipMenu(autoSkip, model: model))
+        }
         return menus
+    }
+
+    /// «Пропускать сам»: each row turns its kind on or off (the profile's, on every device).
+    private static func autoSkipMenu(_ autoSkip: AutoSkip, model: VideoPlayerModel) -> UIMenu {
+        let rows: [(String, String)] = [
+            (SkipSegments.recap, String(localized: "Recap", bundle: .localized)),
+            (SkipSegments.intro, String(localized: "Intro", bundle: .localized)),
+            (SkipSegments.credits, String(localized: "Credits", bundle: .localized)),
+        ]
+        let actions = rows.map { kind, title in
+            let on = autoSkip.isOn(kind)
+            return UIAction(title: title, state: on ? .on : .off) { [weak model] _ in
+                model?.setAutoSkip(kind, !on)
+            }
+        }
+        return UIMenu(
+            title: String(localized: "Skip Automatically", bundle: .localized),
+            image: UIImage(systemName: "forward.end"),
+            children: actions
+        )
     }
 
     /// The voices, a cleaned one not a row of its own: «Clean voice-over»

@@ -334,3 +334,17 @@
 "This trailer is no longer available." = "This trailer is no longer available.";
 "YouTube isn't installed on this Apple TV. Point your phone's camera at the code to watch the trailer there." = "YouTube isn't installed on this Apple TV. Point your phone's camera at the code to watch the trailer there.";
 "Done" = "Done";
+
+/* Skip segments: the player's pills and «Пропускать сам» */
+"Skip Recap" = "Skip Recap";
+"Skip Intro" = "Skip Intro";
+"Skip Credits" = "Skip Credits";
+"Next Episode" = "Next Episode";
+"Watch Credits" = "Watch Credits";
+"Recap skipped" = "Recap skipped";
+"Intro skipped" = "Intro skipped";
+"Go Back" = "Go Back";
+"Skip Automatically" = "Skip Automatically";
+"Recap" = "Recap";
+"Intro" = "Intro";
+"Credits" = "Credits";
