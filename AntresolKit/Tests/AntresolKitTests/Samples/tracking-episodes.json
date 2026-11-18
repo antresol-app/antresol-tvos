@@ -7,7 +7,7 @@
      "sources": [{"kind": "library", "ref": "item:5", "labels": [], "firstSeen": "2026-09-09T10:00:00Z", "meta": {"itemId": 5, "fileId": 50}},
                  {"kind": "x-source", "ref": "t:abc", "provider": "example", "quality": "2160p", "labels": ["HDR"], "firstSeen": "2026-09-09T11:00:00Z", "meta": {"sourceId": "abc", "voice": "Studio"}}]},
     {"season": 1, "number": 3, "name": "Third", "airDate": "2026-09-15", "watched": false, "new": true,
-     "sources": [{"kind": "online", "ref": "o:1", "provider": "balancer", "labels": [], "firstSeen": "2026-09-16T00:00:00Z", "meta": {"providerId": "b1", "lang": "ru"}}]},
+     "sources": [{"kind": "online", "ref": "o:1", "provider": "example-online", "labels": [], "firstSeen": "2026-09-16T00:00:00Z", "meta": {"providerId": "b1", "lang": "ru"}}]},
     {"season": 1, "number": 4, "name": "Fourth", "airDate": "2026-12-01", "watched": false, "new": false, "sources": []},
     {"season": 1, "number": 5, "name": "TBA", "airDate": "", "watched": false, "new": false, "sources": []},
     {"season": 2, "number": 1, "name": "Return", "airDate": "2026-10-01", "watched": false, "new": false,
