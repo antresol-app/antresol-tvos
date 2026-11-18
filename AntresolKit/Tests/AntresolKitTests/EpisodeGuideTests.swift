@@ -70,6 +70,20 @@ final class EpisodeGuideTests: XCTestCase {
         XCTAssertEqual(guide.seasons[0].episodes.map(\.state), [.missing, .upcoming])
     }
 
+    /// «New» is the server's flag on an aired episode the profile has not watched, as on the web.
+    func testNewIsAnAiredEpisodeNotWatchedYet() throws {
+        let answer = TrackingEpisodes(title: TrackingTitle(), episodes: [
+            TrackingEpisode(season: 1, number: 1, airDate: "2026-11-10", new: true),
+            TrackingEpisode(season: 1, number: 2, airDate: "2026-11-10", watched: true, new: true),
+            TrackingEpisode(season: 1, number: 3, airDate: "2026-12-01", new: true),
+            TrackingEpisode(season: 1, number: 4, airDate: "2026-11-10"),
+        ])
+        let guide = EpisodeGuide(library: [], tracking: answer, today: "2026-11-14")
+        XCTAssertEqual(guide.seasons[0].episodes.map(\.isNew), [true, false, false, false])
+        let library = try Samples.decode(ItemDetail.self, "item-series.json").seasons
+        XCTAssertTrue(EpisodeGuide(library: library, tracking: nil, today: "2026-11-14").seasons.flatMap(\.episodes).allSatisfy { !$0.isNew })
+    }
+
     func testWatchedMarks() throws {
         let library = try Samples.decode(ItemDetail.self, "item-series.json").seasons
         let answer = TrackingEpisodes(title: TrackingTitle(), episodes: [

@@ -37,6 +37,30 @@ struct BadgeRow: View {
     }
 }
 
+/// One badge in the accent colour: «New» on an episode (the web's accent badge).
+struct AccentBadge: View {
+    let text: String
+
+    var body: some View {
+        Text(verbatim: text)
+            .font(Theme.Typography.badge)
+            .foregroundStyle(Theme.Colors.accent)
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.badge, style: .continuous)
+                    .fill(Theme.Colors.accent.opacity(0.16))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.badge, style: .continuous)
+                    .strokeBorder(Theme.Colors.accent.opacity(0.4), lineWidth: 1)
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: text))
+    }
+}
+
 /// A badge's text split into an icon for the audio or subtitles word (the
 /// server's, in either language) and the rest.
 struct BadgeLabel: Equatable {

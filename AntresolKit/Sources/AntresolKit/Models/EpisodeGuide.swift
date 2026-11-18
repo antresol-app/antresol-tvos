@@ -265,6 +265,9 @@ public struct GuideEpisode: Hashable, Identifiable, Sendable {
     public var card: EpisodeCard?
     /// The profile's watched mark (the library card's when downloaded).
     public var watched: Bool
+    /// News the profile has not watched: an aired episode the server flagged `new` (it has a
+    /// source other than the library's). The page marks it «New», as the web does.
+    public var isNew: Bool
 
     public var id: String { card.map { "item-\($0.id)" } ?? "ep-\(season)-\(number)" }
 
@@ -279,6 +282,7 @@ public struct GuideEpisode: Hashable, Identifiable, Sendable {
         state = .downloaded
         self.card = card
         watched = card.watched
+        isNew = false
     }
 
     /// An episode of the tracking answer; `card` is its library episode, if any.
@@ -300,6 +304,7 @@ public struct GuideEpisode: Hashable, Identifiable, Sendable {
             state = .missing
         }
         watched = card?.watched ?? episode.watched
+        isNew = episode.new && !watched && state != .upcoming
     }
 
     /// The air date as a local-midnight date, for display.

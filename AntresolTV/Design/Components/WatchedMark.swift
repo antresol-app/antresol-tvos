@@ -1,25 +1,33 @@
 import SwiftUI
 
-/// The watched mark on a card's artwork: an eye on a small dark disc in the top trailing
-/// corner. Pair it with `watchedDimming(_:isFocused:)` on the same artwork.
+/// The watched mark on a card's artwork: an eye on a dark disc in the middle of the tile,
+/// a quarter of its width. Pair it with `watchedDimming(_:isFocused:)` on the same artwork.
 struct WatchedMark: View {
+    var diameter: CGFloat
+
+    /// A quarter of the tile's width, 52 to 88 pt.
+    static func diameter(forWidth width: CGFloat) -> CGFloat {
+        min(max(width * Theme.Layout.watchedMarkShare, Theme.Layout.watchedMarkMin), Theme.Layout.watchedMarkMax)
+    }
+
     var body: some View {
         Image(systemName: "eye.fill")
-            .font(.system(size: Theme.Layout.watchedMarkSymbol, weight: .semibold))
+            .resizable()
+            .scaledToFit()
             .foregroundStyle(Theme.Colors.label)
-            .frame(width: Theme.Layout.watchedMark, height: Theme.Layout.watchedMark)
+            .frame(width: diameter * Theme.Layout.watchedMarkSymbol, height: diameter * Theme.Layout.watchedMarkSymbol)
+            .frame(width: diameter, height: diameter)
             .background(Theme.Colors.watchedMarkFill, in: Circle())
             .overlay(Circle().strokeBorder(Theme.Colors.glassBorder, lineWidth: 1))
             .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
-            .padding(12)
             .accessibilityElement()
             .accessibilityLabel(Text("Watched"))
     }
 }
 
 extension View {
-    /// Dims watched artwork and puts the watched mark on it. Focus lifts most of the dimming
-    /// so the focused card stays easy to see.
+    /// Dims watched artwork and puts the watched mark in the middle of it. Focus lifts most of
+    /// the dimming so the focused card stays easy to see; the mark stays at full strength.
     func watchedDimming(_ watched: Bool, isFocused: Bool, cornerRadius: CGFloat = Theme.Radius.card) -> some View {
         overlay {
             if watched {
@@ -28,8 +36,13 @@ extension View {
                     .allowsHitTesting(false)
             }
         }
-        .overlay(alignment: .topTrailing) {
-            if watched { WatchedMark() }
+        .overlay {
+            if watched {
+                GeometryReader { geo in
+                    WatchedMark(diameter: WatchedMark.diameter(forWidth: geo.size.width))
+                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                }
+            }
         }
     }
 }

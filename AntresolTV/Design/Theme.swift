@@ -144,9 +144,12 @@ enum Theme {
         /// Inner padding of list rows (tracks, queue); lists are outdented by it
         /// so the row text lines up with the page's headings.
         static let listRowInset: CGFloat = 28
-        /// The watched mark's disc and its eye symbol.
-        static let watchedMark: CGFloat = 44
-        static let watchedMarkSymbol: CGFloat = 20
+        /// The watched mark in the middle of a card's artwork: a disc a quarter of the tile's width,
+        /// 52 to 88 pt, with the eye at about half of it.
+        static let watchedMarkShare: CGFloat = 0.24
+        static let watchedMarkMin: CGFloat = 52
+        static let watchedMarkMax: CGFloat = 88
+        static let watchedMarkSymbol: CGFloat = 0.5
     }
 
     enum Motion {

@@ -59,7 +59,7 @@ struct SeasonSection: View {
     private func cell(for episode: GuideEpisode, marked: Bool) -> some View {
         if let card = episode.card {
             NavigationLink(value: Route.item(card.card)) {
-                EpisodeCardView(episode: card, state: marked ? .downloaded : nil)
+                EpisodeCardView(episode: card, state: marked ? .downloaded : nil, isNew: episode.isNew)
             }
             .buttonStyle(CardButtonStyle())
             .playsOnPlayPause(card.card)
@@ -126,6 +126,8 @@ struct EpisodeCardView: View {
     let overview: String?
     let progress: Double
     let watched: Bool
+    /// News not watched yet: the «New» badge before the state's mark.
+    let isNew: Bool
     /// nil on the library's own list: no mark.
     let state: GuideEpisode.State?
     /// The air date of an upcoming episode.
@@ -136,7 +138,7 @@ struct EpisodeCardView: View {
     @Environment(\.locale) private var locale
 
     /// A library episode.
-    init(episode: EpisodeCard, state: GuideEpisode.State? = nil, width: CGFloat = Theme.Layout.episodeWidth) {
+    init(episode: EpisodeCard, state: GuideEpisode.State? = nil, isNew: Bool = false, width: CGFloat = Theme.Layout.episodeWidth) {
         title = episode.title
         // The episode's own still: the backdrop and poster are the series' for every episode.
         artwork = episode.card.wideArtwork
@@ -145,6 +147,7 @@ struct EpisodeCardView: View {
         overview = episode.overview
         progress = episode.progress
         watched = episode.watched
+        self.isNew = isNew
         self.state = state
         airDay = nil
         self.width = width
@@ -159,6 +162,7 @@ struct EpisodeCardView: View {
         overview = nil
         progress = 0
         watched = episode.watched
+        isNew = episode.isNew
         state = episode.state
         airDay = episode.airDay()
         self.width = width
@@ -193,6 +197,9 @@ struct EpisodeCardView: View {
                         .font(Theme.Typography.cardMeta)
                         .foregroundStyle(Theme.Colors.label2)
                         .lineLimit(1)
+                    if isNew {
+                        AccentBadge(text: String(localized: "New", bundle: .localized))
+                    }
                     if let mark {
                         BadgeRow(badges: [mark])
                     }
