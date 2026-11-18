@@ -14,15 +14,18 @@ struct PillButtonStyle: ButtonStyle {
     }
 
     var kind: Kind = .glass
+    /// A countdown filling the pill from the left (0…1), e.g. «Следующая серия».
+    var fill: Double?
 
     func makeBody(configuration: Configuration) -> some View {
-        PillButtonBody(configuration: configuration, kind: kind)
+        PillButtonBody(configuration: configuration, kind: kind, fill: fill)
     }
 }
 
 private struct PillButtonBody: View {
     let configuration: ButtonStyleConfiguration
     let kind: PillButtonStyle.Kind
+    let fill: Double?
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
 
@@ -34,6 +37,18 @@ private struct PillButtonBody: View {
             .foregroundStyle(foreground)
             .padding(.horizontal, 44)
             .frame(minHeight: 76)
+            // Inside the glass (its content), so the system material does not cover it.
+            .background(alignment: .leading) {
+                if let fill {
+                    GeometryReader { proxy in
+                        Rectangle()
+                            .fill(Color.black.opacity(0.2))
+                            .frame(width: proxy.size.width * min(1, max(0, fill)))
+                    }
+                    .clipShape(Capsule())
+                    .allowsHitTesting(false)
+                }
+            }
             .glassSurface(in: Capsule(), highlighted: isFocused, prominent: kind == .primary)
             .scaleEffect(scale)
             .shadow(color: .black.opacity(isFocused ? 0.55 : 0), radius: 22, y: 12)

@@ -4,7 +4,8 @@ import SwiftUI
 /// The "Up Next" panel the player shows near the end of an episode
 /// (`AVPlayerItem.nextContentProposal`): the video keeps playing full screen while a
 /// panel with the next episode's still, title and a countdown to the end of the
-/// episode (when autoplay is on) offers Play / Cancel.
+/// episode (when autoplay is on) offers Play / Cancel. At the credits of a file that has
+/// them it is «Следующая серия», filling over 10 s, beside «Смотреть титры».
 final class UpNextProposalViewController: AVContentProposalViewController {
     private let model: VideoPlayerModel
     private var host: UIHostingController<UpNextPanel>?
@@ -33,6 +34,8 @@ final class UpNextProposalViewController: AVContentProposalViewController {
             overview: model.upNextOverview,
             image: proposal.previewImage,
             autoplayDate: model.upNextAutoplayDate,
+            atCredits: model.upNextAtCredits,
+            creditsFill: { [weak model] in model?.creditsCountdownFill },
             play: { [weak self] in self?.dismissContentProposal(for: .accept, animated: true, completion: nil) },
             cancel: { [weak self] in self?.dismissContentProposal(for: .reject, animated: true, completion: nil) }
         )
@@ -64,6 +67,9 @@ private struct UpNextPanel: View {
     let overview: String
     let image: UIImage?
     let autoplayDate: Date?
+    /// Shown at the credits: «Следующая серия» (filling while it counts down) and «Смотреть титры».
+    let atCredits: Bool
+    let creditsFill: @MainActor () -> Double?
     let play: () -> Void
     let cancel: () -> Void
 
@@ -99,17 +105,28 @@ private struct UpNextPanel: View {
                     }
                     GlassGroup {
                     HStack(spacing: 24) {
-                        Button(action: play) {
-                            Label {
-                                countdownLabel
-                            } icon: {
-                                Image(systemName: "play.fill")
+                        if atCredits {
+                            TimelineView(.periodic(from: .now, by: 0.25)) { _ in
+                                Button(action: play) {
+                                    Label("Next Episode", systemImage: "play.fill")
+                                }
+                                .buttonStyle(PillButtonStyle(kind: .primary, fill: creditsFill()))
+                                .focused($focused, equals: .play)
+                                .accessibilityIdentifier("player.upNext.next")
                             }
+                        } else {
+                            Button(action: play) {
+                                Label {
+                                    countdownLabel
+                                } icon: {
+                                    Image(systemName: "play.fill")
+                                }
+                            }
+                            .buttonStyle(PillButtonStyle(kind: .primary))
+                            .focused($focused, equals: .play)
                         }
-                        .buttonStyle(PillButtonStyle(kind: .primary))
-                        .focused($focused, equals: .play)
                         Button(action: cancel) {
-                            Text("Cancel")
+                            Text(atCredits ? LocalizedStringKey("Watch Credits") : LocalizedStringKey("Cancel"))
                         }
                         .buttonStyle(PillButtonStyle(kind: .glass))
                         .focused($focused, equals: .cancel)
