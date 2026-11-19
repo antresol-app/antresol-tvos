@@ -117,13 +117,16 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
         let starred = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Драмы")).firstMatch
         let first = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Все фильмы")).firstMatch
-        XCTAssertTrue(starred.waitForExistence(timeout: 20) && first.waitForExistence(timeout: 5), "no channel rows")
-        // Up to the top of the list, where the favourite is.
-        for _ in 0..<30 where !starred.hasFocus {
+        // The list opens on the last channel (the 18th, far down; rows off the screen do not
+        // exist yet): up to the top, where the favourite is.
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Канал 18")).firstMatch.waitForExistence(timeout: 20), "no channel rows")
+        sleep(2)
+        for _ in 0..<30 where !(starred.exists && starred.hasFocus) {
             remote.press(.up)
-            usleep(300_000)
+            usleep(400_000)
         }
         sleep(2)
+        XCTAssertTrue(starred.exists && first.exists, "no rows of channels 3 and 1: \(focusedLabel)")
         XCTAssertLessThan(starred.frame.minY, first.frame.minY, "the favourite (3) is not above channel 1")
         snapshot("rt-70-tv-favourites-first")
 
@@ -155,7 +158,13 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(mockEvents().contains { $0["method"] as? String == "PUT" && $0["path"] as? String == "/api/channels/prefs" }, "no PUT /api/channels/prefs")
 
         XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
-        XCTAssertTrue(wait(15) { first.exists && starred.exists && first.frame.minY < starred.frame.minY }, "the list is not by number after the change")
+        sleep(3)
+        for _ in 0..<30 where !(first.exists && first.hasFocus) {
+            remote.press(.up)
+            usleep(400_000)
+        }
+        sleep(2)
+        XCTAssertTrue(first.exists && starred.exists && first.frame.minY < starred.frame.minY, "the list is not by number after the change: \(focusedLabel)")
         snapshot("rt-73-tv-by-number")
         mock("POST", "/mock/reset")
     }
