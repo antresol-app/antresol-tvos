@@ -356,3 +356,16 @@
 "Recap" = "Recap";
 "Intro" = "Intro";
 "Credits" = "Credits";
+
+/* Separate history on this device (the web's wording) */
+"Separate Histories" = "Separate Histories";
+"Separate History on This Device" = "Separate History on This Device";
+"New History…" = "New History…";
+"Name" = "Name";
+"For example, Living Room" = "For example, Living Room";
+"Return “%@” to your history?" = "Return “%@” to your history?";
+"What was watched on this device can move into your profile, or stay apart — it comes back if you turn this on again." = "What was watched on this device can move into your profile, or stay apart — it comes back if you turn this on again.";
+"Move to My Profile" = "Move to My Profile";
+"Keep Apart" = "Keep Apart";
+"Couldn’t switch the history" = "Couldn’t switch the history";
+"A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in." = "A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in.";

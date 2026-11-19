@@ -509,6 +509,91 @@ final class RuntimeTests: XCTestCase {
         return condition()
     }
 
+    /// «Отдельная история на этом устройстве» on the second port's adult profile: the row
+    /// shows the state, a history is picked on its page, the shell starts again on Home
+    /// with that history's Continue Watching, Off asks the web's merge question, and a new
+    /// history is made by name.
+    func testSeparateHistoryOnThisDevice() {
+        mock("POST", "/mock/reset")
+        launch(server: pairingServer)
+        XCTAssertTrue(app.staticTexts["Sign in with your phone"].waitForExistence(timeout: 30), "no QR sign-in screen")
+        XCTAssertTrue(waitForFocus(app.buttons["Sign In with the Remote"]), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
+        sleep(2)
+        remote.press(.right)
+        remote.press(.right)
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30))
+        sleep(3)
+
+        openSeparateHistory()
+        XCTAssertTrue(setting("Separate History on This Device").label.hasSuffix("Off"), setting("Separate History on This Device").label)
+        snapshot("rt-history-01-row")
+        remote.press(.select)
+        let livingRoom = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Living Room")).firstMatch
+        XCTAssertTrue(livingRoom.waitForExistence(timeout: 10), "no history listed")
+        sleep(2)
+        snapshot("rt-history-02-page")
+        XCTAssertTrue(moveFocus(.down, to: livingRoom, limit: 3), "focus: \(focusedLabel)")
+        remote.press(.select)
+        // The shell starts again on Home, which loads this history's Continue Watching.
+        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30), "not back on Home")
+        sleep(3)
+        snapshot("rt-history-03-home")
+        let events = mockEvents()
+        guard let put = events.lastIndex(where: { ($0["method"] as? String) == "PUT" && ($0["path"] as? String) == "/api/me/devices/current/history" }) else {
+            return XCTFail("no switch was sent")
+        }
+        XCTAssertTrue(events[put...].contains { ($0["path"] as? String) == "/api/home" }, "Home was not loaded again")
+        XCTAssertEqual(json(events[put]["body"]) as NSDictionary?, ["accountId": 20, "separate": true] as NSDictionary)
+
+        openSeparateHistory()
+        XCTAssertTrue(setting("Separate History on This Device").label.hasSuffix("Living Room"), setting("Separate History on This Device").label)
+        remote.press(.select)
+        XCTAssertTrue(livingRoom.waitForExistence(timeout: 10))
+        sleep(2)
+        XCTAssertTrue(livingRoom.hasFocus, "the current history should start focused: \(focusedLabel)")
+        XCTAssertTrue(moveFocus(.up, to: app.buttons["Off"].firstMatch, limit: 3), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Move to My Profile"].firstMatch.waitForExistence(timeout: 10), "no merge question")
+        sleep(1)
+        snapshot("rt-history-04-off")
+        XCTAssertTrue(moveFocus(.down, to: app.buttons["Keep Apart"].firstMatch, limit: 3), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30), "not back on Home")
+        sleep(3)
+        let off = mockEvents().last { ($0["method"] as? String) == "PUT" }
+        XCTAssertEqual(json(off?["body"]) as NSDictionary?, ["merge": false, "separate": false] as NSDictionary)
+
+        openSeparateHistory()
+        remote.press(.select)
+        let new = app.buttons["New History…"].firstMatch
+        XCTAssertTrue(new.waitForExistence(timeout: 10))
+        XCTAssertTrue(moveFocus(.down, to: new, limit: 4), "focus: \(focusedLabel)")
+        remote.press(.select)
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "no name field")
+        sleep(1)
+        snapshot("rt-history-05-name")
+        // Select opens the keyboard on the field; Return submits it.
+        remote.press(.select)
+        sleep(2)
+        field.typeText("Kitchen\n")
+        sleep(2)
+        let create = app.buttons["Create"].firstMatch
+        if create.exists && create.isEnabled {
+            moveFocus(.down, to: create, limit: 3)
+            remote.press(.select)
+        }
+        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30), "not back on Home: \(focusedLabel)")
+        let made = mockEvents()
+        XCTAssertTrue(made.contains { ($0["method"] as? String) == "POST" && ($0["path"] as? String) == "/api/me/managed" }, "no history made")
+        openSeparateHistory()
+        XCTAssertTrue(setting("Separate History on This Device").label.hasSuffix("Kitchen"), setting("Separate History on This Device").label)
+        snapshot("rt-history-06-new-on")
+    }
+
     /// Fresh session on the mock's second port (QR sign-in, the mock's test hooks), then
     /// the passwordless second profile through the profile picker.
     private func signInOnSecondPort() {
@@ -556,6 +641,11 @@ final class RuntimeTests: XCTestCase {
         return answer.subdata(in: headerEnd.upperBound..<answer.count)
     }
 
+    /// A request body the mock kept, as JSON.
+    private func json(_ body: Any?) -> [String: Any]? {
+        (body as? String).flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
+    }
+
     /// What the mock's second port was asked since the last `/mock/reset`.
     private func mockEvents() -> [[String: Any]] {
         guard let data = mock("GET", "/mock/events"),
@@ -597,6 +687,12 @@ final class RuntimeTests: XCTestCase {
 
     /// Opens the TV tab from the sidebar and waits for the list.
     private func openTV() -> Bool {
+        openSection("TV", showing: app.buttons["Guide"])
+    }
+
+    /// Opens the sidebar entry labelled `title` (the profile's: beginning with it) and waits
+    /// for `marker`.
+    private func openSection(_ title: String, prefix: Bool = false, showing marker: XCUIElement) -> Bool {
         let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
         func inSidebar() -> Bool { focused.exists && focused.frame.minX < 1 && focused.frame.width < 600 && focused.frame.height < 150 }
         for _ in 0..<2 {
@@ -604,9 +700,9 @@ final class RuntimeTests: XCTestCase {
                 remote.press(.left)
                 sleep(1)
             }
-            let entries = app.buttons.matching(NSPredicate(format: "label == %@", "TV")).allElementsBoundByIndex
+            let entries = app.buttons.matching(NSPredicate(format: prefix ? "label BEGINSWITH %@" : "label == %@", title)).allElementsBoundByIndex
             guard inSidebar(), let entry = entries.first(where: { $0.frame.minX < 1 && $0.frame.width < 600 }) else { continue }
-            for _ in 0..<10 where inSidebar() {
+            for _ in 0..<12 where inSidebar() {
                 let delta = entry.frame.midY - focused.frame.midY
                 if abs(delta) < 4 { break }
                 remote.press(delta > 0 ? .down : .up)
@@ -614,9 +710,24 @@ final class RuntimeTests: XCTestCase {
             }
             guard inSidebar(), abs(entry.frame.midY - focused.frame.midY) < 4 else { continue }
             remote.press(.select)
-            if app.buttons["Guide"].waitForExistence(timeout: 20) { return true }
+            if marker.waitForExistence(timeout: 20) { return true }
         }
         return false
+    }
+
+    /// A settings row by its title (its label also carries the value).
+    private func setting(_ title: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+    }
+
+    /// From the profile column of Settings to the separate-history row, and into its page.
+    private func openSeparateHistory() {
+        XCTAssertTrue(openSection("Family", prefix: true, showing: app.buttons["Switch Profile"]), "no Settings: \(focusedLabel)")
+        sleep(2)
+        remote.press(.down)
+        sleep(1)
+        moveFocus(.right, to: setting("Video Quality"), limit: 3)
+        XCTAssertTrue(moveFocus(.down, to: setting("Separate History on This Device"), limit: 8), "focus: \(focusedLabel)")
     }
 
     /// Whether `element` gets focus within `seconds`, without a press.

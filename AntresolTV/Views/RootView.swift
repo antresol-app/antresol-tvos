@@ -29,11 +29,20 @@ struct RootView: View {
                 }
             case .signedIn(let user):
                 MainShellView(user: user)
-                    // A different profile gets a fresh shell (tabs, stacks, loaded data).
-                    .id(user.id)
+                    // A different profile gets a fresh shell (tabs, stacks, loaded data), and
+                    // so does another «Отдельная история» of this device: every page shows
+                    // that history's progress and Continue Watching.
+                    .id(ShellIdentity(userId: user.id, historyId: user.deviceHistory?.id))
             }
         }
         .animation(Theme.Motion.easeOut, value: appState.phase)
         .animation(Theme.Motion.easeOut, value: appState.signInMethod)
     }
+}
+
+/// Whose data the signed-in shell shows: the profile, and the separate history this device
+/// writes into (nil: the profile's own).
+private struct ShellIdentity: Hashable {
+    let userId: Int
+    let historyId: Int?
 }

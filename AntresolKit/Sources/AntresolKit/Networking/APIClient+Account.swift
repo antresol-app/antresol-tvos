@@ -66,6 +66,31 @@ extension APIClient {
         try await sendWithoutResponse(.delete, "/api/me/devices/\(id)")
     }
 
+    // «Отдельная история на этом устройстве». A kid profile gets 403 on the writes (its
+    // switch is an administrator's); the list it may read.
+
+    /// `GET /api/me/managed`: the profile's separate histories.
+    public func managedAccounts() async throws -> [ManagedAccount] {
+        try await send(.get, "/api/me/managed", as: ItemsEnvelope<ManagedAccount>.self).items
+    }
+
+    /// `POST /api/me/managed`: a new separate history; 400 for an empty name, 409 when
+    /// there are too many.
+    public func createManagedAccount(name: String) async throws -> ManagedAccount {
+        try await send(.post, "/api/me/managed", json: ["name": name])
+    }
+
+    /// `PUT /api/me/devices/current/history`: switches this device's history. Returns the
+    /// history it writes into now (nil: the profile's own).
+    public func setDeviceHistory(_ change: DeviceHistoryChange) async throws -> HistoryRef? {
+        let body: DeviceHistoryBody
+        switch change {
+        case .on(let accountId): body = DeviceHistoryBody(separate: true, accountId: accountId, merge: nil)
+        case .off(let merge): body = DeviceHistoryBody(separate: false, accountId: nil, merge: merge)
+        }
+        return try await send(.put, "/api/me/devices/current/history", json: body, as: DeviceHistoryAnswer.self).history
+    }
+
     /// `GET /api/library/status` (admin).
     public func libraryStatus() async throws -> LibraryStatus {
         try await send(.get, "/api/library/status")
@@ -107,4 +132,14 @@ extension APIClient {
     public func setUILanguage(_ language: String) async throws -> UILanguage {
         try await send(.put, "/api/me/ui-language", json: UILanguageBody(language: language))
     }
+}
+
+private struct DeviceHistoryBody: Encodable {
+    let separate: Bool
+    let accountId: Int?
+    let merge: Bool?
+}
+
+private struct DeviceHistoryAnswer: Decodable {
+    let history: HistoryRef?
 }

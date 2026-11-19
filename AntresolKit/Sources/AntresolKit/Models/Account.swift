@@ -80,10 +80,15 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
     /// The request came from outside the home network.
     public var remote: Bool
     public var libraryOnly: Bool
+    /// The separate history this device writes into («Отдельная история на этом
+    /// устройстве»), nil for the profile's own. The person stays the one signed in; only
+    /// progress, watched marks, Continue Watching and the family view go to the history.
+    public var deviceHistory: HistoryRef?
 
     public init(
         id: Int, name: String, avatar: String, photo: String = "", hasPassword: Bool = false, isAdmin: Bool = false,
-        isKid: Bool = false, maxRating: String? = nil, remote: Bool = false, libraryOnly: Bool = true
+        isKid: Bool = false, maxRating: String? = nil, remote: Bool = false, libraryOnly: Bool = true,
+        deviceHistory: HistoryRef? = nil
     ) {
         self.id = id
         self.name = name
@@ -95,10 +100,11 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
         self.maxRating = maxRating
         self.remote = remote
         self.libraryOnly = libraryOnly
+        self.deviceHistory = deviceHistory
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, avatar, photo, hasPassword, isAdmin, isKid, maxRating, remote, libraryOnly
+        case id, name, avatar, photo, hasPassword, isAdmin, isKid, maxRating, remote, libraryOnly, deviceHistory
     }
 
     public init(from decoder: Decoder) throws {
@@ -113,6 +119,7 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
         maxRating = c.optional(.maxRating)
         remote = c.value(.remote, default: false)
         libraryOnly = c.value(.libraryOnly, default: true)
+        deviceHistory = c.optional(.deviceHistory)
     }
 
     public var avatarPreset: AvatarPreset {
@@ -188,8 +195,10 @@ public struct DeviceSession: Decodable, Hashable, Identifiable, Sendable {
     public var createdAt: String
     public var lastSeen: String
     public var current: Bool
+    /// Its separate history (nil: the profile's own).
+    public var history: HistoryRef?
 
-    enum CodingKeys: String, CodingKey { case id, name, model, version, createdAt, lastSeen, current }
+    enum CodingKeys: String, CodingKey { case id, name, model, version, createdAt, lastSeen, current, history }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -200,6 +209,7 @@ public struct DeviceSession: Decodable, Hashable, Identifiable, Sendable {
         createdAt = c.value(.createdAt, default: "")
         lastSeen = c.value(.lastSeen, default: "")
         current = c.value(.current, default: false)
+        history = c.optional(.history)
     }
 }
 
@@ -279,4 +289,59 @@ public struct LibraryStatus: Decodable, Hashable, Sendable {
         skipped = c.value(.skipped, default: 0)
         removed = c.value(.removed, default: 0)
     }
+}
+
+/// A device's separate history: the managed account it writes into.
+public struct HistoryRef: Codable, Hashable, Sendable {
+    public var id: Int
+    public var name: String
+
+    public init(id: Int, name: String) {
+        self.id = id
+        self.name = name
+    }
+
+    enum CodingKeys: String, CodingKey { case id, name }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = c.value(.name, default: "")
+    }
+}
+
+/// One of the person's separate histories, `GET /api/me/managed`.
+public struct ManagedAccount: Decodable, Hashable, Identifiable, Sendable {
+    public var id: Int
+    public var name: String
+    public var avatar: String
+    /// How many devices write into it now.
+    public var deviceCount: Int
+
+    public init(id: Int, name: String, avatar: String = "", deviceCount: Int = 0) {
+        self.id = id
+        self.name = name
+        self.avatar = avatar
+        self.deviceCount = deviceCount
+    }
+
+    enum CodingKeys: String, CodingKey { case id, name, avatar, devices }
+
+    private struct Device: Decodable {}
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = c.value(.name, default: "")
+        avatar = c.value(.avatar, default: "")
+        deviceCount = (c.optional(.devices) as [Device]?)?.count ?? 0
+    }
+}
+
+/// What `PUT /api/me/devices/current/history` changes: on into an account (nil: the one
+/// the device had, else a new one named after it), or off, moving what was watched here
+/// into the profile (`merge`) or keeping it apart.
+public enum DeviceHistoryChange: Hashable, Sendable {
+    case on(accountId: Int?)
+    case off(merge: Bool)
 }

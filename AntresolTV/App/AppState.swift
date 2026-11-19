@@ -286,6 +286,33 @@ final class AppState {
         phase = .signedIn(user)
     }
 
+    /// The profile's separate histories (`GET /api/me/managed`), for the picker.
+    func managedAccounts() async throws -> [ManagedAccount] {
+        guard let client = profileClient else { return [] }
+        return try await client.managedAccounts()
+    }
+
+    /// «Отдельная история на этом устройстве»: switches this Apple TV's history and puts
+    /// the answer into the signed-in user. The shell is keyed by it (`RootView`), so Home,
+    /// Continue Watching and every page load again for the new history, and the Top Shelf
+    /// follows.
+    func setDeviceHistory(_ change: DeviceHistoryChange) async throws {
+        guard let client = profileClient, var user = currentUser else { return }
+        let history = try await client.setDeviceHistory(change)
+        // The profile may have changed meanwhile: then this answer is not the current user's.
+        guard client === profileClient, currentUser?.id == user.id else { return }
+        user.deviceHistory = history
+        phase = .signedIn(user)
+        TVTopShelfContentProvider.topShelfContentDidChange()
+    }
+
+    /// A new separate history named `name`, then this Apple TV writes into it.
+    func createDeviceHistory(named name: String) async throws {
+        guard let client = profileClient else { return }
+        let account = try await client.createManagedAccount(name: name)
+        try await setDeviceHistory(.on(accountId: account.id))
+    }
+
     /// Reads the profile's interface language and switches the app to it.
     func refreshInterfaceLanguage() async {
         guard let client = profileClient, let value = try? await client.uiLanguage() else { return }

@@ -1,8 +1,8 @@
 import AntresolKit
 import SwiftUI
 
-/// The profile tab: who is signed in (switch profile, sign out), playback and language
-/// preferences, and about. Choices open their own page, like the tvOS Settings app. The
+/// The profile tab: who is signed in (switch profile, sign out), playback preferences, this
+/// Apple TV's separate history, the language, and about. Choices open their own page, like the tvOS Settings app. The
 /// server itself is the web app's business: it is not shown here.
 struct SettingsView: View {
     let user: User
@@ -38,6 +38,7 @@ private struct SettingsPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 60) {
                     playbackSection
+                    if !user.isKid { historySection }
                     languageSection
                     aboutSection
                 }
@@ -159,6 +160,23 @@ private struct SettingsPage: View {
                     "Autoplay Next Episode",
                     value: autoplayNext ? String(localized: "On", bundle: .localized) : String(localized: "Off", bundle: .localized),
                     symbol: nil
+                )
+            }
+        }
+    }
+
+    // MARK: Separate history
+
+    /// «Отдельная история на этом устройстве» (`DeviceHistoryView`); a kid's is an
+    /// administrator's to change, so a kid profile has no row.
+    private var historySection: some View {
+        SettingsSection("Separate Histories") {
+            NavigationLink {
+                DeviceHistoryView(current: user.deviceHistory)
+            } label: {
+                SettingsRowLabel(
+                    "Separate History on This Device",
+                    value: user.deviceHistory?.name ?? String(localized: "Off", bundle: .localized)
                 )
             }
         }

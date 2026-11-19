@@ -31,6 +31,42 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(transport.requests.last?.value(forHTTPHeaderField: "Authorization"), "Bearer t0k")
     }
 
+    /// «Отдельная история на этом устройстве»: the web's requests, and the state in `/api/me`.
+    func testSeparateHistoryRequests() async throws {
+        let transport = MockTransport { request in
+            switch (request.httpMethod, request.pathAndQuery) {
+            case ("GET", "/api/me/managed"):
+                return .json(#"{"items":[{"id":12,"name":"Гостиная","avatar":"grad-2","devices":[{"id":5,"kind":"native","name":"TV","model":"X"}]}]}"#)
+            case ("POST", "/api/me/managed"):
+                return .json(#"{"id":13,"name":"Кухня","avatar":"grad-3","devices":[]}"#, status: 201)
+            case ("PUT", _):
+                let on = (request.bodyJSON?["separate"] as? Bool) == true
+                return .json(on ? #"{"id":5,"history":{"id":13,"name":"Кухня"}}"# : #"{"id":5,"history":null}"#)
+            default:
+                return .json(#"{"id":7,"name":"A","deviceHistory":{"id":13,"name":"Кухня"}}"#)
+            }
+        }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        let list = try await client.managedAccounts()
+        XCTAssertEqual(list, [ManagedAccount(id: 12, name: "Гостиная", avatar: "grad-2", deviceCount: 1)])
+        let created = try await client.createManagedAccount(name: "Кухня")
+        let on = try await client.setDeviceHistory(.on(accountId: created.id))
+        XCTAssertEqual(on, HistoryRef(id: 13, name: "Кухня"))
+        let off = try await client.setDeviceHistory(.off(merge: true))
+        XCTAssertNil(off)
+        let me = try await client.me()
+        XCTAssertEqual(me.deviceHistory, HistoryRef(id: 13, name: "Кухня"))
+
+        let requests = transport.requests
+        XCTAssertEqual(requests[1].bodyJSON?["name"] as? String, "Кухня")
+        XCTAssertEqual(requests[2].pathAndQuery, "/api/me/devices/current/history")
+        XCTAssertEqual(requests[2].bodyJSON?["accountId"] as? Int, 13)
+        XCTAssertNil(requests[2].bodyJSON?["merge"])
+        XCTAssertEqual(requests[3].bodyJSON?["separate"] as? Bool, false)
+        XCTAssertEqual(requests[3].bodyJSON?["merge"] as? Bool, true)
+        XCTAssertNil(requests[3].bodyJSON?["accountId"])
+    }
+
     func testTokenIsOnlySentToTheServerOrigin() {
         let client = APIClient(baseURL: base, token: "secret", language: "en")
         let own = URL(string: "http://tv.test:8420/api/images/abc")!
