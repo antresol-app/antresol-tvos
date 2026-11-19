@@ -271,7 +271,10 @@ final class SampleDecodingTests: XCTestCase {
         XCTAssertEqual(card.badges, [])
         XCTAssertTrue(card.onServer)
 
-        XCTAssertThrowsError(try JSONDecoder().decode(Card.self, from: Data(#"{"title": "no id"}"#.utf8)))
+        // No id is a title off the library (id 0, left out of the screens), not a failed response.
+        let offLibrary = try JSONDecoder().decode(Card.self, from: Data(#"{"title": "no id"}"#.utf8))
+        XCTAssertEqual(offLibrary.id, 0)
+        XCTAssertEqual(offLibrary.title, "no id")
 
         let profile = try JSONDecoder().decode(Profile.self, from: Data(#"{"id": 3, "name": "N", "avatar": "sparkles"}"#.utf8))
         XCTAssertEqual(profile.avatarPreset, .grad8)

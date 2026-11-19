@@ -334,6 +334,14 @@ HERO_EXTRAS = {
 }
 
 
+def tracked_new():
+    """«New Releases» as the server sends it: a followed title that is not in the library is its own TMDB
+    card with id 0 (two of them share kind and id). The app leaves them out."""
+    off = [{"id": 0, "kind": "series", "title": title, "subtitle": "S2 · E1", "poster": "", "tmdbKind": "series",
+            "tmdbId": tmdb, "season": 2, "episode": 1} for title, tmdb in [("Far Away Show", 9001), ("Another Far Show", 9002)]]
+    return {"id": "tracked-new", "title": "New Releases", "cards": off + [{"id": 0, "kind": "movie", "title": "Far Away Film", "tmdbKind": "movie", "tmdbId": 9003}]}
+
+
 def home_with_hero():
     home = json.loads((SAMPLES / "home.json").read_text())
     cards = {c["id"]: c for shelf in home["shelves"] for c in shelf["cards"]}
@@ -341,6 +349,7 @@ def home_with_hero():
         cards.setdefault(card["id"], card)
     seen = {c["id"] for c in home["hero"]}
     home["hero"] += [cards[i] for i in (2, 22) if i in cards and i not in seen]
+    home["shelves"].insert(1, tracked_new())
     return home
 
 

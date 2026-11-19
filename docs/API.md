@@ -314,7 +314,7 @@ Almost every list in the API returns **Cards**.
 
 | Field | Type | Notes |
 |---|---|---|
-| id | int | Item id. |
+| id | int | Item id. `0` (or no `id`) is a title that is not in the library, a TMDB card of the `tracked-new` shelf or of Continue Watching: several share kind and id, and `/api/items/0` is not a page. The app shows only cards with an id above 0, each kind and id once per list. |
 | kind | string | `movie`, `series`, `season`, `episode`, `artist`, `album`, `playlist` (playlist id, not an item id), `audiobook`, `book`, `comic` (a comic series), `comic_volume`. |
 | title | string | |
 | subtitle | string | Context line. Examples: artist name for an album, author for an audiobook, `"Test Show · Season 1, Episode 1"` for an episode, `"1 volume"` for a comic series, `"3 songs"` for a playlist. |
@@ -366,6 +366,7 @@ Almost every list in the API returns **Cards**.
 | shelf id | Title (en) | Contents |
 |---|---|---|
 | `continue` | Continue Watching | In-progress movies and episodes, plus next-up episodes (`progress` = fraction). |
+| `tracked-new` | New Releases | Followed titles with something new, only when there are any. A followed title that is not in the library is a TMDB card with `id` 0. |
 | `recently-played` | Recently Played | Albums. |
 | `reading` | Currently Reading | In-progress audiobooks, books and comic volumes. |
 | `recent-movies` | Recently Added Movies | |

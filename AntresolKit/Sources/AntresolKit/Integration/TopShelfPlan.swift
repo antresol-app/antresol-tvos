@@ -46,6 +46,8 @@ public struct TopShelfPlan: Sendable, Equatable {
     public static let recentShelves = ["recent-movies", "recent-series"]
 
     public init(home: HomeResponse, maxItemsPerSection: Int = 12) {
+        // Only titles the app can open: a card off the library (id 0) has no page behind its link.
+        let home = home.openable
         var sections: [Section] = []
 
         if let shelf = home.shelf(Self.continueShelf) {

@@ -2,9 +2,11 @@ import Foundation
 
 // Movies and series, search, progress, watched state and watchlist (§4, §6).
 extension APIClient {
-    /// `GET /api/home`.
+    /// `GET /api/home`: only the cards the app can open, each once (`HomeResponse.openable`);
+    /// every screen built on Home, and the Top Shelf, relies on it.
     public func home() async throws -> HomeResponse {
-        try await send(.get, "/api/home")
+        let home: HomeResponse = try await send(.get, "/api/home")
+        return home.openable
     }
 
     /// `GET /api/items`. `kind` is `.movie`, `.series`, or nil for both.
