@@ -472,16 +472,23 @@ def on_air_now(sample):
 
 MANY_CHANNELS = 24
 FAR_LAST_CHANNEL = 18
+ADULT_CHANNEL = 25
 
 
 def many_channels(data):
     """The second port's list: 24 channels (the sample's four, then copies of them), the
-    last one watched far down it, off the first screen."""
+    last one watched far down it, off the first screen, and channel 25 of the adult
+    category."""
     sample = list(data["channels"])
     for number in range(len(sample) + 1, MANY_CHANNELS + 1):
         channel = json.loads(json.dumps(sample[(number - 1) % len(sample)]))
         channel.update(id=number, number=number, name=f"Канал {number}", favorite=False)
         data["channels"].append(channel)
+    # The adult category's channel: listed first by this server, shown by the app only in
+    # that category, which it puts last (not in All, Favourites or channel up / down).
+    data["channels"].append({"id": ADULT_CHANNEL, "number": ADULT_CHANNEL, "name": "Ночной канал", "category": "",
+                             "favorite": False, "categories": ["ai:adult"]})
+    data["categories"] = [{"id": "ai:adult", "name": "Для взрослых", "kind": "ai", "count": 1, "exclusive": True}] + data.get("categories", [])
     data["lastChannel"] = FAR_LAST_CHANNEL
 
 

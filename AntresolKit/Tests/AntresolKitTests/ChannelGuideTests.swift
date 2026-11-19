@@ -534,12 +534,13 @@ final class ChannelGuideTests: XCTestCase {
         XCTAssertEqual(none.audio(in: [orig, en], prefs: PlaybackPrefs(audioLangs: ["fr", "en"]), device: []), orig)
     }
 
-    /// Round 6: the device's system language comes before the profile's.
-    func testAudioDefaultsToTheDevicesLanguageFirst() {
+    /// Round D (19.11): the profile's languages before the device's system language (which
+    /// round 6 had first).
+    func testAudioDefaultsToTheProfilesLanguagesBeforeTheDevices() {
         let none = LiveTrackSelection()
-        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["ru"]), device: ["en-GB"]), en)
-        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["ru-RU", "en"]), ru)
-        XCTAssertEqual(none.audio(in: [ru, en], prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["de"]), en, "then the profile's")
+        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["ru"]), device: ["en-GB"]), ru)
+        XCTAssertEqual(none.audio(in: [ru, ru2, en], prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["ru-RU", "en"]), en)
+        XCTAssertEqual(none.audio(in: [ru, en], prefs: PlaybackPrefs(audioLangs: ["de"]), device: ["en"]), en, "then the device's")
     }
 
     func testTheViewersPickSticksByNameThenLanguage() {

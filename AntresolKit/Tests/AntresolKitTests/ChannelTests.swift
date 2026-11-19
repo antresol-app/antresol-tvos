@@ -116,7 +116,10 @@ final class ChannelTests: XCTestCase {
         XCTAssertTrue(Channel(id: 1, number: 1, name: "A").logoCandidates.isEmpty)
         // Neither: the initials.
         XCTAssertEqual(both.initials, "ПК")
-        XCTAssertEqual(Channel(id: 1, number: 1, name: "cnn").initials, "CN")
+        XCTAssertEqual(Channel(id: 1, number: 1, name: "cnn").initials, "C", "one word: its first letter, as the web's")
+        XCTAssertEqual(Channel(id: 1, number: 1, name: "Матч! Футбол 1 HD").initials, "МФ")
+        XCTAssertEqual(Channel(id: 1, number: 1, name: "РБК +2").initials, "Р", "quality marks left out")
+        XCTAssertEqual(Channel(id: 1, number: 1, name: "HD").initials, "H")
         XCTAssertEqual(Channel(id: 1, number: 1, name: "Кино 2").initials, "К2")
         XCTAssertEqual(Channel(id: 1, number: 12, name: " · ").initials, "12")
         // The guide's rows carry logoAlt too, and take the list's when they came without.

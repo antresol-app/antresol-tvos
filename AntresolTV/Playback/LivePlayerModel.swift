@@ -76,6 +76,8 @@ final class LivePlayerModel {
     private(set) var showsInfo = true
     /// The mini-guide (the section's channels along the bottom) is up.
     private(set) var showsGuide = false
+    /// The on-screen number pad is up.
+    private(set) var showsNumberPad = false
     private(set) var isPaused = false
     /// The previous channel's last frame is on screen while the new channel starts.
     private(set) var isHoldingFrame = false
@@ -172,7 +174,8 @@ final class LivePlayerModel {
         Task { [weak self] in
             guard let prefs = try? await self?.service?.playbackPrefs() else { return }
             self?.prefs = prefs
-            self?.applyTracks()
+            // the stream may have started before the profile's languages came: choose again
+            self?.applyTracks(force: true)
         }
         refreshTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -231,6 +234,28 @@ final class LivePlayerModel {
 
     func showInfo() {
         showsInfo = true
+        scheduleHide()
+    }
+
+    /// A typed channel number: that channel (an adult one only from the adult category, as
+    /// everywhere). false when the list has none of that number.
+    func tune(number: Int) -> Bool {
+        guard !isStopped, let target = filter.channel(number: number, in: channels) else { return false }
+        tune(to: target)
+        return true
+    }
+
+    /// The number pad (the options row's «123»), for a remote without digits.
+    func openNumberPad() {
+        guard !isStopped else { return }
+        showsControls = false
+        openMenu = nil
+        showsGuide = false
+        showsNumberPad = true
+    }
+
+    func closeNumberPad() {
+        showsNumberPad = false
         scheduleHide()
     }
 
@@ -319,12 +344,19 @@ final class LivePlayerModel {
 
     /// The voice that plays now (nil: none known).
     var audioTrack: LiveTrack? {
-        activeSelection.audio(in: audioEntries(), prefs: prefs)
+        activeSelection.audio(in: audioEntries(), prefs: prefs, defaultName: defaultRendition(\.audio))
     }
 
     /// The subtitles shown now (nil: off).
     var subtitleTrack: LiveTrack? {
-        activeSelection.subtitle(in: subtitleEntries(), audio: audioTrack, prefs: prefs)
+        activeSelection.subtitle(in: subtitleEntries(), audio: audioTrack, prefs: prefs, defaultName: defaultRendition(\.subtitles))
+    }
+
+    /// The NAME of the own channel's rendition its master marks DEFAULT=YES: the server
+    /// marks the one the profile's languages pick. An external stream's DEFAULT is its
+    /// provider's, not the profile's: nil.
+    private func defaultRendition(_ kind: KeyPath<LiveRenditions, [HLSRendition]>) -> String? {
+        channel.external ? nil : renditions[front][keyPath: kind].first(where: \.isDefault)?.name
     }
 
     /// The viewer's audio pick: sticks by name across programmes and channels for this session.

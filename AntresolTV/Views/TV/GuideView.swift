@@ -208,7 +208,7 @@ struct GuideView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .frame(width: 76, alignment: .trailing)
-            ChannelLogo(row.channel, height: 36, initials: true)
+            ChannelLogo(row.channel, height: 36)
             Text(verbatim: row.name)
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(isCurrent ? Theme.Colors.label : Theme.Colors.label2)

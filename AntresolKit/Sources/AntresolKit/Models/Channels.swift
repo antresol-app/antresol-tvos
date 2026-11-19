@@ -39,13 +39,19 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     /// send them (the server also leaves it out for a channel in none): see
     /// `ChannelFilter.categories(of:)`.
     public var categories: [String]?
+    /// The exclusive category (`ChannelCategory.exclusive`, the adult one) it belongs to: it
+    /// is shown there and nowhere else. Not in the channel's JSON: the list sets it from its
+    /// `categories` (`ChannelCategory.markExclusive`).
+    public var exclusiveCategory: String?
 
     public init(
         id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, personal: Bool = false,
         auto: Bool = false, enabled: Bool = true, now: ChannelProgram? = nil, next: ChannelProgram? = nil,
-        logoUrl: String = "", logoAlt: String = "", external: Bool = false, stream: ChannelStream? = nil, categories: [String]? = nil
+        logoUrl: String = "", logoAlt: String = "", external: Bool = false, stream: ChannelStream? = nil, categories: [String]? = nil,
+        exclusiveCategory: String? = nil
     ) {
         self.categories = categories
+        self.exclusiveCategory = exclusiveCategory
         self.logoUrl = logoUrl
         self.logoAlt = logoAlt
         self.external = external || stream != nil
@@ -134,21 +140,39 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
         return out
     }
 
-    /// What stands for a channel without a logo that loads: the first letters of its first
-    /// two words («Первый канал» → «ПК», "CNN" → "CN"), else its number.
+    /// What stands for a channel without a logo that loads (on its `tileGradient` tile): the first
+    /// letters of its first two words, one word its first letter, quality marks («HD», «+2»,
+    /// «1080p») left out, as the web's and Android's `channelInitials` («Первый канал» → «ПК»,
+    /// "CNN HD" → "C"); a name of quality marks only, its first letter; without a letter, its number.
     public var initials: String { Self.initials(of: name, number: number) }
 
+    /// Words a playlist adds to a channel's name that say nothing of it.
+    private static let noise = try! NSRegularExpression(pattern: "^(hd|fhd|uhd|sd|hq|4k|8k|orig|original|\\+\\d+|\\d+p|50fps|h\\.?26[45]|hevc)$", options: [.caseInsensitive])
+    private static let separators = CharacterSet(charactersIn: " \t\n-–—_|/\\:.,·•()[]{}«»\"'#&!?*")
+
     public static func initials(of name: String, number: Int) -> String {
-        let words = name.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
-        let letters: String
-        if words.count >= 2 {
-            letters = String(words.prefix(2).compactMap(\.first))
-        } else if let word = words.first {
-            letters = String(word.prefix(2))
-        } else {
-            return String(number)
+        let words = name.components(separatedBy: separators).filter { word in
+            !word.isEmpty && noise.firstMatch(in: word, range: NSRange(word.startIndex..., in: word)) == nil
         }
-        return letters.uppercased()
+        let letters = words.prefix(2).compactMap { $0.first(where: { $0.isLetter || $0.isNumber }) }
+        if !letters.isEmpty { return String(letters).uppercased() }
+        // only quality marks («HD»): their first letter; no letter at all: the number
+        if let first = name.first(where: { $0.isLetter || $0.isNumber }) { return String(first).uppercased() }
+        return String(number)
+    }
+
+    /// The profile-avatar gradient of the channel's generated tile, the same as the web's and
+    /// Android's: `h = h * 31 + codePoint` (UInt32, wrapping) over the Unicode scalars of the
+    /// trimmed name lower-cased in the device's locale, then `grad-<h % 7 + 1>` (one of the seven colours, never the
+    /// grey fallback). Apps draw the tile in it with the `initials` in white.
+    public var tileGradient: AvatarPreset { Self.tileGradient(of: name) }
+
+    public static func tileGradient(of name: String) -> AvatarPreset {
+        var hash: UInt32 = 0
+        for scalar in name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(with: .current).unicodeScalars {
+            hash = hash &* 31 &+ scalar.value
+        }
+        return AvatarPreset(value: "grad-\(hash % 7 + 1)")
     }
 }
 
@@ -331,6 +355,8 @@ public struct ChannelList: Decodable, Hashable, Sendable {
     ) {
         self.categories = categories
         self.favoritesFirst = favoritesFirst
+        var channels = channels
+        ChannelCategory.markExclusive(&channels, in: categories)
         self.channels = channels
         self.lastChannel = lastChannel
         self.canManage = canManage
@@ -347,6 +373,7 @@ public struct ChannelList: Decodable, Hashable, Sendable {
         canManage = c.value(.canManage, default: false)
         canCreate = c.value(.canCreate, default: false)
         categories = c.optional(.categories)
+        ChannelCategory.markExclusive(&channels, in: categories)
     }
 
     /// Stars or unstars a channel in the list; with `favoritesFirst` the list moves the way

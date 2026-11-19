@@ -44,7 +44,7 @@ final class RuntimeTests: XCTestCase {
         signInAsKid()
         XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
         // The mock's last channel is 2.
-        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Комедии")).firstMatch
+        let row = channelRow("Комедии")
         XCTAssertTrue(waitForFocus(row), "the list did not open on the last channel: \(focusedLabel)")
         snapshot("rt-10-tv-last-channel")
 
@@ -68,18 +68,18 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(waitForFocus(audio), "the options row did not take focus on Audio: \(focusedLabel)")
         snapshot("rt-13-options-row")
 
-        // The list opens on the voice that plays (the device's language, the second of
-        // three); a pick closes it, focus back on Audio.
+        // The list opens on the voice that plays (the profile's first language, Russian,
+        // the master's DEFAULT; the device is English); a pick closes it, focus back on Audio.
         remote.press(.select)
-        XCTAssertTrue(waitForFocus(app.buttons["live.track.English"]), "the audio list did not open on the playing voice: \(focusedLabel)")
+        XCTAssertTrue(waitForFocus(app.buttons["live.track.Русский"]), "the audio list did not open on the profile's voice: \(focusedLabel)")
         snapshot("rt-14-audio-list")
-        remote.press(.up)
+        remote.press(.down)
         sleep(1)
         remote.press(.select)
         XCTAssertTrue(waitForFocus(audio), "focus did not return to Audio after a pick: \(focusedLabel)")
         // Opened again at once, while the list that closed may still be leaving.
         remote.press(.select)
-        XCTAssertTrue(waitForFocus(app.buttons["live.track.Русский"]), "the audio list did not open on the picked voice: \(focusedLabel)")
+        XCTAssertTrue(waitForFocus(app.buttons["live.track.English"]), "the audio list did not open on the picked voice: \(focusedLabel)")
         snapshot("rt-15-audio-picked")
 
         // Menu: the list, the options row, then the player.
@@ -97,7 +97,7 @@ final class RuntimeTests: XCTestCase {
     func testTVTabOpensOnAFarLastChannel() {
         signInOnSecondPort()
         XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
-        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Канал 18")).firstMatch
+        let row = channelRow("Канал 18")
         XCTAssertTrue(waitForFocus(row), "the list did not open on the last channel: \(focusedLabel)")
         let frame = row.frame
         XCTAssertTrue(frame.minY >= 0 && frame.maxY <= 1080, "the focused row is off the screen: \(frame)")
@@ -115,11 +115,11 @@ final class RuntimeTests: XCTestCase {
         signInOnSecondPort()
         XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
         XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
-        let starred = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Драмы")).firstMatch
-        let first = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Все фильмы")).firstMatch
+        let starred = channelRow("Драмы")
+        let first = channelRow("Все фильмы")
         // The list opens on the last channel (the 18th, far down; rows off the screen do not
         // exist yet): up to the top, where the favourite is.
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Канал 18")).firstMatch.waitForExistence(timeout: 20), "no channel rows")
+        XCTAssertTrue(channelRow("Канал 18").waitForExistence(timeout: 20), "no channel rows")
         sleep(2)
         for _ in 0..<30 where !(starred.exists && starred.hasFocus) {
             remote.press(.up)
@@ -130,18 +130,12 @@ final class RuntimeTests: XCTestCase {
         XCTAssertLessThan(starred.frame.minY, first.frame.minY, "the favourite (3) is not above channel 1")
         snapshot("rt-70-tv-favourites-first")
 
-        // The category list: Favourites, then All, then the categories.
-        let categories = app.buttons["tv.categories"]
-        XCTAssertTrue(moveFocus(.up, to: categories, limit: 4), "no category button: \(focusedLabel)")
-        remote.press(.select)
+        // The category column: Favourites, then All, then the categories.
         let favourites = app.buttons["tv.category.favorites"]
         let all = app.buttons["tv.category.all"]
-        XCTAssertTrue(favourites.waitForExistence(timeout: 10) && all.exists, "no category list")
+        XCTAssertTrue(favourites.waitForExistence(timeout: 10) && all.exists, "no category column")
         XCTAssertLessThan(favourites.frame.minY, all.frame.minY, "Favourites is not first")
-        sleep(1)
         snapshot("rt-71-tv-categories")
-        remote.press(.menu)
-        sleep(2)
 
         // Settings: «Избранные каналы первыми» off.
         XCTAssertTrue(openSection("Kiddo", prefix: true, showing: app.buttons["Switch Profile"]), "no Settings: \(focusedLabel)")
@@ -166,6 +160,99 @@ final class RuntimeTests: XCTestCase {
         sleep(2)
         XCTAssertTrue(first.exists && starred.exists && first.frame.minY < starred.frame.minY, "the list is not by number after the change: \(focusedLabel)")
         snapshot("rt-73-tv-by-number")
+        mock("POST", "/mock/reset")
+    }
+
+    /// The TV remote as TiviMate has it (the mock's second port: 24 channels and channel 25
+    /// of the adult category, which the server lists first): the category column beside the
+    /// list, moving through it narrows the list at once; the adult category is last and its
+    /// channel is nowhere else; rows without a logo show their coloured tile; the number pad
+    /// tunes to a channel by its number («1_», then 12 at its second digit, 1 after the
+    /// pause), channel up zaps, and a number outside the adult category does not reach its
+    /// channel.
+    func testTiviMateRemote() {
+        signInOnSecondPort()
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        let far = channelRow("Канал 18")
+        XCTAssertTrue(waitForFocus(far, seconds: 20), "the list did not open on the last channel: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-80-tv-three-columns")
+
+        let adultRow = channelRow("Ночной канал")
+        XCTAssertFalse(adultRow.exists, "the adult channel is in All")
+        let all = app.buttons["tv.category.all"]
+        let adult = app.buttons["tv.category.cat:ai:adult"]
+        XCTAssertTrue(all.exists && adult.exists, "no category column")
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "tv.category.")).allElementsBoundByIndex
+        XCTAssertEqual(rows.map(\.frame.minY).max(), adult.frame.minY, "the adult category is not last")
+
+        // Left: the column, on the current category (All).
+        remote.press(.left)
+        XCTAssertTrue(waitForFocus(all), "Left did not land on All: \(focusedLabel)")
+        // Down through the categories: the list follows.
+        XCTAssertTrue(moveFocus(.down, to: adult, limit: 14), "no way down to the adult category: \(focusedLabel)")
+        XCTAssertTrue(adultRow.waitForExistence(timeout: 5), "the adult category does not list its channel")
+        XCTAssertFalse(far.exists, "the adult category lists other channels")
+        snapshot("rt-81-tv-adult-category")
+        XCTAssertTrue(moveFocus(.up, to: all, limit: 14), "no way back up to All: \(focusedLabel)")
+        XCTAssertTrue(far.waitForExistence(timeout: 5) && !adultRow.exists, "All is not back")
+        remote.press(.select)
+        XCTAssertTrue(waitForFocus(far), "Select on a category did not move focus to its channels: \(focusedLabel)")
+
+        // The number pad: 1, 2 → channel 12 at once (25 is the highest: two digits).
+        let pad = app.buttons["tv.numberpad"]
+        // Up to the header (past the rows above), then across to the pad's button.
+        let header = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        for _ in 0..<30 where !(pad.exists && pad.hasFocus) && !(header.exists && header.frame.minY < 250) {
+            remote.press(.up)
+            usleep(400_000)
+        }
+        XCTAssertTrue(pad.hasFocus || moveFocus(.left, to: pad, limit: 3) || moveFocus(.right, to: pad, limit: 3), "no number pad button: \(focusedLabel)")
+        remote.press(.select)
+        let one = app.buttons["numberpad.1"]
+        XCTAssertTrue(waitForFocus(one), "the pad did not open on 1: \(focusedLabel)")
+        // within the 1.5 s the first digit waits for the second
+        remote.press(.select)
+        remote.press(.right)
+        remote.press(.select)
+        XCTAssertTrue(picture("12 · Канал 12").waitForExistence(timeout: 10), "12 did not tune to channel 12")
+        snapshot("rt-83-number-tuned")
+        remote.press(.up)
+        XCTAssertTrue(picture("13 · Канал 13").waitForExistence(timeout: 10), "channel up did not go to 13")
+
+        // In the player: the options row's number pad; 1 and the pause → channel 1.
+        sleep(3)
+        remote.press(.select)
+        let number = app.buttons["live.number"]
+        XCTAssertTrue(number.waitForExistence(timeout: 5), "no Channel Number control")
+        XCTAssertTrue(moveFocus(.right, to: number, limit: 6), "no focus on Channel Number: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(waitForFocus(one), "the player's pad did not open on 1: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.descendants(matching: .any)["channel.number"].waitForExistence(timeout: 1), "no «1_» overlay")
+        snapshot("rt-82-numberpad-1")
+        XCTAssertTrue(picture("1 · Все фильмы").waitForExistence(timeout: 10), "1 and the pause did not tune to channel 1")
+        snapshot("rt-84-player-number-after-pause")
+
+        // 25 is the adult channel: not from All.
+        sleep(2)
+        remote.press(.select)
+        XCTAssertTrue(moveFocus(.right, to: number, limit: 6), "no focus on Channel Number: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(waitForFocus(one))
+        // 2 (right of 1), then 5 (under 2), within the 1.5 s
+        remote.press(.right)
+        remote.press(.select)
+        remote.press(.down)
+        remote.press(.select)
+        XCTAssertTrue(app.descendants(matching: .any)["channel.number.missing"].waitForExistence(timeout: 5), "25 was not refused outside the adult category")
+        XCTAssertTrue(picture("1 · Все фильмы").exists, "the adult channel was tuned from All")
+        snapshot("rt-85-player-no-adult-number")
+        for _ in 0..<3 where picture("1 · Все фильмы").exists {
+            remote.press(.menu)
+            sleep(2)
+        }
         mock("POST", "/mock/reset")
     }
 
@@ -726,6 +813,11 @@ final class RuntimeTests: XCTestCase {
         return "\(parts[0]):\(port + 1)"
     }
 
+    /// A channel's row in the TV list (not a category of the same name in the column).
+    private func channelRow(_ text: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND NOT (identifier BEGINSWITH %@)", text, "tv.category.")).firstMatch
+    }
+
     /// The live player's picture, labelled with the channel on screen.
     private func picture(_ label: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
@@ -733,6 +825,8 @@ final class RuntimeTests: XCTestCase {
 
     private func launch(server: String) {
         app.launchArguments += ["-AntresolResetSession", "YES", "-AntresolServerURL", server, "-AppleLanguages", "(en)"]
+        // the TV tab as a first visit has it (a test that left it on the guide does not leak)
+        if !app.launchArguments.contains("-tv.mode") { app.launchArguments += ["-tv.mode", "channels", "-tv.filter", "all"] }
         app.launch()
     }
 

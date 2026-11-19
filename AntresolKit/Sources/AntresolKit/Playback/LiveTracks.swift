@@ -101,17 +101,27 @@ public struct LiveTrackSelection: Hashable, Sendable {
     nonisolated(unsafe) public static var deviceLanguages: [String] = Locale.preferredLanguages
 
     /// The voice to play among `tracks`: the viewer's pick by name, else the first of its
-    /// language; else the first entry in the device's system language; else in the first of
-    /// the profile's languages present; else the original («Оригинал …»), else the first.
-    /// nil when there are none.
-    public func audio(in tracks: [LiveTrack], prefs: PlaybackPrefs, device: [String] = LiveTrackSelection.deviceLanguages) -> LiveTrack? {
+    /// language; else the first entry in the first of the profile's languages present (the
+    /// stream's DEFAULT one when that language has several: the server marks DEFAULT as the
+    /// profile would pick); else the stream's DEFAULT (`defaultName`, the master's
+    /// `DEFAULT=YES`); else in the device's system language; else the original («Оригинал …»),
+    /// else the first. nil when there are none.
+    public func audio(
+        in tracks: [LiveTrack], prefs: PlaybackPrefs, device: [String] = LiveTrackSelection.deviceLanguages, defaultName: String? = nil
+    ) -> LiveTrack? {
         guard !tracks.isEmpty else { return nil }
         if let audio {
             if let hit = tracks.first(where: { $0.name == audio.name }) { return hit }
             let lang = Self.language(audio.lang)
             if !lang.isEmpty, let hit = tracks.first(where: { Self.language(of: $0) == lang }) { return hit }
         }
-        for lang in (device + prefs.audioLangs).map(Self.language) where !lang.isEmpty {
+        let marked = defaultName.flatMap { name in tracks.first { $0.name == name } }
+        for lang in prefs.audioLangs.map(Self.language) where !lang.isEmpty {
+            if let marked, Self.language(of: marked) == lang { return marked }
+            if let hit = tracks.first(where: { Self.language(of: $0) == lang }) { return hit }
+        }
+        if let marked { return marked }
+        for lang in device.map(Self.language) where !lang.isEmpty {
             if let hit = tracks.first(where: { Self.language(of: $0) == lang }) { return hit }
         }
         return tracks.first(where: Self.isOriginal) ?? tracks[0]
@@ -123,8 +133,10 @@ public struct LiveTrackSelection: Hashable, Sendable {
     }
 
     /// The subtitles to show (nil: off) among `tracks` while `audio` plays: the viewer's
-    /// pick by name, else by its language; else by the profile's `subMode`.
-    public func subtitle(in tracks: [LiveTrack], audio: LiveTrack?, prefs: PlaybackPrefs) -> LiveTrack? {
+    /// pick by name, else by its language; else the stream's DEFAULT subtitles
+    /// (`defaultName`: the server marks them only when the profile shows subtitles); else by
+    /// the profile's `subMode`.
+    public func subtitle(in tracks: [LiveTrack], audio: LiveTrack?, prefs: PlaybackPrefs, defaultName: String? = nil) -> LiveTrack? {
         if let subtitle {
             guard let pick = subtitle else { return nil }
             if let hit = tracks.first(where: { $0.name == pick.name }) { return hit }
@@ -132,6 +144,7 @@ public struct LiveTrackSelection: Hashable, Sendable {
             if !lang.isEmpty, let hit = tracks.first(where: { Self.language(of: $0) == lang }) { return hit }
         }
         guard !tracks.isEmpty else { return nil }
+        if let defaultName, let marked = tracks.first(where: { $0.name == defaultName }) { return marked }
         let wanted: Bool
         switch prefs.subMode {
         case "always":

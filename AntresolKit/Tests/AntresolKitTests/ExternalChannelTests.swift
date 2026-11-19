@@ -92,7 +92,8 @@ final class ExternalChannelTests: XCTestCase {
         // the default with nothing kept: the profile's language
         let tracks = [LiveTrack(slot: "o0", name: "Main", lang: "en"), LiveTrack(slot: "o1", name: "Commentaire", lang: "fr")]
         XCTAssertEqual(LiveTrackSelection().audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["fr"]), device: [])?.name, "Commentaire")
-        XCTAssertEqual(LiveTrackSelection().audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["fr"])?.name, "Commentaire")
+        XCTAssertEqual(LiveTrackSelection().audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["fr"])?.name, "Main", "the profile's before the device's")
+        XCTAssertEqual(LiveTrackSelection().audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["de"]), device: ["fr"])?.name, "Commentaire")
         XCTAssertEqual(memory.selection(for: 50).audio(in: tracks, prefs: PlaybackPrefs(audioLangs: ["en"]), device: ["en"])?.name, "Commentaire")
     }
 

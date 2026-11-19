@@ -4,6 +4,11 @@ import Foundation
 /// by its id (`ChannelCategory.id`: `ai:news`, `source:3`, `group:<name>`). Filters never
 /// reorder: every view keeps the server's order (by number, the favourites first when the
 /// profile wants them so).
+///
+/// An exclusive category (the server's `exclusive: true`, the adult one) is exclusive, as on
+/// a TV: its channels (`Channel.exclusiveCategory`) are shown in it and nowhere else (not in
+/// All, Favourites, other categories, channel up / down or a number typed outside it), and
+/// it is the list's last entry.
 public enum ChannelFilter: Hashable, Sendable {
     case all
     case favorites
@@ -35,7 +40,8 @@ public enum ChannelFilter: Hashable, Sendable {
         var firstSeen: [String] = []
         var ungrouped = 0
         for channel in channels.sorted(by: Channel.byNumber) {
-            let ids = categories(of: channel)
+            // a channel of an exclusive category counts in it only
+            let ids = channel.exclusiveCategory.map { [$0] } ?? categories(of: channel)
             if ids.isEmpty { ungrouped += 1 }
             for id in ids {
                 if counts[id] == nil { firstSeen.append(id) }
@@ -43,9 +49,10 @@ public enum ChannelFilter: Hashable, Sendable {
             }
         }
         if let server {
-            return server.compactMap { category in
-                counts[category.id].map { ChannelCategory(id: category.id, name: category.name, kind: category.kind, count: $0) }
+            let listed = server.compactMap { category in
+                counts[category.id].map { ChannelCategory(id: category.id, name: category.name, kind: category.kind, count: $0, exclusive: category.exclusive) }
             }
+            return exclusiveLast(listed)
         }
         // Without the server's list only a group can be named (its own text); a topic or
         // source id has no name here.
@@ -56,14 +63,19 @@ public enum ChannelFilter: Hashable, Sendable {
         return groups + [ChannelCategory(id: noCategory, name: "", kind: ChannelCategory.kindGroup, count: ungrouped)]
     }
 
+    /// The list with its exclusive categories moved to its end.
+    static func exclusiveLast(_ list: [ChannelCategory]) -> [ChannelCategory] {
+        list.filter { !$0.exclusive } + list.filter(\.exclusive)
+    }
+
     /// What the list offers, as the web's first level: Favourites and All, then
     /// `categoryList`, each with its count.
     public static func options(for channels: [Channel], server: [ChannelCategory]? = nil) -> [ChannelFilterOption] {
         [
-            ChannelFilterOption(filter: .favorites, count: channels.filter(\.favorite).count),
-            ChannelFilterOption(filter: .all, count: channels.count),
+            ChannelFilterOption(filter: .favorites, count: channels.filter(ChannelFilter.favorites.matches).count),
+            ChannelFilterOption(filter: .all, count: channels.filter(ChannelFilter.all.matches).count),
         ] + categoryList(for: channels, server: server).map {
-            ChannelFilterOption(filter: .category($0.id), count: $0.count, label: $0.name, kind: $0.kind)
+            ChannelFilterOption(filter: .category($0.id), count: $0.count, label: $0.name, kind: $0.kind, exclusive: $0.exclusive)
         }
     }
 
@@ -78,12 +90,25 @@ public enum ChannelFilter: Hashable, Sendable {
         return own.isEmpty ? nil : own
     }
 
+    /// The channel a typed number tunes to: the channel of that number in the list, but one
+    /// of an exclusive category only while this filter is that category (as everywhere
+    /// else, it is not reachable from outside it). nil when there is none.
+    public func channel(number: Int, in channels: [Channel]) -> Channel? {
+        channels.first { channel in
+            guard channel.number == number else { return false }
+            guard let only = channel.exclusiveCategory else { return true }
+            return self == .category(only)
+        }
+    }
+
     /// The channels this filter shows, in the list's order.
     public func apply(to channels: [Channel]) -> [Channel] {
         channels.filter(matches)
     }
 
     public func matches(_ channel: Channel) -> Bool {
+        // an exclusive category's channels are in it only
+        if let only = channel.exclusiveCategory { return self == .category(only) }
         switch self {
         case .all: return true
         case .favorites: return channel.favorite
@@ -145,15 +170,19 @@ public struct ChannelCategory: Decodable, Hashable, Sendable {
     public var name: String
     public var kind: String
     public var count: Int
+    /// Its channels are shown in it and nowhere else, and it comes last (the adult
+    /// category, `ai:adult`). false from a server that does not say.
+    public var exclusive: Bool
 
-    public init(id: String, name: String, kind: String = ChannelCategory.kindGroup, count: Int = 0) {
+    public init(id: String, name: String, kind: String = ChannelCategory.kindGroup, count: Int = 0, exclusive: Bool = false) {
         self.id = id
         self.name = name
         self.kind = kind
         self.count = count
+        self.exclusive = exclusive
     }
 
-    enum CodingKeys: String, CodingKey { case id, name, kind, count }
+    enum CodingKeys: String, CodingKey { case id, name, kind, count, exclusive }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -161,6 +190,16 @@ public struct ChannelCategory: Decodable, Hashable, Sendable {
         name = c.value(.name, default: "")
         kind = c.value(.kind, default: ChannelCategory.kindGroup)
         count = c.value(.count, default: 0)
+        exclusive = c.value(.exclusive, default: false)
+    }
+
+    /// Sets each channel's `exclusiveCategory`: the first of its categories that `categories`
+    /// marks exclusive (nil: none).
+    public static func markExclusive(_ channels: inout [Channel], in categories: [ChannelCategory]?) {
+        let exclusive = Set((categories ?? []).filter(\.exclusive).map(\.id))
+        for index in channels.indices {
+            channels[index].exclusiveCategory = exclusive.isEmpty ? nil : ChannelFilter.categories(of: channels[index]).first(where: exclusive.contains)
+        }
     }
 }
 
@@ -172,13 +211,16 @@ public struct ChannelFilterOption: Hashable, Sendable, Identifiable {
     public var count: Int
     public var label: String?
     public var kind: String?
+    /// An exclusive category (`ChannelCategory.exclusive`): last, without a heading.
+    public var exclusive: Bool
 
     public var id: ChannelFilter { filter }
 
-    public init(filter: ChannelFilter, count: Int, label: String? = nil, kind: String? = nil) {
+    public init(filter: ChannelFilter, count: Int, label: String? = nil, kind: String? = nil, exclusive: Bool = false) {
         self.filter = filter
         self.count = count
         self.label = label
         self.kind = kind
+        self.exclusive = exclusive
     }
 }

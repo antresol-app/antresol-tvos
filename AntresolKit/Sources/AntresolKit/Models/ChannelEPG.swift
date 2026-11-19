@@ -13,13 +13,18 @@ public struct ChannelEPGWindow: Decodable, Hashable, Sendable {
         self.channels = channels
     }
 
-    enum CodingKeys: String, CodingKey { case from, to, channels }
+    enum CodingKeys: String, CodingKey { case from, to, channels, categories }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         from = Timestamp.parse(c.optional(.from)) ?? Date(timeIntervalSince1970: 0)
         to = Timestamp.parse(c.optional(.to)) ?? Date(timeIntervalSince1970: 0)
         channels = c.value(.channels, default: [])
+        // the rows of an exclusive category (`ChannelCategory.exclusive`) are in it only
+        let categories: [ChannelCategory]? = c.optional(.categories)
+        var marked = channels.map(\.channel)
+        ChannelCategory.markExclusive(&marked, in: categories)
+        for index in channels.indices { channels[index].exclusiveCategory = marked[index].exclusiveCategory }
     }
 }
 
@@ -41,6 +46,8 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
     public var external: Bool
     /// As `Channel.categories`.
     public var categories: [String]?
+    /// As `Channel.exclusiveCategory` (set from the window's or the list's `categories`).
+    public var exclusiveCategory: String?
 
     public init(
         id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, programs: [ChannelProgram] = [],
@@ -78,7 +85,7 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
     public var channel: Channel {
         Channel(
             id: id, number: number, name: name, category: category, favorite: favorite, logoUrl: logoUrl, logoAlt: logoAlt, external: external,
-            categories: categories
+            categories: categories, exclusiveCategory: exclusiveCategory
         )
     }
 
@@ -227,6 +234,8 @@ public struct ChannelGuideGrid: Hashable, Sendable {
             guard let channel = byID[rows[index].id] else { continue }
             if rows[index].logoUrl.isEmpty { rows[index].logoUrl = channel.logoUrl }
             if rows[index].logoAlt.isEmpty { rows[index].logoAlt = channel.logoAlt }
+            // the list knows the exclusive categories when the window did not say
+            if rows[index].exclusiveCategory == nil { rows[index].exclusiveCategory = channel.exclusiveCategory }
         }
     }
 

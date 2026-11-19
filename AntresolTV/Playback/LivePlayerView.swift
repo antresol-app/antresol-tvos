@@ -10,8 +10,10 @@ import UIKit
 /// every change and fades after 5 s. Up / Down (clicks) and the channel buttons zap through
 /// the list the player was opened from; a swipe down opens the mini-guide, a row of those
 /// channels with focus on the current one; Select brings up the options row (star, audio,
-/// subtitles, channels); Menu closes what is open first, then leaves. A zap holds the old
-/// picture, dimmed, until the new channel's first frame.
+/// subtitles, channel number, channels); Menu closes what is open first, then leaves. Digits
+/// (a remote or keyboard that sends them, or the options row's number pad) tune to a
+/// channel by its number. A zap holds the old picture, dimmed, until the new channel's
+/// first frame.
 struct LivePlayerView: View {
     let request: PlaybackCoordinator.LiveRequest
 
@@ -21,6 +23,7 @@ struct LivePlayerView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model: LivePlayerModel
+    @State private var numberInput = ChannelNumberInput()
 
     init(request: PlaybackCoordinator.LiveRequest) {
         self.request = request
@@ -34,7 +37,9 @@ struct LivePlayerView: View {
             case .failed(let message):
                 LiveErrorView(model: model, message: message) { dismiss() }
             default:
-                LivePlayerSurface(model: model) { dismiss() }
+                LivePlayerSurface(model: model, onDigit: { [numberInput, model] digit in
+                    numberInput.type(digit, channels: model.channels)
+                }) { dismiss() }
                     .ignoresSafeArea()
                 if model.isHoldingFrame {
                     // The previous channel's last frame, dimmed, with a quiet spinner.
@@ -64,14 +69,31 @@ struct LivePlayerView: View {
                         .transition(Theme.Motion.rise(reduceMotion: reduceMotion))
                 }
             }
+            if model.showsNumberPad {
+                NumberPad(input: numberInput, channels: model.channels) { model.closeNumberPad() }
+                    .transition(.opacity)
+            } else {
+                ChannelNumberOverlay(input: numberInput)
+            }
         }
+        // Digits while the options row, a list or the mini-guide has focus (the picture
+        // takes them itself otherwise).
+        .onKeyPress(characters: .decimalDigits, phases: .down) { press in
+            guard let digit = ChannelNumberEntry.digit(in: press.characters) else { return .ignored }
+            numberInput.type(digit, channels: model.channels)
+            return .handled
+        }
+        .animation(Theme.Motion.easeOut, value: model.showsNumberPad)
         .animation(Theme.Motion.slowEaseOut, value: model.showsInfo)
         .animation(Theme.Motion.slowEaseOut, value: model.showsGuide)
         .animation(Theme.Motion.easeOut, value: model.showsControls)
         .animation(Theme.Motion.easeOut, value: model.openMenu)
         .animation(Theme.Motion.easeOut, value: model.isHoldingFrame)
         .animation(Theme.Motion.easeOut, value: model.state)
-        .task { model.start(appState: appState, coordinator: coordinator) }
+        .task {
+            numberInput.tune = { [model] number in model.tune(number: number) }
+            model.start(appState: appState, coordinator: coordinator)
+        }
         .task {
             // A programme boundary picks the next programme's tracks; «В эфир» follows the lag.
             while !Task.isCancelled {
@@ -233,7 +255,7 @@ private struct LiveControls: View {
     @FocusState private var focused: Control?
 
     enum Control: Hashable {
-        case goLive, audio, subtitles, favorite, channels
+        case goLive, audio, subtitles, favorite, number, channels
     }
 
     var body: some View {
@@ -259,6 +281,9 @@ private struct LiveControls: View {
                 }
                 control(.favorite, model.isFavorite ? "Remove from Favourites" : "Add to Favourites", model.isFavorite ? "star.fill" : "star", isActive: false) {
                     model.toggleFavorite()
+                }
+                control(.number, "Channel Number", "number", isActive: false) {
+                    model.openNumberPad()
                 }
                 control(.channels, "Channels", "list.bullet", isActive: false) {
                     model.showGuide()
@@ -685,6 +710,7 @@ private struct LiveErrorView: View {
 /// While the mini-guide or the options row is up the picture gives up focus and presses.
 private struct LivePlayerSurface: UIViewControllerRepresentable {
     let model: LivePlayerModel
+    let onDigit: (Character) -> Void
     let exit: () -> Void
 
     func makeUIViewController(context: Context) -> LivePlayerController {
@@ -704,9 +730,10 @@ private struct LivePlayerSurface: UIViewControllerRepresentable {
         controller.onSelect = { model.showControls() }
         controller.onInfo = { model.showInfo() }
         controller.onPlayPause = { model.togglePause() }
+        controller.onDigit = onDigit
         controller.onExit = exit
         controller.show(layer: model.front)
-        controller.takesRemote = !model.showsGuide && !model.showsControls
+        controller.takesRemote = !model.showsGuide && !model.showsControls && !model.showsNumberPad
         controller.view.accessibilityLabel = model.channel.label
     }
 }
@@ -717,6 +744,8 @@ final class LivePlayerController: UIViewController {
     var onSelect: () -> Void = {}
     var onInfo: () -> Void = {}
     var onPlayPause: () -> Void = {}
+    /// A digit key of a remote or keyboard that has them (`UIKey`).
+    var onDigit: (Character) -> Void = { _ in }
     var onExit: () -> Void = {}
 
     /// False while the mini-guide or the options row has focus: the picture is not
@@ -800,12 +829,20 @@ final class LivePlayerController: UIViewController {
     ]
 
     private func handled(_ presses: Set<UIPress>) -> Set<UIPress> {
-        takesRemote ? presses.filter { Self.handledPresses.contains($0.type) } : []
+        takesRemote ? presses.filter { Self.handledPresses.contains($0.type) || Self.digit(of: $0) != nil } : []
+    }
+
+    private static func digit(of press: UIPress) -> Character? {
+        press.key.flatMap { ChannelNumberEntry.digit(in: $0.charactersIgnoringModifiers) }
     }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         let mine = handled(presses)
         for press in mine {
+            if let digit = Self.digit(of: press) {
+                onDigit(digit)
+                continue
+            }
             switch press.type {
             case .upArrow, .pageUp: onZap(1)
             case .downArrow, .pageDown: onZap(-1)

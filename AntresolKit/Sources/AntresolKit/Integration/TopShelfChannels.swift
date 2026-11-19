@@ -25,7 +25,8 @@ public struct TopShelfChannels: Sendable, Equatable {
     public init(channels: [Channel], at date: Date, limit: Int = Self.defaultLimit) {
         var entries: [Entry] = []
         for channel in channels where entries.count < limit {
-            guard channel.enabled, let program = channel.program(at: date), program.isOnAir(at: date) else { continue }
+            // an exclusive category's channels are shown in it only, never on the Top Shelf
+            guard channel.enabled, channel.exclusiveCategory == nil, let program = channel.program(at: date), program.isOnAir(at: date) else { continue }
             entries.append(Entry(
                 channel: channel,
                 program: program,

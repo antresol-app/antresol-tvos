@@ -2,8 +2,8 @@ import AntresolKit
 import SwiftUI
 
 /// A programme's picture: its backdrop, else its poster, else a neutral fill with the
-/// `tv` glyph. This is what stands for a channel everywhere; an uploaded logo
-/// (`ChannelLogo`) only sits beside its number and name.
+/// `tv` glyph. The channel itself is its `ChannelLogo` (logo or generated tile) beside its
+/// number and name.
 struct ProgrammeStill: View {
     let program: ChannelProgram?
     var maxPixelSize: CGFloat = 600
@@ -22,49 +22,67 @@ struct ProgrammeStill: View {
     }
 }
 
-/// A channel's logo, small, in a neutral rounded 3:2 box beside its number and name: the
-/// uploaded or found logo (`logoUrl`), else the guide's icon (`logoAlt`, also when the first
-/// does not load), else the channel's initials. With `initials` off (the banner, a card
-/// beside the name) a channel without any logo has no box at all; in a list row it has its
-/// initials, so the rows' names stay in one column. Decorative for VoiceOver: the name is read.
+/// A channel's identity, small, 3:2, beside its number and name — the same in the list, the
+/// guide, the programme page and the player: the uploaded or found logo (`logoUrl`), else the
+/// guide's icon (`logoAlt`, also when the first does not load), on a quiet rounded plate;
+/// else a generated tile, as a TV's channel list has it: a colour of its own made from the
+/// channel's name (`Channel.tileGradient`, a profile avatar's) with its initials in white, no outline. Decorative for
+/// VoiceOver: the name is read.
 struct ChannelLogo: View {
     let paths: [String]
     let monogram: String
+    let gradient: AvatarPreset
     var height: CGFloat = 40
-    var initials = false
 
+    /// A logo is on screen (until then, and when none loads, the tile shows).
     @State private var loaded = false
 
-    init(_ channel: Channel, height: CGFloat = 40, initials: Bool = false) {
+    init(_ channel: Channel, height: CGFloat = 40) {
         paths = channel.logoCandidates
         monogram = channel.initials
+        gradient = channel.tileGradient
         self.height = height
-        self.initials = initials
     }
 
     var body: some View {
-        if !paths.isEmpty || initials {
-            let shape = RoundedRectangle(cornerRadius: height / 5, style: .continuous)
-            ZStack {
-                if !loaded {
-                    Text(verbatim: monogram)
-                        .font(.system(size: height * 0.42, weight: .bold))
-                        .foregroundStyle(Theme.Colors.label2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .padding(.horizontal, height / 8)
-                }
-                if let first = paths.first {
-                    RemoteImage(path: first, fallbacks: Array(paths.dropFirst()), maxPixelSize: height * 3, fit: true, onLoad: { _ in loaded = true })
-                    .padding(height / 8)
-                }
+        let shape = RoundedRectangle(cornerRadius: height / 5, style: .continuous)
+        ZStack {
+            if loaded {
+                // a logo's quiet plate (a transparent logo reads on it)
+                shape.fill(Theme.Colors.elevated)
+            } else {
+                ChannelTile(monogram: monogram, gradient: gradient, height: height)
             }
-            .frame(width: height * 1.5, height: height)
-            .background(Theme.Colors.elevated, in: shape)
-            .overlay(shape.strokeBorder(Theme.Colors.hairline, lineWidth: 1))
-            .accessibilityHidden(true)
-            .onChange(of: paths) { loaded = false }
+            if let first = paths.first {
+                RemoteImage(path: first, fallbacks: Array(paths.dropFirst()), maxPixelSize: height * 3, fit: true, onLoad: { _ in loaded = true })
+                    .padding(height / 8)
+            }
         }
+        .frame(width: height * 1.5, height: height)
+        .clipShape(shape)
+        .accessibilityHidden(true)
+        .onChange(of: paths) { loaded = false }
+    }
+}
+
+/// A channel without a logo: its colour (one of the profile avatars' gradients, chosen by
+/// its name as the web and Android do) and its initials in white.
+struct ChannelTile: View {
+    let monogram: String
+    let gradient: AvatarPreset
+    let height: CGFloat
+
+    var body: some View {
+        Theme.Gradients.avatar(gradient)
+            .overlay {
+                Text(verbatim: monogram)
+                    .font(.system(size: height * 0.44, weight: .bold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .padding(.horizontal, height / 8)
+            }
     }
 }
 
