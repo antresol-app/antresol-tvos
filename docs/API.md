@@ -1147,18 +1147,21 @@ age limit (the server filters).
     }
   ],
   "canManage": true,
-  "canCreate": true
+  "canCreate": true,
+  "favoritesFirst": true
 }
 ```
 
 | Field | Type | Notes |
 |---|---|---|
-| number | int | The channel number: list order and channel up / down. |
+| number | int | The channel number. The list comes in the server's order: by number, the favourites first when `favoritesFirst`; apps keep it (rows, guide, channel up / down) and never re-sort by number. |
+| logoUrl, logoAlt | string *(opt)* | The logo (uploaded, an external channel's tvg-logo, or found by the server: `logoAuto`), and the EPG guide's icon when `logoUrl` is another one. Apps show `logoUrl`, else `logoAlt` (also when the first does not load), else the channel's initials. |
 | category | string | The section on the TV tab. |
 | logo | int | The logo's gradient, 0…6: the avatar gradients `grad-1` … `grad-7` (§2.3) at 145°, with the channel name in bold white. `GET /api/channels/{id}/logo.png` (Bearer) is a 480×270 PNG of the same. |
 | rules | object *(opt)* | Only when `canEdit`; what the channel plays. Apps ignore it. |
 | now, next | Program *(opt)* | What is on and what follows. Absent when nothing is scheduled. |
 | canManage, canCreate | bool | Web-only management. |
+| favoritesFirst | bool | The profile's «Избранные каналы первыми» (`GET`/`PUT /api/channels/prefs` `{favoritesFirst}`, per profile, default on; the app's Settings → TV). `GET /api/channels/epg` uses the same order. |
 
 Program: `itemId`, `title`, `subtitle` *(opt, episodes: "S1 E5 · Серия 5")*, `overview` *(opt)*,
 `year` *(opt)*, `start`, `end` (timestamps), `poster`, `backdrop` (image paths, §3.2).

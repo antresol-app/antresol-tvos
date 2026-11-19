@@ -71,7 +71,7 @@ final class PlaybackCoordinator {
     }
 
     /// Opens the live player on `channel`; channel up / down moves through the channels of
-    /// `filter`, by number.
+    /// `filter`, in the list's order.
     func watch(_ channel: Channel, channels: [Channel], filter: ChannelFilter = .all, categories: [ChannelCategory] = []) {
         presentedChannel = LiveRequest(channel: channel, channels: channels, filter: filter, categories: categories)
     }

@@ -8,8 +8,8 @@ import FoundationNetworking
 final class ChannelTests: XCTestCase {
     let base = URL(string: "http://tv.test:8420")!
 
-    private func channel(_ id: Int, _ number: Int, _ category: String = "") -> Channel {
-        Channel(id: id, number: number, name: "Channel \(number)", category: category)
+    private func channel(_ id: Int, _ number: Int, _ category: String = "", favorite: Bool = false) -> Channel {
+        Channel(id: id, number: number, name: "Channel \(number)", category: category, favorite: favorite)
     }
 
     private func program(_ id: Int, from start: TimeInterval, to end: TimeInterval) -> ChannelProgram {
@@ -75,10 +75,54 @@ final class ChannelTests: XCTestCase {
         XCTAssertThrowsError(try JSONDecoder().decode(Channel.self, from: Data(#"{"name":"No id"}"#.utf8)))
     }
 
-    func testTheListIsOrderedByNumber() throws {
-        let list = try JSONDecoder().decode(ChannelList.self, from: Data(#"{"channels":[{"id":3,"number":7},{"id":1,"number":2},{"id":9,"number":2}],"lastChannel":42}"#.utf8))
-        XCTAssertEqual(list.channels.map(\.id), [1, 9, 3])
+    func testTheListKeepsTheServersOrder() throws {
+        // «Favourites first»: the server put the starred 7 before 2; the app keeps that.
+        let list = try JSONDecoder().decode(ChannelList.self, from: Data(#"{"channels":[{"id":3,"number":7,"favorite":true},{"id":1,"number":2},{"id":9,"number":2}],"lastChannel":42,"favoritesFirst":true}"#.utf8))
+        XCTAssertEqual(list.channels.map(\.id), [3, 1, 9])
+        XCTAssertTrue(list.favoritesFirst)
         XCTAssertNil(list.last, "a last channel the profile no longer sees")
+        let older = try JSONDecoder().decode(ChannelList.self, from: Data(#"{"channels":[]}"#.utf8))
+        XCTAssertFalse(older.favoritesFirst, "a server without the setting orders by number")
+    }
+
+    func testAStarReordersTheListAsTheServerWould() {
+        var list = ChannelList(channels: [channel(5, 5, favorite: true), channel(1, 1), channel(3, 3), channel(8, 8)], favoritesFirst: true)
+        list.setFavorite(true, channelId: 8)
+        XCTAssertEqual(list.channels.map(\.number), [5, 8, 1, 3], "a new favourite goes up among them, by number")
+        list.setFavorite(false, channelId: 5)
+        XCTAssertEqual(list.channels.map(\.number), [8, 1, 3, 5], "an unstarred one goes back by number")
+        // Without «favourites first» the list stays by number.
+        var plain = ChannelList(channels: [channel(1, 1), channel(3, 3)], favoritesFirst: false)
+        plain.setFavorite(true, channelId: 3)
+        XCTAssertEqual(plain.channels.map(\.number), [1, 3])
+        XCTAssertTrue(plain.channels[1].favorite)
+        XCTAssertEqual(Channel.listOrder([channel(2, 2), channel(1, 1, favorite: true)], favoritesFirst: false).map(\.id), [1, 2])
+    }
+
+    func testChannelPrefs() throws {
+        XCTAssertFalse(try JSONDecoder().decode(ChannelPrefs.self, from: Data(#"{"favoritesFirst":false}"#.utf8)).favoritesFirst)
+        XCTAssertTrue(try JSONDecoder().decode(ChannelPrefs.self, from: Data("{}".utf8)).favoritesFirst, "the server's default")
+        let body = try XCTUnwrap(String(data: JSONEncoder().encode(ChannelPrefs(favoritesFirst: false)), encoding: .utf8))
+        XCTAssertEqual(body, #"{"favoritesFirst":false}"#)
+    }
+
+    func testLogoFallback() throws {
+        let json = #"{"id":4,"number":104,"name":"Первый канал","logoUrl":"/a.png","logoAlt":"/b.png","logoAuto":true}"#
+        let both = try JSONDecoder().decode(Channel.self, from: Data(json.utf8))
+        XCTAssertEqual(both.logoCandidates, ["/a.png", "/b.png"], "logo, then the guide's icon")
+        let altOnly = try JSONDecoder().decode(Channel.self, from: Data(#"{"id":5,"name":"X","logoAlt":"/b.png"}"#.utf8))
+        XCTAssertEqual(altOnly.logoCandidates, ["/b.png"])
+        XCTAssertEqual(Channel(id: 1, number: 1, name: "A", logoUrl: "/a", logoAlt: "/a").logoCandidates, ["/a"])
+        XCTAssertTrue(Channel(id: 1, number: 1, name: "A").logoCandidates.isEmpty)
+        // Neither: the initials.
+        XCTAssertEqual(both.initials, "ПК")
+        XCTAssertEqual(Channel(id: 1, number: 1, name: "cnn").initials, "CN")
+        XCTAssertEqual(Channel(id: 1, number: 1, name: "Кино 2").initials, "К2")
+        XCTAssertEqual(Channel(id: 1, number: 12, name: " · ").initials, "12")
+        // The guide's rows carry logoAlt too, and take the list's when they came without.
+        var grid = ChannelGuideGrid(ChannelEPGWindow(from: Date(), to: Date(), channels: [ChannelEPG(id: 4, number: 104, name: "Первый канал")]))
+        grid.applyLogos(from: [both])
+        XCTAssertEqual(grid.rows.first?.channel.logoCandidates, ["/a.png", "/b.png"])
     }
 
     func testProgress() {
@@ -103,12 +147,14 @@ final class ChannelTests: XCTestCase {
         XCTAssertNil(channel(2, 2).program(at: Date()))
     }
 
-    func testZappingWrapsByNumber() {
+    func testZappingWrapsInTheListsOrder() {
+        // The list's order (the server's): channel up is the next row, not the next number.
         let channels = [channel(7, 100), channel(1, 1), channel(2, 10), channel(3, 11)]
         XCTAssertEqual(Channel.neighbour(of: 2, in: channels, step: 1)?.id, 3)
         XCTAssertEqual(Channel.neighbour(of: 2, in: channels, step: -1)?.id, 1)
-        XCTAssertEqual(Channel.neighbour(of: 7, in: channels, step: 1)?.id, 1, "channel up from the last wraps to the first")
-        XCTAssertEqual(Channel.neighbour(of: 1, in: channels, step: -1)?.id, 7, "channel down from the first wraps to the last")
+        XCTAssertEqual(Channel.neighbour(of: 7, in: channels, step: 1)?.id, 1, "the row after 100 (listed first) is 1")
+        XCTAssertEqual(Channel.neighbour(of: 3, in: channels, step: 1)?.id, 7, "channel up from the last row wraps to the first")
+        XCTAssertEqual(Channel.neighbour(of: 7, in: channels, step: -1)?.id, 3, "channel down from the first row wraps to the last")
         XCTAssertEqual(Channel.neighbour(of: 1, in: channels, step: 5)?.id, 2)
         XCTAssertEqual(Channel.neighbour(of: 1, in: [channel(1, 1)], step: 1)?.id, 1)
         XCTAssertNil(Channel.neighbour(of: 99, in: channels, step: 1))

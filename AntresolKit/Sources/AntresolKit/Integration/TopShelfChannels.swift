@@ -1,8 +1,9 @@
 import Foundation
 
-/// The Top Shelf's "On Air Now" section: channels with a programme on air, by number (the
-/// one list), each opening the channel. A tile's picture is the programme's still; a
-/// programme without one gets the extension's neutral placeholder.
+/// The Top Shelf's "On Air Now" section: channels with a programme on air, in the list's
+/// order (the server's: favourites first when the profile wants them so), each opening the
+/// channel. A tile's picture is the programme's still; a programme without one gets the
+/// extension's neutral placeholder.
 public struct TopShelfChannels: Sendable, Equatable {
     public struct Entry: Sendable, Equatable {
         public let channel: Channel
@@ -23,7 +24,7 @@ public struct TopShelfChannels: Sendable, Equatable {
 
     public init(channels: [Channel], at date: Date, limit: Int = Self.defaultLimit) {
         var entries: [Entry] = []
-        for channel in channels.sorted(by: Channel.byNumber) where entries.count < limit {
+        for channel in channels where entries.count < limit {
             guard channel.enabled, let program = channel.program(at: date), program.isOnAir(at: date) else { continue }
             entries.append(Entry(
                 channel: channel,

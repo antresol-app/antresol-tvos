@@ -24,11 +24,11 @@ final class ChannelGuideTests: XCTestCase {
         let channels = [channel(1, 40, "Decades"), channel(2, 10, "Genres"), channel(3, 1, "All"), channel(4, 2, "Decades"), channel(5, 3, "")]
         let options = ChannelFilter.options(for: channels)
         XCTAssertEqual(options.map(\.filter), [
-            .all, .favorites, .category("group:All"), .category("group:Decades"), .category("group:Genres"), .category(ChannelFilter.noCategory),
+            .favorites, .all, .category("group:All"), .category("group:Decades"), .category("group:Genres"), .category(ChannelFilter.noCategory),
         ])
-        XCTAssertEqual(options.map(\.count), [5, 0, 1, 2, 1, 1])
+        XCTAssertEqual(options.map(\.count), [0, 5, 1, 2, 1, 1])
         XCTAssertEqual(options[3].label, "Decades")
-        XCTAssertEqual(ChannelFilter.options(for: []).map(\.filter), [.all, .favorites])
+        XCTAssertEqual(ChannelFilter.options(for: []).map(\.filter), [.favorites, .all], "Favourites and All first, as the web's")
         XCTAssertEqual(ChannelFilter.category(ChannelFilter.noCategory).apply(to: channels).map(\.id), [5])
     }
 
@@ -52,9 +52,9 @@ final class ChannelGuideTests: XCTestCase {
         let list = try JSONDecoder().decode(ChannelList.self, from: Data(json.utf8))
         let options = ChannelFilter.options(for: list.channels, server: list.categories)
         XCTAssertEqual(options.map(\.filter), [
-            .all, .favorites, .category("ai:news"), .category("ai:sport"), .category("source:1"), .category("source:2"), .category("group:Films"),
+            .favorites, .all, .category("ai:news"), .category("ai:sport"), .category("source:1"), .category("source:2"), .category("group:Films"),
         ])
-        XCTAssertEqual(options.map(\.count), [3, 1, 2, 1, 1, 1, 2])
+        XCTAssertEqual(options.map(\.count), [1, 3, 2, 1, 1, 1, 2])
         XCTAssertEqual(options.map(\.kind), [nil, nil, "ai", "ai", "source", "source", "group"])
         XCTAssertEqual(ChannelFilter.category("ai:sport").apply(to: list.channels).map(\.id), [2])
         XCTAssertEqual(ChannelFilter.category("ai:news").categoryName(in: list.categories ?? []), "Новости")
@@ -68,11 +68,12 @@ final class ChannelGuideTests: XCTestCase {
         XCTAssertTrue(ChannelFilter.category("ai:sport").matches(row.channel))
     }
 
-    func testFiltersKeepTheNumberOrder() {
-        let channels = [channel(1, 40, "D", favorite: true), channel(2, 10, "G"), channel(3, 1, "A", favorite: true), channel(4, 2, "D")]
-        XCTAssertEqual(ChannelFilter.all.apply(to: channels).map(\.number), [1, 2, 10, 40])
+    func testFiltersKeepTheListsOrder() {
+        // The server's order with «favourites first»: 1 and 40 starred, then the rest by number.
+        let channels = [channel(3, 1, "A", favorite: true), channel(1, 40, "D", favorite: true), channel(4, 2, "D"), channel(2, 10, "G")]
+        XCTAssertEqual(ChannelFilter.all.apply(to: channels).map(\.number), [1, 40, 2, 10], "never re-sorted by number")
         XCTAssertEqual(ChannelFilter.favorites.apply(to: channels).map(\.number), [1, 40])
-        XCTAssertEqual(ChannelFilter.category("group:D").apply(to: channels).map(\.number), [2, 40])
+        XCTAssertEqual(ChannelFilter.category("group:D").apply(to: channels).map(\.number), [40, 2])
         XCTAssertTrue(ChannelFilter.category("group:none").apply(to: channels).isEmpty)
     }
 
@@ -90,6 +91,38 @@ final class ChannelGuideTests: XCTestCase {
         let kept = ChannelFilter.favorites.zapList(unstarred, current: unstarred[3])
         XCTAssertEqual(kept.map(\.id), [1, 4])
         XCTAssertEqual(Channel.neighbour(of: 4, in: kept, step: 1)?.id, 1)
+    }
+
+    func testZappingFollowsTheFavouritesFirstOrder() {
+        // Channel up goes to the next row as the list shows it, favourites first.
+        let channels = [channel(4, 4, "B", favorite: true), channel(1, 1, "A"), channel(2, 2, "B"), channel(3, 3, "A")]
+        let all = ChannelFilter.all.zapList(channels, current: channels[0])
+        XCTAssertEqual(all.map(\.id), [4, 1, 2, 3])
+        XCTAssertEqual(Channel.neighbour(of: 4, in: all, step: 1)?.id, 1)
+        XCTAssertEqual(Channel.neighbour(of: 4, in: all, step: -1)?.id, 3, "wraps")
+        // The current channel just unstarred keeps its place in the list it came from.
+        var unstarred = channels
+        unstarred[0].favorite = false
+        XCTAssertEqual(ChannelFilter.favorites.zapList(unstarred, current: unstarred[0]).map(\.id), [4])
+        // One the list lacks goes last.
+        XCTAssertEqual(ChannelFilter.category("group:A").zapList(channels, current: channel(9, 9, "Z")).map(\.id), [1, 3, 9])
+    }
+
+    func testGuideRowsFollowTheListsOrder() {
+        let window = ChannelEPGWindow(from: t(0), to: t(3600), channels: [
+            ChannelEPG(id: 2, number: 2, name: "Two", favorite: true),
+            ChannelEPG(id: 1, number: 1, name: "One"),
+            ChannelEPG(id: 3, number: 3, name: "Three"),
+            ChannelEPG(id: 7, number: 7, name: "Not in the list"),
+        ])
+        var grid = ChannelGuideGrid(window)
+        XCTAssertEqual(grid.rows(.all).map(\.id), [2, 1, 3, 7], "the server's order, not by number")
+        // A star changed in the app: the list re-orders, the guide's rows follow it.
+        var list = ChannelList(channels: [channel(2, 2, "", favorite: true), channel(1, 1, ""), channel(3, 3, "")], favoritesFirst: true)
+        list.setFavorite(true, channelId: 3)
+        grid.setFavorite(true, channelId: 3)
+        XCTAssertEqual(grid.rows(.all, order: list.channels.map(\.id)).map(\.id), [2, 3, 1, 7])
+        XCTAssertEqual(grid.rows(.favorites, order: list.channels.map(\.id)).map(\.id), [2, 3])
     }
 
     func testFilterStorage() {

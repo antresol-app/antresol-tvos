@@ -48,12 +48,13 @@ final class TVModel {
     // `deriveGuide`), not on every read: the views read them for each row and block they
     // draw, on every focus move.
 
-    /// The category list: All, Favourites, then the server's categories (AI topics,
+    /// The category list: Favourites, All, then the server's categories (AI topics,
     /// sources, groups), each with the number of channels it shows.
     private(set) var filterOptions: [ChannelFilterOption] = []
     /// The chosen filter, or All when its category is gone from the list.
     private(set) var activeFilter: ChannelFilter = .all
-    /// The channels the list shows.
+    /// The channels the list shows, in the server's order (favourites first when the
+    /// profile wants them so).
     private(set) var channels: [Channel] = []
     /// The guide's rows for the filter.
     private(set) var guideRows: [ChannelEPG] = []
@@ -97,7 +98,8 @@ final class TVModel {
         var grid = grid
         // the list's uploaded logos, for rows the guide sent without one
         grid.applyLogos(from: list.channels)
-        guideRows = grid.rows(activeFilter)
+        // the list's order: a star changed here moves the row as it moves the list's
+        guideRows = grid.rows(activeFilter, order: list.channels.map(\.id))
         guideScale = GuideScale.fitting(typicalLength: ChannelGuideGrid.typicalLength(of: grid.rows))
     }
 
@@ -187,10 +189,10 @@ final class TVModel {
         list.channels.first { $0.id == channelId }?.favorite ?? grid.rows.first { $0.id == channelId }?.favorite ?? false
     }
 
+    /// The star in the list and the guide; with «favourites first» the list re-orders as the
+    /// server will (`ChannelList.setFavorite`).
     private func setFavorite(_ favorite: Bool, _ channelId: Int) {
-        if let index = list.channels.firstIndex(where: { $0.id == channelId }) {
-            list.channels[index].favorite = favorite
-        }
+        list.setFavorite(favorite, channelId: channelId)
         grid.setFavorite(favorite, channelId: channelId)
     }
 

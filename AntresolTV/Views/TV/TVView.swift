@@ -4,7 +4,7 @@ import UIKit
 
 /// The TV tab: the server's live channels («ТВ») as a television has them. One numbered
 /// list (Channels) or the programme guide (Guide), switched at the top; the category
-/// button narrows either view without reordering it (All, Favourites, then the server's
+/// button narrows either view without reordering it (Favourites, All, then the server's
 /// categories: AI topics, sources, playlist groups). Focus starts on
 /// the channel the profile watched last, and a small pill returns to it. Long-press a row
 /// (or open a programme in the guide) to star a channel.
@@ -103,6 +103,13 @@ struct TVView: View {
         .onChange(of: playback.liveSessions) {
             // The player may have changed favourites and the last channel.
             Task { await model.refresh() }
+        }
+        .onChange(of: appState.channelPrefsRevision) {
+            // «Избранные каналы первыми» changed in Settings: the server orders the list.
+            Task {
+                await model.refresh()
+                if model.grid.loadedFrom != nil { await model.reloadGuide() }
+            }
         }
     }
 
@@ -281,9 +288,9 @@ private struct CategoryButtonBody: View {
 
 // MARK: - Categories
 
-/// The category list on the left: «Все каналы», «Избранное», then the categories as the
-/// server orders them (its AI topics, the sources, the playlists' groups), each with its
-/// channel count; with more than one kind they have headings. The current one is checked
+/// The category list on the left, as the web's first level: «Избранное», «Все каналы»,
+/// then the categories as the server orders them (its AI topics, the sources, the
+/// playlists' groups), each with its channel count; with more than one kind they have headings. The current one is checked
 /// and has focus when the list opens. Select chooses; Menu closes it as it was.
 private struct CategoriesPanel: View {
     let model: TVModel
@@ -408,7 +415,7 @@ private struct CategoriesPanel: View {
 
 // MARK: - Channel list
 
-/// The one numbered list: a row per channel with what is on now and next. Select tunes
+/// The one list, in the server's order: a row per channel with what is on now and next. Select tunes
 /// in; long-press offers the star.
 private struct ChannelListView: View {
     let model: TVModel
@@ -509,9 +516,10 @@ private struct ChannelListView: View {
     }
 }
 
-/// A channel row, as a television's channel list: the number in tabular digits, the
-/// programme's still, the channel's name and what is on in one line, and a thin
-/// progress bar. Times and what is next are in the preview beside the list, the
+/// A channel row, as a television's channel list (and the web's): the number in tabular
+/// digits, the logo (or the guide's icon, or the initials), the channel's name and what is
+/// on in one line with a thin progress bar, and the programme's still only when it has one
+/// (no empty grey box). Times and what is next are in the preview beside the list, the
 /// programme page and the player's banner. Focus lifts the row on a light plate.
 struct ChannelRow: View {
     let channel: Channel
@@ -532,12 +540,9 @@ struct ChannelRow: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                     .frame(width: 84, alignment: .trailing)
-                ProgrammeStill(program: program, maxPixelSize: Self.stillWidth * 2, cornerRadius: Theme.Radius.smallCard)
-                    .frame(width: Self.stillWidth, height: Self.stillWidth * 9 / 16)
+                ChannelLogo(channel, height: 56, initials: true)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 12) {
-                        ChannelLogo(path: channel.logoUrl, height: 34)
-                            .padding(.trailing, 4)
                         Text(verbatim: channel.name)
                             .font(.system(size: 28, weight: .semibold))
                             .foregroundStyle(primary)
@@ -558,7 +563,12 @@ struct ChannelRow: View {
                         .opacity(program?.isOnAir(at: context.date) == true ? 1 : 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                if let still = program?.still, !still.isEmpty {
+                    ProgrammeStill(program: program, maxPixelSize: Self.stillWidth * 2, cornerRadius: Theme.Radius.smallCard)
+                        .frame(width: Self.stillWidth, height: Self.stillWidth * 9 / 16)
+                }
             }
+            .frame(minHeight: Self.stillWidth * 9 / 16)
             .padding(.vertical, 14)
         }
         .accessibilityElement(children: .combine)
@@ -589,7 +599,7 @@ private struct ChannelPreview: View {
                     .aspectRatio(16 / 9, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                 HStack(spacing: 16) {
-                    ChannelLogo(path: channel.logoUrl, height: 40)
+                    ChannelLogo(channel, height: 40)
                     Text(verbatim: channel.label)
                         .font(Theme.Typography.meta)
                         .foregroundStyle(Theme.Colors.label2)

@@ -35,19 +35,20 @@ final class LiveTVTests: XCTestCase {
 
     func testTopShelfChannelsOnAir() {
         let at = Date(timeIntervalSince1970: 1050)
+        // In the list's order (the server's), which the shelf keeps.
         let channels = [
-            channel(9, 100, "Series", now: program(90, from: 1000, to: 1100, backdrop: "", poster: "/p/90")),
-            channel(2, 10, "Genres", now: program(20, from: 1000, to: 1200, backdrop: "/b/20")),
             channel(1, 1, "Movies", now: program(10, from: 1000, to: 1100, backdrop: "/b/10")),
+            channel(2, 10, "Genres", now: program(20, from: 1000, to: 1200, backdrop: "/b/20")),
             // Nothing on air: left out.
             channel(4, 12, "Genres"),
             // Moved on to `next` since the list was fetched.
             channel(3, 11, "Genres", now: program(30, from: 900, to: 1000), next: program(31, from: 1000, to: 1100)),
             // No artwork at all: the extension's neutral placeholder.
             channel(5, 13, "Genres", now: program(50, from: 1000, to: 1100)),
+            channel(9, 100, "Series", now: program(90, from: 1000, to: 1100, backdrop: "", poster: "/p/90")),
         ]
         let plan = TopShelfChannels(channels: channels, at: at)
-        XCTAssertEqual(plan.entries.map(\.channel.id), [1, 2, 3, 5, 9], "by number")
+        XCTAssertEqual(plan.entries.map(\.channel.id), [1, 2, 3, 5, 9], "the list's order")
         XCTAssertEqual(plan.entries[0].title, "1 · Channel 1 — P10")
         XCTAssertEqual(plan.entries[0].imagePath, "/b/10")
         XCTAssertEqual(plan.entries[0].progress, 0.5, accuracy: 0.001)

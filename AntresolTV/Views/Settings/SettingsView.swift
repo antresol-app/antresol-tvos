@@ -38,6 +38,7 @@ private struct SettingsPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 60) {
                     playbackSection
+                    if appState.channelPrefs != nil { tvSection }
                     if !user.isKid { historySection }
                     languageSection
                     aboutSection
@@ -61,6 +62,7 @@ private struct SettingsPage: View {
         .padding(.horizontal, Theme.Layout.margin)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.Colors.background)
+        .task { await appState.refreshChannelPrefs() }
         .confirmationDialog("Sign out of this profile?", isPresented: $isConfirmingSignOut, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) {
                 Task { await appState.signOut() }
@@ -162,6 +164,32 @@ private struct SettingsPage: View {
                     symbol: nil
                 )
             }
+        }
+    }
+
+    // MARK: TV
+
+    /// «Избранные каналы первыми» (the web's Мои настройки → Просмотр): kept for the
+    /// profile on the server, which orders the channel list so for every device.
+    private var tvSection: some View {
+        let on = appState.channelPrefs?.favoritesFirst ?? true
+        return SettingsSection("TV", footnote: "Favourite channels are listed at the top of the channel list and the guide, each part by number.") {
+            Button {
+                Task {
+                    do {
+                        try await appState.setFavoritesFirst(!on)
+                    } catch {
+                        _ = appState.message(for: error)
+                    }
+                }
+            } label: {
+                SettingsRowLabel(
+                    "Favourite Channels First",
+                    value: on ? String(localized: "On", bundle: .localized) : String(localized: "Off", bundle: .localized),
+                    symbol: nil
+                )
+            }
+            .accessibilityIdentifier("settings.favoritesFirst")
         }
     }
 

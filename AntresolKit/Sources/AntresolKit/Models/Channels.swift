@@ -23,8 +23,12 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     /// What is on air, when the server knows.
     public var now: ChannelProgram?
     public var next: ChannelProgram?
-    /// The uploaded logo (`/api/channels/{id}/logo.png?v=…`); "" when there is none.
+    /// The uploaded logo (`/api/channels/{id}/logo.png?v=…`), an external channel's
+    /// tvg-logo, or one the server found itself; "" when there is none.
     public var logoUrl: String
+    /// The EPG guide's icon of an external channel when `logoUrl` is another one: shown when
+    /// `logoUrl` is empty or does not load ("" when there is none).
+    public var logoAlt: String
     /// A channel of an admin's external source (M3U / Xtream): the app plays `stream`
     /// itself; its programmes have no item page.
     public var external: Bool
@@ -39,10 +43,11 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     public init(
         id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, personal: Bool = false,
         auto: Bool = false, enabled: Bool = true, now: ChannelProgram? = nil, next: ChannelProgram? = nil,
-        logoUrl: String = "", external: Bool = false, stream: ChannelStream? = nil, categories: [String]? = nil
+        logoUrl: String = "", logoAlt: String = "", external: Bool = false, stream: ChannelStream? = nil, categories: [String]? = nil
     ) {
         self.categories = categories
         self.logoUrl = logoUrl
+        self.logoAlt = logoAlt
         self.external = external || stream != nil
         self.stream = stream
         self.id = id
@@ -58,7 +63,7 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, number, name, category, favorite, personal, auto, enabled, now, next, logoUrl, external, stream, categories
+        case id, number, name, category, favorite, personal, auto, enabled, now, next, logoUrl, logoAlt, external, stream, categories
     }
 
     public init(from decoder: Decoder) throws {
@@ -74,6 +79,7 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
         now = c.optional(.now)
         next = c.optional(.next)
         logoUrl = c.value(.logoUrl, default: "")
+        logoAlt = c.value(.logoAlt, default: "")
         stream = c.optional(.stream)
         external = c.value(.external, default: false) || stream != nil
         categories = c.optional(.categories)
@@ -94,18 +100,55 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
         return next
     }
 
-    /// The channel `step` places away by number (+1 is channel up), wrapping around the
-    /// ends of the list. `channels` need not be sorted. nil when `id` is not in the list.
+    /// The channel `step` places away in the list's order (+1 is channel up: the next row),
+    /// wrapping around the ends of the list. `channels` is taken in the order given (the
+    /// server's: favourites first when the profile wants them so). nil when `id` is not in
+    /// the list.
     public static func neighbour(of id: Int, in channels: [Channel], step: Int) -> Channel? {
-        let sorted = channels.sorted(by: Channel.byNumber)
-        guard let index = sorted.firstIndex(where: { $0.id == id }), !sorted.isEmpty else { return nil }
-        let count = sorted.count
-        return sorted[((index + step) % count + count) % count]
+        guard let index = channels.firstIndex(where: { $0.id == id }), !channels.isEmpty else { return nil }
+        let count = channels.count
+        return channels[((index + step) % count + count) % count]
     }
 
-    /// The list's order: by number, then id.
+    /// By number, then id.
     public static func byNumber(_ a: Channel, _ b: Channel) -> Bool {
         (a.number, a.id) < (b.number, b.id)
+    }
+
+    /// The list's order as the server makes it (`GET /api/channels`): by number, the
+    /// favourites first when `favoritesFirst`. The app keeps the server's order as it came
+    /// and uses this only after it changed a star itself, so the list moves as the server's
+    /// next answer will have it.
+    public static func listOrder(_ channels: [Channel], favoritesFirst: Bool) -> [Channel] {
+        channels.sorted { a, b in
+            if favoritesFirst, a.favorite != b.favorite { return a.favorite }
+            return byNumber(a, b)
+        }
+    }
+
+    /// The logos to try, best first: `logoUrl`, then `logoAlt` (empty and repeated ones left
+    /// out). Empty: the row shows `initials`.
+    public var logoCandidates: [String] {
+        var out: [String] = []
+        for path in [logoUrl, logoAlt] where !path.isEmpty && !out.contains(path) { out.append(path) }
+        return out
+    }
+
+    /// What stands for a channel without a logo that loads: the first letters of its first
+    /// two words («Первый канал» → «ПК», "CNN" → "CN"), else its number.
+    public var initials: String { Self.initials(of: name, number: number) }
+
+    public static func initials(of name: String, number: Int) -> String {
+        let words = name.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        let letters: String
+        if words.count >= 2 {
+            letters = String(words.prefix(2).compactMap(\.first))
+        } else if let word = words.first {
+            letters = String(word.prefix(2))
+        } else {
+            return String(number)
+        }
+        return letters.uppercased()
     }
 }
 
@@ -267,8 +310,12 @@ public struct ChannelProgram: Decodable, Hashable, Sendable {
 
 /// `GET /api/channels`.
 public struct ChannelList: Decodable, Hashable, Sendable {
-    /// The one list, by number.
+    /// The one list in the server's order: by number, the favourites first when
+    /// `favoritesFirst`. Kept as it came (never re-sorted by number).
     public var channels: [Channel]
+    /// The profile wants its favourites at the top (`GET|PUT /api/channels/prefs`); the server
+    /// has already ordered `channels` so. false from a server that does not send it.
+    public var favoritesFirst: Bool
     /// The channel the profile tuned in last (`PUT /api/channels/last`), if any.
     public var lastChannel: Int?
     /// The profile may manage channels (web only).
@@ -280,24 +327,35 @@ public struct ChannelList: Decodable, Hashable, Sendable {
 
     public init(
         channels: [Channel], lastChannel: Int? = nil, canManage: Bool = false, canCreate: Bool = false,
-        categories: [ChannelCategory]? = nil
+        categories: [ChannelCategory]? = nil, favoritesFirst: Bool = false
     ) {
         self.categories = categories
+        self.favoritesFirst = favoritesFirst
         self.channels = channels
         self.lastChannel = lastChannel
         self.canManage = canManage
         self.canCreate = canCreate
     }
 
-    enum CodingKeys: String, CodingKey { case channels, lastChannel, canManage, canCreate, categories }
+    enum CodingKeys: String, CodingKey { case channels, lastChannel, canManage, canCreate, categories, favoritesFirst }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        channels = (c.value(.channels, default: [Channel]())).sorted(by: Channel.byNumber)
+        channels = c.value(.channels, default: [Channel]())
+        favoritesFirst = c.value(.favoritesFirst, default: false)
         lastChannel = c.optional(.lastChannel)
         canManage = c.value(.canManage, default: false)
         canCreate = c.value(.canCreate, default: false)
         categories = c.optional(.categories)
+    }
+
+    /// Stars or unstars a channel in the list; with `favoritesFirst` the list moves the way
+    /// the server orders it (a new favourite goes up among the favourites by number, an
+    /// unstarred one back among the others).
+    public mutating func setFavorite(_ favorite: Bool, channelId: Int) {
+        guard let index = channels.firstIndex(where: { $0.id == channelId }) else { return }
+        channels[index].favorite = favorite
+        if favoritesFirst { channels = Channel.listOrder(channels, favoritesFirst: true) }
     }
 
     /// The last channel as the list has it, or nil when there is none or the profile no
@@ -305,6 +363,24 @@ public struct ChannelList: Decodable, Hashable, Sendable {
     public var last: Channel? {
         guard let lastChannel else { return nil }
         return channels.first { $0.id == lastChannel }
+    }
+}
+
+/// `GET|PUT /api/channels/prefs`: the profile's choices for its channel list.
+/// `favoritesFirst` («Избранные каналы первыми»): the server lists the favourites at the top
+/// (each part by number); true on a server that does not say.
+public struct ChannelPrefs: Codable, Hashable, Sendable {
+    public var favoritesFirst: Bool
+
+    public init(favoritesFirst: Bool = true) {
+        self.favoritesFirst = favoritesFirst
+    }
+
+    enum CodingKeys: String, CodingKey { case favoritesFirst }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        favoritesFirst = c.value(.favoritesFirst, default: true)
     }
 }
 

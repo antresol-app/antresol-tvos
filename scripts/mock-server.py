@@ -17,6 +17,10 @@ ranges, `X-Vault-Transcode: 1`), and it is slow to answer the app's own question
 Its guide has twelve rows and then three external channels, two of them from one guide
 source with programmes at the same instants (so with the same programme ids, as the
 server builds them: `x<guide>-<start ms>`), and its Continue Watching ends with a series.
+Its channels keep their stars (`PUT`/`DELETE /api/channels/<id>/favorite`) and «Избранные
+каналы первыми» (`GET`/`PUT /api/channels/prefs`, on to start with): the list and the guide
+come favourites first, as the server orders them; channel 2's logo does not load (its guide
+icon `logoAlt` shows), channel 4 has only the guide icon.
 
 The second port also keeps what it was asked, for the UI tests (never on the main port):
 
@@ -689,14 +693,28 @@ class Handler(BaseHTTPRequestHandler):
             channels = on_air_now("channels.json")
             if getattr(self.server, "pairing", False):
                 many_channels(channels)
+                with_channel_state(channels, self.server.channels)
+                channels["favoritesFirst"] = self.server.channels["favoritesFirst"]
             return self.send(200, json.dumps(channels).encode(), "application/json")
+        # «Избранные каналы первыми»: the second port only (the main one is an older server).
+        if getattr(self.server, "pairing", False) and path == "/api/channels/prefs":
+            if method == "PUT":
+                self.server.channels["favoritesFirst"] = bool(json.loads(body or b"{}").get("favoritesFirst"))
+            if method in ("GET", "PUT"):
+                answer = {"favoritesFirst": self.server.channels["favoritesFirst"]}
+                return self.send(200, json.dumps(answer).encode(), "application/json")
         if method == "GET" and re.fullmatch(r"/api/channels/\d+/guide", path):
             return self.send(200, json.dumps(on_air_now("channel-guide.json")).encode(), "application/json")
         if method == "GET" and path == "/api/channels/epg":
             guide = on_air_now("channel-epg.json")
             if getattr(self.server, "pairing", False):
                 guide_with_externals(guide)
+                with_channel_state(guide, self.server.channels)
             return self.send(200, json.dumps(guide).encode(), "application/json")
+        star = re.fullmatch(r"/api/channels/(\d+)/favorite", path)
+        if method in ("PUT", "DELETE") and star and getattr(self.server, "pairing", False):
+            favorites = self.server.channels["favorites"]
+            (favorites.add if method == "PUT" else favorites.discard)(int(star.group(1)))
         if method in ("PUT", "DELETE") and re.fullmatch(r"/api/channels/(\d+/favorite|last)", path):
             return self.send(204, b"", "application/json")
         if method == "POST" and path == "/api/channels/opened":
@@ -747,6 +765,7 @@ class Handler(BaseHTTPRequestHandler):
                     server.fail_progress.clear()
                     server.auto_skip.clear()
                     server.history = new_history_state()
+                    server.channels = new_channel_state()
                     payload = b"{}"
                 elif method == "POST" and match:
                     server.fail_progress.add(int(match.group(1)))
@@ -833,6 +852,28 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+def new_channel_state():
+    """The second port's channel choices: the sample's favourite (3) and «favourites first»
+    on, as a profile has them by default."""
+    return {"favorites": {3}, "favoritesFirst": True}
+
+
+# The second port's logos: channel 2's uploaded logo does not load (404), so its guide icon
+# (`logoAlt`) shows; channel 4 has only the guide icon; the others none (their initials).
+CHANNEL_LOGOS = {2: {"logoUrl": "/api/channels/2/logo.png?v=1", "logoAlt": "/api/images/logo/alt-2"},
+                 4: {"logoAlt": "/api/images/logo/alt-4"}}
+
+
+def with_channel_state(data, state):
+    """The list or the guide as the server orders it: by number, the favourites first when
+    the profile wants them so; the stars and logos of the second port."""
+    for channel in data["channels"]:
+        channel["favorite"] = channel["id"] in state["favorites"]
+        channel.update(CHANNEL_LOGOS.get(channel["id"], {}))
+    data["channels"].sort(key=lambda c: (not (state["favoritesFirst"] and c["favorite"]), c["number"], c["id"]))
+    return data
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8421)
@@ -842,6 +883,7 @@ def main():
     pairing.events, pairing.fail_progress, pairing.hooks_lock = [], set(), threading.Lock()
     pairing.auto_skip = {}
     pairing.history = new_history_state()
+    pairing.channels = new_channel_state()
     threading.Thread(target=pairing.serve_forever, daemon=True).start()
     main_server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     main_server.auto_skip = {}

@@ -2,7 +2,8 @@ import Foundation
 
 /// A filter of the one channel list: all channels, the profile's favourites, or one category
 /// by its id (`ChannelCategory.id`: `ai:news`, `source:3`, `group:<name>`). Filters never
-/// reorder: a TV list keeps its numbers.
+/// reorder: every view keeps the server's order (by number, the favourites first when the
+/// profile wants them so).
 public enum ChannelFilter: Hashable, Sendable {
     case all
     case favorites
@@ -55,11 +56,12 @@ public enum ChannelFilter: Hashable, Sendable {
         return groups + [ChannelCategory(id: noCategory, name: "", kind: ChannelCategory.kindGroup, count: ungrouped)]
     }
 
-    /// What the list offers: All and Favourites, then `categoryList`, each with its count.
+    /// What the list offers, as the web's first level: Favourites and All, then
+    /// `categoryList`, each with its count.
     public static func options(for channels: [Channel], server: [ChannelCategory]? = nil) -> [ChannelFilterOption] {
         [
-            ChannelFilterOption(filter: .all, count: channels.count),
             ChannelFilterOption(filter: .favorites, count: channels.filter(\.favorite).count),
+            ChannelFilterOption(filter: .all, count: channels.count),
         ] + categoryList(for: channels, server: server).map {
             ChannelFilterOption(filter: .category($0.id), count: $0.count, label: $0.name, kind: $0.kind)
         }
@@ -76,9 +78,9 @@ public enum ChannelFilter: Hashable, Sendable {
         return own.isEmpty ? nil : own
     }
 
-    /// The channels this filter shows, by number.
+    /// The channels this filter shows, in the list's order.
     public func apply(to channels: [Channel]) -> [Channel] {
-        channels.filter(matches).sorted(by: Channel.byNumber)
+        channels.filter(matches)
     }
 
     public func matches(_ channel: Channel) -> Bool {
@@ -98,15 +100,12 @@ public enum ChannelFilter: Hashable, Sendable {
         return channels.contains(where: matches) ? self : .all
     }
 
-    /// What channel up / down goes through: this filter's channels, with `current` kept in
-    /// its place by number even when it no longer matches (a favourite just removed), so
-    /// zapping on from it never jumps.
+    /// What channel up / down goes through: this filter's channels in the list's order, with
+    /// `current` kept in its place in the list even when it no longer matches (a favourite
+    /// just removed), so zapping on from it never jumps. A `current` the list lacks goes last.
     public func zapList(_ channels: [Channel], current: Channel) -> [Channel] {
-        var list = apply(to: channels)
-        if !list.contains(where: { $0.id == current.id }) {
-            list.append(channels.first { $0.id == current.id } ?? current)
-            list.sort(by: Channel.byNumber)
-        }
+        var list = channels.filter { matches($0) || $0.id == current.id }
+        if !list.contains(where: { $0.id == current.id }) { list.append(current) }
         return list
     }
 

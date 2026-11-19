@@ -55,6 +55,12 @@ final class AppState {
             publishSharedSession()
         }
     }
+    /// The profile's channel-list choices (`GET /api/channels/prefs`); nil until read or on
+    /// a server without them (Settings then has no row).
+    private(set) var channelPrefs: ChannelPrefs?
+    /// Goes up when `channelPrefs` changed here: the TV page fetches its list again (the
+    /// server orders it).
+    private(set) var channelPrefsRevision = 0
     /// A link (Top Shelf, URL scheme) waiting for the signed-in shell to open it.
     var pendingDeepLink: DeepLink?
     /// A short message for the shell's banner (a failed action outside a page that can
@@ -323,6 +329,24 @@ final class AppState {
     func setInterfaceLanguage(_ language: String) async throws {
         guard let client = profileClient else { return }
         applyInterfaceLanguage(try await client.setUILanguage(language))
+    }
+
+    /// Reads the profile's channel-list choices (Settings shows them).
+    func refreshChannelPrefs() async {
+        guard let client = profileClient else { return }
+        let prefs = try? await client.channelPrefs()
+        guard client === profileClient else { return }
+        channelPrefs = prefs
+    }
+
+    /// «Избранные каналы первыми»: saved for the profile; the TV page reloads its list.
+    func setFavoritesFirst(_ on: Bool) async throws {
+        guard let client = profileClient else { return }
+        let saved = try await client.setChannelPrefs(ChannelPrefs(favoritesFirst: on))
+        guard client === profileClient else { return }
+        channelPrefs = saved
+        channelPrefsRevision += 1
+        TVTopShelfContentProvider.topShelfContentDidChange()
     }
 
     private func applyInterfaceLanguage(_ value: UILanguage) {

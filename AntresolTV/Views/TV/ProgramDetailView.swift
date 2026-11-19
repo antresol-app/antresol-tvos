@@ -22,7 +22,7 @@ struct ProgramDetailView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     if let channel = model.channel(details.channelId) {
                         HStack(spacing: 20) {
-                            ChannelLogo(path: channel.logoUrl, height: 48)
+                            ChannelLogo(channel, height: 48)
                             Text(verbatim: channel.label)
                                 .font(Theme.Typography.headline)
                                 .foregroundStyle(Theme.Colors.label2)

@@ -35,6 +35,8 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
     /// The uploaded logo, when the server sends it with the row ("" otherwise; the guide
     /// also takes it from the channel list).
     public var logoUrl: String
+    /// As `Channel.logoAlt`.
+    public var logoAlt: String
     /// An external channel's row (its stream comes with the channel list).
     public var external: Bool
     /// As `Channel.categories`.
@@ -42,10 +44,11 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
 
     public init(
         id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, programs: [ChannelProgram] = [],
-        logoUrl: String = "", external: Bool = false, categories: [String]? = nil
+        logoUrl: String = "", logoAlt: String = "", external: Bool = false, categories: [String]? = nil
     ) {
         self.categories = categories
         self.logoUrl = logoUrl
+        self.logoAlt = logoAlt
         self.external = external
         self.id = id
         self.number = number
@@ -55,7 +58,7 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
         self.programs = programs.sorted { $0.start < $1.start }
     }
 
-    enum CodingKeys: String, CodingKey { case id, number, name, category, favorite, programs, logoUrl, external, categories }
+    enum CodingKeys: String, CodingKey { case id, number, name, category, favorite, programs, logoUrl, logoAlt, external, categories }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -66,6 +69,7 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
         favorite = c.value(.favorite, default: false)
         programs = (c.value(.programs, default: [ChannelProgram]())).sorted { $0.start < $1.start }
         logoUrl = c.value(.logoUrl, default: "")
+        logoAlt = c.value(.logoAlt, default: "")
         external = c.value(.external, default: false)
         categories = c.optional(.categories)
     }
@@ -73,7 +77,7 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
     /// The row as a channel (no now / next), for filters and the player.
     public var channel: Channel {
         Channel(
-            id: id, number: number, name: name, category: category, favorite: favorite, logoUrl: logoUrl, external: external,
+            id: id, number: number, name: name, category: category, favorite: favorite, logoUrl: logoUrl, logoAlt: logoAlt, external: external,
             categories: categories
         )
     }
@@ -216,12 +220,13 @@ public struct ChannelGuideGrid: Hashable, Sendable {
         return whole
     }
 
-    /// Gives rows that came without a logo the channel list's one.
+    /// Gives rows that came without a logo (or its guide icon) the channel list's one.
     public mutating func applyLogos(from channels: [Channel]) {
-        var logos: [Int: String] = [:]
-        for channel in channels where !channel.logoUrl.isEmpty { logos[channel.id] = channel.logoUrl }
-        for index in rows.indices where rows[index].logoUrl.isEmpty {
-            rows[index].logoUrl = logos[rows[index].id] ?? ""
+        let byID = Dictionary(channels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for index in rows.indices {
+            guard let channel = byID[rows[index].id] else { continue }
+            if rows[index].logoUrl.isEmpty { rows[index].logoUrl = channel.logoUrl }
+            if rows[index].logoAlt.isEmpty { rows[index].logoAlt = channel.logoAlt }
         }
     }
 
@@ -231,9 +236,20 @@ public struct ChannelGuideGrid: Hashable, Sendable {
         rows[index].favorite = favorite
     }
 
-    /// The rows a filter shows, by number.
-    public func rows(_ filter: ChannelFilter) -> [ChannelEPG] {
-        rows.filter { filter.matches($0.channel) }.sorted { ($0.number, $0.id) < ($1.number, $1.id) }
+    /// The rows a filter shows, in the server's order (the list's: favourites first when the
+    /// profile wants them so). With `order` (the channel list's ids) the rows follow it
+    /// instead, so a star changed in the app moves the guide's row as it moves the list's;
+    /// rows the list lacks keep their place after it.
+    public func rows(_ filter: ChannelFilter, order: [Int]? = nil) -> [ChannelEPG] {
+        let shown = rows.filter { filter.matches($0.channel) }
+        guard let order else { return shown }
+        var position: [Int: Int] = [:]
+        for (index, id) in order.enumerated() where position[id] == nil { position[id] = index }
+        return shown.enumerated().sorted { a, b in
+            let pa = position[a.element.id] ?? order.count + a.offset
+            let pb = position[b.element.id] ?? order.count + b.offset
+            return pa < pb
+        }.map(\.element)
     }
 
     /// The median length of the programmes in `rows`, in seconds (nil when there are none).

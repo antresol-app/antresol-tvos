@@ -162,7 +162,7 @@ private struct LiveBanner: View {
 
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 18) {
-                            ChannelLogo(path: model.channel.logoUrl, height: 44)
+                            ChannelLogo(model.channel, height: 44)
                             Text(verbatim: model.channel.name)
                                 .font(Theme.Typography.headline)
                                 .foregroundStyle(Theme.Colors.label)
@@ -552,7 +552,7 @@ private struct RailCard: View {
                     .cardLift(isFocused: isFocused)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 12) {
-                        ChannelLogo(path: channel.logoUrl, height: 32)
+                        ChannelLogo(channel, height: 32)
                         Text(verbatim: channel.label)
                             .font(Theme.Typography.cardTitle)
                             .foregroundStyle(Theme.Colors.label)

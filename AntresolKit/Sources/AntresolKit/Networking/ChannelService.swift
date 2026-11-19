@@ -13,7 +13,7 @@ public struct ChannelService: Sendable {
         self.client = client
     }
 
-    /// The one list, by number, with the last channel.
+    /// The one list in the server's order, with the last channel.
     public func list() async throws -> ChannelList {
         try await client.channels()
     }

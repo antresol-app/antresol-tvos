@@ -22,22 +22,48 @@ struct ProgrammeStill: View {
     }
 }
 
-/// A channel's uploaded logo, small, in a neutral rounded 3:2 box beside its number and
-/// name. Nothing at all for a channel without one (no generated tile). Decorative for
-/// VoiceOver: the name is read.
+/// A channel's logo, small, in a neutral rounded 3:2 box beside its number and name: the
+/// uploaded or found logo (`logoUrl`), else the guide's icon (`logoAlt`, also when the first
+/// does not load), else the channel's initials. With `initials` off (the banner, a card
+/// beside the name) a channel without any logo has no box at all; in a list row it has its
+/// initials, so the rows' names stay in one column. Decorative for VoiceOver: the name is read.
 struct ChannelLogo: View {
-    let path: String
+    let paths: [String]
+    let monogram: String
     var height: CGFloat = 40
+    var initials = false
+
+    @State private var loaded = false
+
+    init(_ channel: Channel, height: CGFloat = 40, initials: Bool = false) {
+        paths = channel.logoCandidates
+        monogram = channel.initials
+        self.height = height
+        self.initials = initials
+    }
 
     var body: some View {
-        if !path.isEmpty {
+        if !paths.isEmpty || initials {
             let shape = RoundedRectangle(cornerRadius: height / 5, style: .continuous)
-            RemoteImage(path: path, maxPixelSize: height * 3, fit: true)
-                .padding(height / 8)
-                .frame(width: height * 1.5, height: height)
-                .background(Theme.Colors.elevated, in: shape)
-                .overlay(shape.strokeBorder(Theme.Colors.hairline, lineWidth: 1))
-                .accessibilityHidden(true)
+            ZStack {
+                if !loaded {
+                    Text(verbatim: monogram)
+                        .font(.system(size: height * 0.42, weight: .bold))
+                        .foregroundStyle(Theme.Colors.label2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .padding(.horizontal, height / 8)
+                }
+                if let first = paths.first {
+                    RemoteImage(path: first, fallbacks: Array(paths.dropFirst()), maxPixelSize: height * 3, fit: true, onLoad: { _ in loaded = true })
+                    .padding(height / 8)
+                }
+            }
+            .frame(width: height * 1.5, height: height)
+            .background(Theme.Colors.elevated, in: shape)
+            .overlay(shape.strokeBorder(Theme.Colors.hairline, lineWidth: 1))
+            .accessibilityHidden(true)
+            .onChange(of: paths) { loaded = false }
         }
     }
 }

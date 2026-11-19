@@ -20,6 +20,17 @@ extension APIClient {
         return try await send(.get, "/api/channels/epg", query: query)
     }
 
+    /// `GET /api/channels/prefs`: the profile's own choices for its channel list.
+    public func channelPrefs() async throws -> ChannelPrefs {
+        try await send(.get, "/api/channels/prefs")
+    }
+
+    /// `PUT /api/channels/prefs`: saves them (per profile); answers with what was saved.
+    @discardableResult
+    public func setChannelPrefs(_ prefs: ChannelPrefs) async throws -> ChannelPrefs {
+        try await send(.put, "/api/channels/prefs", json: prefs)
+    }
+
     /// `PUT` / `DELETE /api/channels/{id}/favorite`: one of the profile's favourites or not.
     public func setChannelFavorite(id: Int, _ favorite: Bool) async throws {
         try await sendWithoutResponse(favorite ? .put : .delete, "/api/channels/\(id)/favorite")

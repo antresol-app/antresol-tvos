@@ -8,7 +8,7 @@ import UIKit
 
 /// The live player of a channel («ТВ»): starts the channel's stream (waiting while the
 /// server starts its encoder), plays it at the live edge and zaps to the neighbouring
-/// channels of the list it was opened from (all, favourites or a theme) by number, or to a
+/// channels of the list it was opened from (all, favourites or a theme) in its order, or to a
 /// channel picked in the mini-guide. The channel's guide (on now, next) and the list are
 /// refreshed every 30 s.
 ///
@@ -41,7 +41,7 @@ final class LivePlayerModel {
 
     private(set) var state: State = .connecting(isStarting: false)
     private(set) var channel: Channel
-    /// Every channel the profile sees, by number.
+    /// Every channel the profile sees, in the server's order.
     private(set) var channels: [Channel]
     /// The list the player was opened from: channel up / down stays inside it.
     let filter: ChannelFilter
@@ -128,10 +128,11 @@ final class LivePlayerModel {
         channel = request.channel
         filter = request.filter
         categories = request.categories
-        var channels = request.channels.sorted(by: Channel.byNumber)
+        // The list's order as the server sent it (favourites first when the profile wants
+        // them so): channel up / down goes down that list, as the rows on the TV page.
+        var channels = request.channels
         if !channels.contains(where: { $0.id == request.channel.id }) {
             channels.append(request.channel)
-            channels.sort(by: Channel.byNumber)
         }
         self.channels = channels
         externalSelection = ExternalTrackMemory().selection(for: request.channel.id)
@@ -151,7 +152,7 @@ final class LivePlayerModel {
     }
 
     /// What channel up / down and the mini-guide go through: the list the player was opened
-    /// from, by number (the current channel kept in its place).
+    /// from, in its order (the current channel kept in its place).
     var zapList: [Channel] {
         filter.zapList(channels, current: channel)
     }

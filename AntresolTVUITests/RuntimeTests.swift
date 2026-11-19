@@ -107,6 +107,59 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(row.exists && row.hasFocus, "focus left the last channel: \(focusedLabel)")
     }
 
+    /// «Избранные каналы первыми» (the mock's second port: on, channel 3 starred): the list
+    /// keeps the server's order, the favourite on top; the category list starts with
+    /// Favourites and All; rows without a logo that loads show the guide's icon or the
+    /// initials. Turned off in Settings, the list is by number again.
+    func testChannelListFavouritesFirst() {
+        signInOnSecondPort()
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        let starred = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Драмы")).firstMatch
+        let first = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Все фильмы")).firstMatch
+        XCTAssertTrue(starred.waitForExistence(timeout: 20) && first.waitForExistence(timeout: 5), "no channel rows")
+        // Up to the top of the list, where the favourite is.
+        for _ in 0..<30 where !starred.hasFocus {
+            remote.press(.up)
+            usleep(300_000)
+        }
+        sleep(2)
+        XCTAssertLessThan(starred.frame.minY, first.frame.minY, "the favourite (3) is not above channel 1")
+        snapshot("rt-70-tv-favourites-first")
+
+        // The category list: Favourites, then All, then the categories.
+        let categories = app.buttons["tv.categories"]
+        XCTAssertTrue(moveFocus(.up, to: categories, limit: 4), "no category button: \(focusedLabel)")
+        remote.press(.select)
+        let favourites = app.buttons["tv.category.favorites"]
+        let all = app.buttons["tv.category.all"]
+        XCTAssertTrue(favourites.waitForExistence(timeout: 10) && all.exists, "no category list")
+        XCTAssertLessThan(favourites.frame.minY, all.frame.minY, "Favourites is not first")
+        sleep(1)
+        snapshot("rt-71-tv-categories")
+        remote.press(.menu)
+        sleep(2)
+
+        // Settings: «Избранные каналы первыми» off.
+        XCTAssertTrue(openSection("Kiddo", prefix: true, showing: app.buttons["Switch Profile"]), "no Settings: \(focusedLabel)")
+        sleep(2)
+        remote.press(.down)
+        sleep(1)
+        moveFocus(.right, to: setting("Video Quality"), limit: 3)
+        let row = setting("Favourite Channels First")
+        XCTAssertTrue(moveFocus(.down, to: row, limit: 8), "no Favourite Channels First row: \(focusedLabel)")
+        XCTAssertTrue(row.label.contains("On"), "not on to start with: \(row.label)")
+        remote.press(.select)
+        XCTAssertTrue(wait(10) { row.label.contains("Off") }, "the row did not turn off: \(row.label)")
+        snapshot("rt-72-settings-favourites-first-off")
+        XCTAssertTrue(mockEvents().contains { $0["method"] as? String == "PUT" && $0["path"] as? String == "/api/channels/prefs" }, "no PUT /api/channels/prefs")
+
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        XCTAssertTrue(wait(15) { first.exists && starred.exists && first.frame.minY < starred.frame.minY }, "the list is not by number after the change")
+        snapshot("rt-73-tv-by-number")
+        mock("POST", "/mock/reset")
+    }
+
     /// With focus off its buttons the hero moves on by itself every 8 s, unless Reduce
     /// Motion is on (Settings > Accessibility > Motion), when it stays.
     func testHeroAutoAdvance() {

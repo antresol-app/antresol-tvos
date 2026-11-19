@@ -369,3 +369,5 @@
 "Keep Apart" = "Оставить";
 "Couldn’t switch the history" = "Не удалось переключить историю";
 "A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in." = "Своя история для общего устройства: «Продолжить», просмотренное и «Семья смотрит» не смешиваются с вашими. Доступ и ограничения — как у профиля, отдельного входа нет.";
+"Favourite Channels First" = "Избранные каналы первыми";
+"Favourite channels are listed at the top of the channel list and the guide, each part by number." = "Избранные каналы стоят в начале списка каналов и телегида, каждая часть — по номерам.";
