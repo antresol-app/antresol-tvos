@@ -356,3 +356,16 @@
 "Recap" = "Пересказ";
 "Intro" = "Вступление";
 "Credits" = "Титры";
+
+/* Separate history on this device (the web's wording) */
+"Separate Histories" = "Отдельные истории";
+"Separate History on This Device" = "Отдельная история на этом устройстве";
+"New History…" = "Новая история…";
+"Name" = "Название";
+"For example, Living Room" = "Например, Гостиная";
+"Return “%@” to your history?" = "Вернуть «%@» к вашей истории?";
+"What was watched on this device can move into your profile, or stay apart — it comes back if you turn this on again." = "Что смотрели на этом устройстве, можно перенести в ваш профиль или оставить отдельно — тогда история вернётся, если снова включить.";
+"Move to My Profile" = "Перенести в мой профиль";
+"Keep Apart" = "Оставить";
+"Couldn’t switch the history" = "Не удалось переключить историю";
+"A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in." = "Своя история для общего устройства: «Продолжить», просмотренное и «Семья смотрит» не смешиваются с вашими. Доступ и ограничения — как у профиля, отдельного входа нет.";

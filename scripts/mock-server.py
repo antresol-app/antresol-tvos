@@ -25,6 +25,13 @@ The second port also keeps what it was asked, for the UI tests (never on the mai
     POST /mock/reset               forgets them, and the failures still armed
     POST /mock/fail-progress/<id>  the next `GET /api/progress/<id>` answers 503, once
 
+«Отдельная история на этом устройстве»: `GET`/`POST /api/me/managed` and
+`PUT /api/me/devices/current/history` answer as the server does on both ports, kept per port for
+the run (one history, «Living Room», to start with; the kid's writes answer 403), and `/api/me`
+carries the device's `deviceHistory`. The second port's profile picker has a third, passwordless
+adult profile («Family») to switch it with; while it is on, Home's Continue Watching is another
+one (the device's own), and `/mock/reset` puts it back.
+
 Its play answers carry skip segments: the film (file 12) an intro at 0:18–0:30 and credits
 running to its end from 0:44, the episode (file 2, a 60 s file there) credits from 0:18;
 `PUT /api/me/playback-prefs/auto-skip` is kept (the event has its `body`) and the playback
@@ -61,6 +68,59 @@ LIVE_AUDIO = [("Русский", "ru"), ("English", "en"), ("Оригинал", 
 KID_TOKEN = "mock-kid-token"
 KID_USER = {"id": 2, "name": "Kiddo", "avatar": "grad-4", "photo": "/api/profiles/2/photo?v=1763500000", "hasPassword": False, "isAdmin": False,
             "isKid": True, "maxRating": "PG", "remote": False, "libraryOnly": True}
+
+# The second port's passwordless adult profile, for «Отдельная история на этом устройстве».
+FAMILY_TOKEN = "mock-family-token"
+FAMILY_USER = {"id": 3, "name": "Family", "avatar": "grad-6", "hasPassword": False, "isAdmin": False,
+               "isKid": False, "remote": False, "libraryOnly": True}
+
+
+def new_history_state():
+    return {"accounts": [{"id": 20, "name": "Living Room", "avatar": "grad-2"}], "next": 21, "current": None, "kept": None}
+
+
+def history_ref(state):
+    found = next((a for a in state["accounts"] if a["id"] == state["current"]), None)
+    return {"id": found["id"], "name": found["name"]} if found else None
+
+
+def managed_request(state, method, path, body, kid):
+    """(status, json) of the separate-history endpoints, None for other paths."""
+    if path == "/api/me/managed" and method == "GET":
+        return 200, {"items": [dict(a, devices=[{"id": 1, "kind": "native", "name": "Apple TV", "model": "AppleTV14,1"}]
+                                    if a["id"] == state["current"] else []) for a in state["accounts"]]}
+    if path not in ("/api/me/managed", "/api/me/devices/current/history"):
+        return None
+    if kid:
+        return 403, {"error": "Only an administrator can change this"}
+    if path == "/api/me/managed" and method == "POST":
+        name = str(body.get("name", "")).strip()
+        if not name:
+            return 400, {"error": "Enter a name"}
+        account = {"id": state["next"], "name": name, "avatar": "grad-3"}
+        state["next"] += 1
+        state["accounts"].append(account)
+        return 201, dict(account, devices=[])
+    if path == "/api/me/devices/current/history" and method == "PUT":
+        if body.get("separate"):
+            wanted = body.get("accountId") or state["kept"]
+            if wanted and not any(a["id"] == wanted for a in state["accounts"]):
+                return 404, {"error": "No such history"}
+            if not wanted:
+                wanted = state["next"]
+                state["next"] += 1
+                state["accounts"].append({"id": wanted, "name": "Apple TV", "avatar": "grad-3"})
+            state["current"] = wanted
+        else:
+            was, state["current"] = state["current"], None
+            if body.get("merge") and was:
+                state["accounts"] = [a for a in state["accounts"] if a["id"] != was]
+                state["kept"] = None
+            else:
+                state["kept"] = was
+        return 200, {"id": 1, "history": history_ref(state)}
+    return None
+
 
 ROUTES = {
     ("GET", r"/api/health"): "health.json",
@@ -521,8 +581,21 @@ class Handler(BaseHTTPRequestHandler):
         # Profile 2 is a kid profile, as on the sample server.
         if method == "POST" and path == "/api/auth/token" and json.loads(body or b"{}").get("userId") == 2:
             return self.send(200, json.dumps({"token": KID_TOKEN, "user": KID_USER}).encode(), "application/json")
-        if method == "GET" and path == "/api/me" and KID_TOKEN in (self.headers.get("Authorization") or ""):
-            return self.send(200, json.dumps(KID_USER).encode(), "application/json")
+        authorization = self.headers.get("Authorization") or ""
+        pairing_port = getattr(self.server, "pairing", False)
+        if pairing_port and path == "/api/profiles" and method == "GET":
+            profiles = json.loads((SAMPLES / "profiles.json").read_text())
+            return self.send(200, json.dumps(profiles + [{k: FAMILY_USER[k] for k in ("id", "name", "avatar", "hasPassword")}]).encode(), "application/json")
+        if pairing_port and method == "POST" and path == "/api/auth/token" and json.loads(body or b"{}").get("userId") == 3:
+            user = dict(FAMILY_USER, deviceHistory=history_ref(self.server.history))
+            return self.send(200, json.dumps({"token": FAMILY_TOKEN, "user": user}).encode(), "application/json")
+        if method == "GET" and path == "/api/me":
+            me = KID_USER if KID_TOKEN in authorization else FAMILY_USER if FAMILY_TOKEN in authorization else json.loads((SAMPLES / "me.json").read_text())
+            return self.send(200, json.dumps(dict(me, deviceHistory=history_ref(self.server.history))).encode(), "application/json")
+        handled = managed_request(self.server.history, method, path, json.loads(body or b"{}") if method in ("POST", "PUT") else {},
+                                  kid=KID_TOKEN in authorization)
+        if handled:
+            return self.send(handled[0], json.dumps(handled[1]).encode(), "application/json")
         # QR sign-in, on the second port only.
         if method == "POST" and getattr(self.server, "pairing", False):
             if path == "/api/auth/pair/start":
@@ -596,6 +669,11 @@ class Handler(BaseHTTPRequestHandler):
             home = home_with_hero()
             if getattr(self.server, "pairing", False):
                 home_with_series(home)
+            if self.server.history["current"]:
+                # Another history has another Continue Watching: what this device watched.
+                for shelf in home["shelves"]:
+                    if shelf["id"] == "continue":
+                        shelf["cards"] = [c for c in shelf["cards"] if c.get("title") == "Plain Clip"]
             return self.send(200, json.dumps(home).encode(), "application/json")
         # Live channels: the list and guides, on air now; every channel plays the same stream.
         if method == "GET" and path == "/api/channels":
@@ -659,6 +737,7 @@ class Handler(BaseHTTPRequestHandler):
                     server.events.clear()
                     server.fail_progress.clear()
                     server.auto_skip.clear()
+                    server.history = new_history_state()
                     payload = b"{}"
                 elif method == "POST" and match:
                     server.fail_progress.add(int(match.group(1)))
@@ -678,7 +757,7 @@ class Handler(BaseHTTPRequestHandler):
                       "agent": self.headers.get("User-Agent", "")}
         if method == "PUT" and path.startswith("/api/progress/"):
             self.event["positionMs"] = self.progress_write
-        if method == "PUT" and path == "/api/me/playback-prefs/auto-skip":
+        if method == "PUT" and path in ("/api/me/playback-prefs/auto-skip", "/api/me/devices/current/history"):
             self.event["body"] = self.request_body.decode("utf-8", "replace")
         match = re.fullmatch(r"/api/progress/(\d+)", path)
         with server.hooks_lock:
@@ -753,9 +832,11 @@ def main():
     pairing.pairing = True
     pairing.events, pairing.fail_progress, pairing.hooks_lock = [], set(), threading.Lock()
     pairing.auto_skip = {}
+    pairing.history = new_history_state()
     threading.Thread(target=pairing.serve_forever, daemon=True).start()
     main_server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     main_server.auto_skip = {}
+    main_server.history = new_history_state()
     main_server.serve_forever()
 
 

@@ -32,17 +32,21 @@ final class PlaylistActions {
     }
 }
 
-/// Name entry for a new or renamed playlist: a text field (Select opens the keyboard),
-/// the action and Cancel. Menu cancels.
+/// Name entry for a new or renamed playlist (and a new separate history: `placeholder`,
+/// `symbol`): a text field (Select opens the keyboard), the action and Cancel. Menu
+/// cancels; without `onCancel` (a pushed page) Cancel and Menu go back.
 struct PlaylistNameView: View {
     let title: LocalizedStringKey
     let actionTitle: LocalizedStringKey
     var initialName = ""
+    var placeholder: LocalizedStringKey = "Playlist Name"
+    var symbol = "music.note.list"
     /// Saves the trimmed name; a thrown error is shown under the field.
     let save: (String) async throws -> Void
-    let onCancel: () -> Void
+    let onCancel: (() -> Void)?
 
     @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -52,7 +56,7 @@ struct PlaylistNameView: View {
 
     var body: some View {
         VStack(spacing: 44) {
-            Image(systemName: "music.note.list")
+            Image(systemName: symbol)
                 .font(.system(size: 120, weight: .regular))
                 .foregroundStyle(Theme.Colors.label2)
                 .accessibilityHidden(true)
@@ -60,7 +64,7 @@ struct PlaylistNameView: View {
                 .font(Theme.Typography.pageTitle)
                 .foregroundStyle(Theme.Colors.label)
                 .accessibilityAddTraits(.isHeader)
-            TextField("Playlist Name", text: $name)
+            TextField(placeholder, text: $name)
                 .focused($isFieldFocused)
                 .submitLabel(.done)
                 .onSubmit(submit)
@@ -83,7 +87,7 @@ struct PlaylistNameView: View {
                 .buttonStyle(PillButtonStyle(kind: .primary))
                 .disabled(validName == nil || isSaving)
 
-                Button("Cancel", action: onCancel)
+                Button("Cancel", action: cancel)
                     .buttonStyle(PillButtonStyle(kind: .glass))
             }
             .focusSection()
@@ -95,7 +99,11 @@ struct PlaylistNameView: View {
             name = initialName
             isFieldFocused = true
         }
-        .onExitCommand(perform: onCancel)
+        .onExitCommand(perform: cancel)
+    }
+
+    private func cancel() {
+        if let onCancel { onCancel() } else { dismiss() }
     }
 
     private func submit() {
