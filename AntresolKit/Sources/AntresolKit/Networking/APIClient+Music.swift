@@ -2,9 +2,10 @@ import Foundation
 
 // Music (§7).
 extension APIClient {
-    /// `GET /api/music/home`.
+    /// `GET /api/music/home`: only the cards the app can open, each once (`ShelvesResponse.openable`).
     public func musicHome() async throws -> ShelvesResponse {
-        try await send(.get, "/api/music/home")
+        let home: ShelvesResponse = try await send(.get, "/api/music/home")
+        return home.openable
     }
 
     /// `GET /api/music/albums`.

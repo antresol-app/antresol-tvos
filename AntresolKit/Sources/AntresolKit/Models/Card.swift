@@ -2,6 +2,8 @@ import Foundation
 
 /// The summary object returned by almost every list in the API (§3.1).
 public struct Card: Codable, Hashable, Identifiable, Sendable {
+    /// The library item's id. 0 is a title off the library (a TMDB card of «New Releases»; a card
+    /// without an id reads as one): no page can open it, and `Shelf.openable` leaves it out.
     public var id: Int
     public var kind: ItemKind
     public var title: String
@@ -62,7 +64,8 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(Int.self, forKey: .id)
+        // A card the server sent without an id is one off the library, not a reason to fail the response.
+        id = c.value(.id, default: 0)
         kind = c.value(.kind, default: ItemKind(rawValue: ""))
         title = c.value(.title, default: "")
         subtitle = c.value(.subtitle, default: "")
@@ -112,6 +115,33 @@ public struct Shelf: Codable, Hashable, Identifiable, Sendable {
         id = c.value(.id, default: "")
         title = c.value(.title, default: "")
         cards = c.value(.cards, default: [])
+    }
+
+    /// The cards the app can show: library items, each once. «New Releases» (`tracked-new`) also
+    /// lists followed titles that are not in the library as TMDB cards with id 0, which no page can
+    /// open (`/api/items/0`) and which share kind and id: a row keyed by them would hold one
+    /// identity several times, which SwiftUI treats as undefined.
+    public var openable: Shelf {
+        let kept = cards.openable
+        return kept.count == cards.count ? self : Shelf(id: id, title: title, cards: kept)
+    }
+}
+
+extension Array where Element == Card {
+    /// The cards with a library id, the first of each kind and id.
+    var openable: [Card] {
+        var seen = Set<String>()
+        return filter { $0.id > 0 && seen.insert($0.uniqueKey).inserted }
+    }
+}
+
+extension Array where Element == Shelf {
+    /// Every shelf's `openable` cards, without the shelves left with none.
+    var openable: [Shelf] {
+        compactMap { shelf in
+            let kept = shelf.openable
+            return kept.cards.isEmpty ? nil : kept
+        }
     }
 }
 
@@ -179,6 +209,11 @@ public struct HomeResponse: Decodable, Sendable {
         shelves.first { $0.id == id }
     }
 
+    /// What the app shows: `Shelf.openable` hero and shelves.
+    public var openable: HomeResponse {
+        HomeResponse(hero: hero.openable, shelves: shelves.openable)
+    }
+
     /// Home without books, audiobooks and comics, which the TV app does not offer: their
     /// cards leave the hero and every shelf, and shelves left empty are dropped.
     public var withoutBooks: HomeResponse {
@@ -196,6 +231,10 @@ public struct HomeResponse: Decodable, Sendable {
 public struct ShelvesResponse: Decodable, Sendable {
     public var shelves: [Shelf]
 
+    public init(shelves: [Shelf]) {
+        self.shelves = shelves
+    }
+
     enum CodingKeys: String, CodingKey { case shelves }
 
     public init(from decoder: Decoder) throws {
@@ -205,5 +244,10 @@ public struct ShelvesResponse: Decodable, Sendable {
 
     public func shelf(_ id: String) -> Shelf? {
         shelves.first { $0.id == id }
+    }
+
+    /// What the app shows: `Shelf.openable` shelves.
+    public var openable: ShelvesResponse {
+        ShelvesResponse(shelves: shelves.openable)
     }
 }
