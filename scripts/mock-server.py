@@ -59,7 +59,7 @@ LIVE_SEGMENT_SECONDS = 4
 LIVE_AUDIO = [("Русский", "ru"), ("English", "en"), ("Оригинал", "fr")]
 
 KID_TOKEN = "mock-kid-token"
-KID_USER = {"id": 2, "name": "Kiddo", "avatar": "grad-4", "hasPassword": False, "isAdmin": False,
+KID_USER = {"id": 2, "name": "Kiddo", "avatar": "grad-4", "photo": "/api/profiles/2/photo?v=1763500000", "hasPassword": False, "isAdmin": False,
             "isKid": True, "maxRating": "PG", "remote": False, "libraryOnly": True}
 
 ROUTES = {
@@ -190,6 +190,27 @@ def image_for(path):
         size = (960, 540) if path.endswith("backdrop") or "/frame/" in path else (400, 600)
         _images[path] = png(*size, top, bottom)
     return _images[path]
+
+
+def profile_photo():
+    """Kiddo's profile photo: a smiling face on a sky gradient, nothing a letter avatar
+    could be taken for."""
+    if "profile-photo" not in _images:
+        n = 128
+        rows = bytearray()
+        for y in range(n):
+            rows += b"\x00"
+            for x in range(n):
+                face = (x - 64) ** 2 + (y - 70) ** 2 <= 40 ** 2
+                eye = (x - 50) ** 2 + (y - 58) ** 2 <= 30 or (x - 78) ** 2 + (y - 58) ** 2 <= 30
+                mouth = 20 ** 2 <= (x - 64) ** 2 + (y - 70) ** 2 <= 24 ** 2 and y > 78
+                rows += b"\x30\x20\x20" if face and (eye or mouth) else b"\xf4\xc8\x9a" if face else bytes((70 + y // 2, 130 + y // 3, 220))
+        def chunk(kind, data):
+            body = kind + data
+            return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+        header = struct.pack(">IIBBBBB", n, n, 8, 2, 0, 0, 0)
+        _images["profile-photo"] = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(bytes(rows), 6)) + chunk(b"IEND", b"")
+    return _images["profile-photo"]
 
 
 def comic_page(index):
@@ -536,6 +557,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        # Kiddo's photo (`photo` of the profile samples); Admin has none and keeps the letter.
+        if method == "GET" and path == "/api/profiles/2/photo":
+            return self.send(200, profile_photo(), "image/png")
         if method == "GET" and path.startswith("/api/images/"):
             return self.send(200, image_for(path), "image/png")
         if method == "POST" and path == "/api/logout":

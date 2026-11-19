@@ -36,22 +36,27 @@ public struct Profile: Codable, Hashable, Identifiable, Sendable {
     public var id: Int
     public var name: String
     public var avatar: String
+    /// The profile's photo, `/api/profiles/{id}/photo?v=…` (no token needed; the version
+    /// changes with each upload, so a new photo is a new address), or "" for the letter.
+    public var photo: String
     public var hasPassword: Bool
 
-    public init(id: Int, name: String, avatar: String, hasPassword: Bool) {
+    public init(id: Int, name: String, avatar: String, photo: String = "", hasPassword: Bool) {
         self.id = id
         self.name = name
         self.avatar = avatar
+        self.photo = photo
         self.hasPassword = hasPassword
     }
 
-    enum CodingKeys: String, CodingKey { case id, name, avatar, hasPassword }
+    enum CodingKeys: String, CodingKey { case id, name, avatar, photo, hasPassword }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(Int.self, forKey: .id)
         name = c.value(.name, default: "")
         avatar = c.value(.avatar, default: AvatarPreset.fallback.rawValue)
+        photo = c.value(.photo, default: "")
         hasPassword = c.value(.hasPassword, default: false)
     }
 
@@ -65,6 +70,8 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
     public var id: Int
     public var name: String
     public var avatar: String
+    /// As `Profile.photo`.
+    public var photo: String
     public var hasPassword: Bool
     public var isAdmin: Bool
     public var isKid: Bool
@@ -75,12 +82,13 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
     public var libraryOnly: Bool
 
     public init(
-        id: Int, name: String, avatar: String, hasPassword: Bool = false, isAdmin: Bool = false,
+        id: Int, name: String, avatar: String, photo: String = "", hasPassword: Bool = false, isAdmin: Bool = false,
         isKid: Bool = false, maxRating: String? = nil, remote: Bool = false, libraryOnly: Bool = true
     ) {
         self.id = id
         self.name = name
         self.avatar = avatar
+        self.photo = photo
         self.hasPassword = hasPassword
         self.isAdmin = isAdmin
         self.isKid = isKid
@@ -90,7 +98,7 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, avatar, hasPassword, isAdmin, isKid, maxRating, remote, libraryOnly
+        case id, name, avatar, photo, hasPassword, isAdmin, isKid, maxRating, remote, libraryOnly
     }
 
     public init(from decoder: Decoder) throws {
@@ -98,6 +106,7 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
         id = try c.decode(Int.self, forKey: .id)
         name = c.value(.name, default: "")
         avatar = c.value(.avatar, default: AvatarPreset.fallback.rawValue)
+        photo = c.value(.photo, default: "")
         hasPassword = c.value(.hasPassword, default: false)
         isAdmin = c.value(.isAdmin, default: false)
         isKid = c.value(.isKid, default: false)

@@ -1,11 +1,20 @@
 import AntresolKit
 import SwiftUI
+import UIKit
 
-/// A profile avatar: the first letter of the name on the profile's `grad-N` gradient.
+/// A profile avatar: the profile's photo when it has one, over the first letter of the name
+/// on the profile's `grad-N` gradient, which shows while the photo loads, when it fails and
+/// when there is none. The photo comes through `ImagePipeline` (memory and disk cache); its
+/// address carries the upload's version, so a changed photo is a new address.
 struct AvatarView: View {
     let name: String
     let preset: AvatarPreset
+    /// The profile's `photo` field; "" draws the letter only.
+    var photo: String = ""
     var size: CGFloat = 120
+    /// An already loaded photo, for a picture drawn off screen (`ImageRenderer` has no
+    /// environment to load `photo` with).
+    var loadedPhoto: UIImage?
 
     var body: some View {
         Circle()
@@ -16,6 +25,16 @@ struct AvatarView: View {
                     .foregroundStyle(.white)
                     .minimumScaleFactor(0.5)
             }
+            .overlay {
+                if let loadedPhoto {
+                    Image(uiImage: loadedPhoto)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else if !photo.isEmpty {
+                    RemoteImage(path: photo, maxPixelSize: size * 2)
+                }
+            }
+            .clipShape(Circle())
             .frame(width: size, height: size)
             .accessibilityHidden(true)
     }
@@ -27,11 +46,11 @@ struct AvatarView: View {
 
 extension AvatarView {
     init(profile: Profile, size: CGFloat = 120) {
-        self.init(name: profile.name, preset: profile.avatarPreset, size: size)
+        self.init(name: profile.name, preset: profile.avatarPreset, photo: profile.photo, size: size)
     }
 
     init(user: User, size: CGFloat = 120) {
-        self.init(name: user.name, preset: user.avatarPreset, size: size)
+        self.init(name: user.name, preset: user.avatarPreset, photo: user.photo, size: size)
     }
 }
 

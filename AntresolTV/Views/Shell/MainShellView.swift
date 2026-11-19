@@ -102,8 +102,9 @@ struct MainShellView: View {
             if let client = appState.client {
                 audio.attach(to: appState, mediaKeys: playback.mediaKeyStore(for: client))
             }
-            avatarImage = renderAvatar()
         }
+        // Again when the profile's photo changes (read on each return to the app).
+        .task(id: user.photo) { avatarImage = await renderAvatar() }
         .onDisappear { audio.shutdown() }
     }
 
@@ -294,10 +295,17 @@ struct MainShellView: View {
         playback.watch(channel, channels: channels)
     }
 
-    /// The avatar circle (grad-N gradient and initial) as an image that keeps its colours
-    /// in the tab bar.
-    private func renderAvatar() -> UIImage? {
-        let renderer = ImageRenderer(content: AvatarView(user: user, size: 40))
+    /// The avatar circle (the photo, or the grad-N gradient and initial) as an image that
+    /// keeps its colours in the tab bar. The photo is loaded first: the renderer draws
+    /// one frame and cannot wait for it.
+    private func renderAvatar() async -> UIImage? {
+        var photo: UIImage?
+        if let client = appState.client, let url = client.urls.image(user.photo) {
+            photo = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 80)
+        }
+        let renderer = ImageRenderer(
+            content: AvatarView(name: user.name, preset: user.avatarPreset, size: 40, loadedPhoto: photo)
+        )
         renderer.scale = 2
         return renderer.uiImage?.withRenderingMode(.alwaysOriginal)
     }
