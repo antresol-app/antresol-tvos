@@ -37,11 +37,14 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
     public var logoUrl: String
     /// An external channel's row (its stream comes with the channel list).
     public var external: Bool
+    /// As `Channel.categories`.
+    public var categories: [String]?
 
     public init(
         id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, programs: [ChannelProgram] = [],
-        logoUrl: String = "", external: Bool = false
+        logoUrl: String = "", external: Bool = false, categories: [String]? = nil
     ) {
+        self.categories = categories
         self.logoUrl = logoUrl
         self.external = external
         self.id = id
@@ -52,7 +55,7 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
         self.programs = programs.sorted { $0.start < $1.start }
     }
 
-    enum CodingKeys: String, CodingKey { case id, number, name, category, favorite, programs, logoUrl, external }
+    enum CodingKeys: String, CodingKey { case id, number, name, category, favorite, programs, logoUrl, external, categories }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -64,11 +67,15 @@ public struct ChannelEPG: Decodable, Hashable, Identifiable, Sendable {
         programs = (c.value(.programs, default: [ChannelProgram]())).sorted { $0.start < $1.start }
         logoUrl = c.value(.logoUrl, default: "")
         external = c.value(.external, default: false)
+        categories = c.optional(.categories)
     }
 
     /// The row as a channel (no now / next), for filters and the player.
     public var channel: Channel {
-        Channel(id: id, number: number, name: name, category: category, favorite: favorite, logoUrl: logoUrl, external: external)
+        Channel(
+            id: id, number: number, name: name, category: category, favorite: favorite, logoUrl: logoUrl, external: external,
+            categories: categories
+        )
     }
 
     /// The row as the list's channel (an external one with its stream, which the row lacks).

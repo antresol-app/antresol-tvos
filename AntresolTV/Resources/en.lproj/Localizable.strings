@@ -281,6 +281,13 @@
 "Press and hold a channel, or use the star in the player, to add it to Favourites." = "Press and hold a channel, or use the star in the player, to add it to Favourites.";
 "Press and hold a channel in the list, or use the star in the player, to add it to Favourites." = "Press and hold a channel in the list, or use the star in the player, to add it to Favourites.";
 "Choose another filter." = "Choose another filter.";
+"All Channels" = "All Channels";
+"No category" = "No category";
+"Categories" = "Categories";
+"Topics" = "Topics";
+"Sources" = "Sources";
+"Groups" = "Groups";
+"%@, %lld channels. Choose a category" = "%@, %lld channels. Choose a category";
 "Watch" = "Watch";
 "Remove from Favourites" = "Remove from Favourites";
 "Add to Favourites" = "Add to Favourites";

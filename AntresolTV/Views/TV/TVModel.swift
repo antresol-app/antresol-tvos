@@ -48,9 +48,10 @@ final class TVModel {
     // `deriveGuide`), not on every read: the views read them for each row and block they
     // draw, on every focus move.
 
-    /// The filters the list offers.
-    private(set) var filters: [ChannelFilter] = []
-    /// The chosen filter, or All when its theme is gone from the list.
+    /// The category list: All, Favourites, then the server's categories (AI topics,
+    /// sources, groups), each with the number of channels it shows.
+    private(set) var filterOptions: [ChannelFilterOption] = []
+    /// The chosen filter, or All when its category is gone from the list.
     private(set) var activeFilter: ChannelFilter = .all
     /// The channels the list shows.
     private(set) var channels: [Channel] = []
@@ -86,8 +87,8 @@ final class TVModel {
     }
 
     private func derive() {
-        filters = ChannelFilter.options(for: list.channels)
-        activeFilter = filters.contains(filter) ? filter : .all
+        filterOptions = ChannelFilter.options(for: list.channels, server: list.categories)
+        activeFilter = filter.valid(in: list.channels)
         channels = activeFilter.apply(to: list.channels)
         deriveGuide()
     }

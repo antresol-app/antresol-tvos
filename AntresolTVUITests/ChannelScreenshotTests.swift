@@ -91,6 +91,47 @@ final class ChannelScreenshotTests: XCTestCase {
         sleep(1)
     }
 
+    /// The profile picker with the profiles' photos (the letter for one without), the
+    /// category button and its list (the server's AI topics, sources and groups with
+    /// headings and counts), the list narrowed to a topic, and the sidebar's avatar.
+    func testCategories() {
+        app.launchArguments += ["-tv.mode", "channels", "-tv.filter", "all"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts[t("Who's watching?", "Кто смотрит?")].waitForExistence(timeout: 40), "no profile picker")
+        shot("c-01-picker", delay: 3)
+        signIn(profile, password: password)
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        shot("c-02-list", delay: 4)
+        let button = app.buttons["tv.categories"]
+        XCTAssertTrue(focusByGeometry(button), "no category button: \(focusedLabel)")
+        shot("c-03-button", delay: 1)
+        remote.press(.select)
+        shot("c-04-categories", delay: 2)
+        // From the current one (All) past Favourites to the first topic, and choose it.
+        remote.press(.down)
+        sleep(1)
+        remote.press(.down)
+        shot("c-05-categories-topic", delay: 1)
+        remote.press(.select)
+        shot("c-06-topic-list", delay: 3)
+        XCTAssertFalse(button.hasFocus, "the chosen category's channels take focus, not the button")
+        // The sidebar, with the profile's photo at its top.
+        for _ in 0..<3 {
+            remote.press(.left)
+            sleep(1)
+        }
+        shot("c-07-sidebar", delay: 2)
+        // The profile page: its photo, large.
+        // (its sidebar entry is «<name>, Profile and Settings», the sidebar's last)
+        for _ in 0..<4 where !focusedLabel.hasPrefix(profile) {
+            remote.press(.down)
+            sleep(1)
+        }
+        remote.press(.select)
+        XCTAssertTrue(app.buttons[t("Switch Profile", "Сменить профиль")].waitForExistence(timeout: 20), "no profile page: \(focusedLabel)")
+        shot("c-08-settings", delay: 3)
+    }
+
     /// The Favourites filter.
     func testFavourites() {
         launch(filter: "favorites")

@@ -12,7 +12,8 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     public var number: Int
     /// In the viewer's language (the server translates generated names).
     public var name: String
-    /// The theme the channel belongs to: a filter of the list, nothing more.
+    /// The channel's own category text (a playlist's group-title, an own channel's theme).
+    /// The filter uses `categories`; this is its fallback on an older server.
     public var category: String
     /// One of the profile's favourites (per profile, on the server).
     public var favorite: Bool
@@ -29,12 +30,18 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     public var external: Bool
     /// How to play an external channel (nil for the server's own channels).
     public var stream: ChannelStream?
+    /// The ids of its categories (`ChannelCategory.id`): the AI topics, the source and the
+    /// playlist groups, or its own category as `group:<name>`. nil on a server that does not
+    /// send them (the server also leaves it out for a channel in none): see
+    /// `ChannelFilter.categories(of:)`.
+    public var categories: [String]?
 
     public init(
         id: Int, number: Int, name: String, category: String = "", favorite: Bool = false, personal: Bool = false,
         auto: Bool = false, enabled: Bool = true, now: ChannelProgram? = nil, next: ChannelProgram? = nil,
-        logoUrl: String = "", external: Bool = false, stream: ChannelStream? = nil
+        logoUrl: String = "", external: Bool = false, stream: ChannelStream? = nil, categories: [String]? = nil
     ) {
+        self.categories = categories
         self.logoUrl = logoUrl
         self.external = external || stream != nil
         self.stream = stream
@@ -51,7 +58,7 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, number, name, category, favorite, personal, auto, enabled, now, next, logoUrl, external, stream
+        case id, number, name, category, favorite, personal, auto, enabled, now, next, logoUrl, external, stream, categories
     }
 
     public init(from decoder: Decoder) throws {
@@ -69,6 +76,7 @@ public struct Channel: Decodable, Hashable, Identifiable, Sendable {
         logoUrl = c.value(.logoUrl, default: "")
         stream = c.optional(.stream)
         external = c.value(.external, default: false) || stream != nil
+        categories = c.optional(.categories)
     }
 
     /// What is on at `date`: `now`, or `next` once `now` has ended (the list is refreshed
@@ -266,15 +274,22 @@ public struct ChannelList: Decodable, Hashable, Sendable {
     /// The profile may manage channels (web only).
     public var canManage: Bool
     public var canCreate: Bool
+    /// The viewer's categories in the filter's order (topics, sources, groups); nil from a
+    /// server that has none (the filter then groups by the channels' own `category`).
+    public var categories: [ChannelCategory]?
 
-    public init(channels: [Channel], lastChannel: Int? = nil, canManage: Bool = false, canCreate: Bool = false) {
+    public init(
+        channels: [Channel], lastChannel: Int? = nil, canManage: Bool = false, canCreate: Bool = false,
+        categories: [ChannelCategory]? = nil
+    ) {
+        self.categories = categories
         self.channels = channels
         self.lastChannel = lastChannel
         self.canManage = canManage
         self.canCreate = canCreate
     }
 
-    enum CodingKeys: String, CodingKey { case channels, lastChannel, canManage, canCreate }
+    enum CodingKeys: String, CodingKey { case channels, lastChannel, canManage, canCreate, categories }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -282,6 +297,7 @@ public struct ChannelList: Decodable, Hashable, Sendable {
         lastChannel = c.optional(.lastChannel)
         canManage = c.value(.canManage, default: false)
         canCreate = c.value(.canCreate, default: false)
+        categories = c.optional(.categories)
     }
 
     /// The last channel as the list has it, or nil when there is none or the profile no

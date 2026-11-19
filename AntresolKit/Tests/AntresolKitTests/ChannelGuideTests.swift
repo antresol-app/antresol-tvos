@@ -19,18 +19,61 @@ final class ChannelGuideTests: XCTestCase {
 
     // MARK: Filters
 
-    func testFilterOptionsAreAllFavouritesThenThemesByLowestNumber() {
+    func testFilterOptionsWithoutServerCategoriesAreTheChannelsOwnGroups() {
+        // An older server: no `categories`, the channels' own `category` text groups them.
         let channels = [channel(1, 40, "Decades"), channel(2, 10, "Genres"), channel(3, 1, "All"), channel(4, 2, "Decades"), channel(5, 3, "")]
-        XCTAssertEqual(ChannelFilter.options(for: channels), [.all, .favorites, .category("All"), .category("Decades"), .category("Genres")])
-        XCTAssertEqual(ChannelFilter.options(for: []), [.all, .favorites])
+        let options = ChannelFilter.options(for: channels)
+        XCTAssertEqual(options.map(\.filter), [
+            .all, .favorites, .category("group:All"), .category("group:Decades"), .category("group:Genres"), .category(ChannelFilter.noCategory),
+        ])
+        XCTAssertEqual(options.map(\.count), [5, 0, 1, 2, 1, 1])
+        XCTAssertEqual(options[3].label, "Decades")
+        XCTAssertEqual(ChannelFilter.options(for: []).map(\.filter), [.all, .favorites])
+        XCTAssertEqual(ChannelFilter.category(ChannelFilter.noCategory).apply(to: channels).map(\.id), [5])
+    }
+
+    func testFilterOptionsFollowTheServersCategories() throws {
+        // The server's list names and orders them (topics, sources, groups); counts are the
+        // channels the app really has, and a category nobody is in is left out.
+        let json = #"""
+        {"channels": [
+          {"id": 1, "number": 1, "name": "One", "category": "Films", "categories": ["ai:news", "source:1", "group:Films"]},
+          {"id": 2, "number": 2, "name": "Two", "category": "Films", "favorite": true, "categories": ["ai:news", "ai:sport", "source:2", "group:Films"]},
+          {"id": 3, "number": 3, "name": "Three", "category": ""}
+        ], "categories": [
+          {"id": "ai:news", "name": "Новости", "kind": "ai", "count": 2},
+          {"id": "ai:sport", "name": "Спорт", "kind": "ai", "count": 1},
+          {"id": "ai:kids", "name": "Детям", "kind": "ai", "count": 4},
+          {"id": "source:1", "name": "Playlist A", "kind": "source", "count": 1},
+          {"id": "source:2", "name": "Playlist B", "kind": "source", "count": 1},
+          {"id": "group:Films", "name": "Films", "kind": "group", "count": 2}
+        ]}
+        """#
+        let list = try JSONDecoder().decode(ChannelList.self, from: Data(json.utf8))
+        let options = ChannelFilter.options(for: list.channels, server: list.categories)
+        XCTAssertEqual(options.map(\.filter), [
+            .all, .favorites, .category("ai:news"), .category("ai:sport"), .category("source:1"), .category("source:2"), .category("group:Films"),
+        ])
+        XCTAssertEqual(options.map(\.count), [3, 1, 2, 1, 1, 1, 2])
+        XCTAssertEqual(options.map(\.kind), [nil, nil, "ai", "ai", "source", "source", "group"])
+        XCTAssertEqual(ChannelFilter.category("ai:sport").apply(to: list.channels).map(\.id), [2])
+        XCTAssertEqual(ChannelFilter.category("ai:news").categoryName(in: list.categories ?? []), "Новости")
+        XCTAssertEqual(ChannelFilter.category("group:Kino").categoryName(in: []), "Kino")
+        XCTAssertNil(ChannelFilter.category("ai:gone").categoryName(in: []))
+        // A category that is gone from the list falls back to All.
+        XCTAssertEqual(ChannelFilter.category("ai:kids").valid(in: list.channels), .all)
+        XCTAssertEqual(ChannelFilter.category("ai:news").valid(in: list.channels), .category("ai:news"))
+        // The guide's rows carry the same ids.
+        let row = try JSONDecoder().decode(ChannelEPG.self, from: Data(#"{"id": 2, "number": 2, "name": "Two", "categories": ["ai:sport"]}"#.utf8))
+        XCTAssertTrue(ChannelFilter.category("ai:sport").matches(row.channel))
     }
 
     func testFiltersKeepTheNumberOrder() {
         let channels = [channel(1, 40, "D", favorite: true), channel(2, 10, "G"), channel(3, 1, "A", favorite: true), channel(4, 2, "D")]
         XCTAssertEqual(ChannelFilter.all.apply(to: channels).map(\.number), [1, 2, 10, 40])
         XCTAssertEqual(ChannelFilter.favorites.apply(to: channels).map(\.number), [1, 40])
-        XCTAssertEqual(ChannelFilter.category("D").apply(to: channels).map(\.number), [2, 40])
-        XCTAssertTrue(ChannelFilter.category("none").apply(to: channels).isEmpty)
+        XCTAssertEqual(ChannelFilter.category("group:D").apply(to: channels).map(\.number), [2, 40])
+        XCTAssertTrue(ChannelFilter.category("group:none").apply(to: channels).isEmpty)
     }
 
     func testZappingStaysInTheListItWasOpenedFrom() {
@@ -39,7 +82,7 @@ final class ChannelGuideTests: XCTestCase {
         XCTAssertEqual(Channel.neighbour(of: 1, in: favourites, step: 1)?.id, 4)
         XCTAssertEqual(Channel.neighbour(of: 4, in: favourites, step: 1)?.id, 1, "wraps")
         XCTAssertEqual(Channel.neighbour(of: 1, in: favourites, step: -1)?.id, 4, "wraps backwards")
-        let theme = ChannelFilter.category("B").zapList(channels, current: channels[1])
+        let theme = ChannelFilter.category("group:B").zapList(channels, current: channels[1])
         XCTAssertEqual(theme.map(\.id), [2, 4])
         // A favourite just removed stays in its place, so zapping on from it is no jump.
         var unstarred = channels
@@ -50,10 +93,12 @@ final class ChannelGuideTests: XCTestCase {
     }
 
     func testFilterStorage() {
-        for filter in [ChannelFilter.all, .favorites, .category("Кино по жанрам"), .category("a:b")] {
+        for filter in [ChannelFilter.all, .favorites, .category("group:Кино по жанрам"), .category("ai:news"), .category("group:a:b")] {
             XCTAssertEqual(ChannelFilter(storageKey: filter.storageKey), filter)
         }
         XCTAssertEqual(ChannelFilter(storageKey: "junk"), .all)
+        // Stored before categories had ids: the theme's name is now its group.
+        XCTAssertEqual(ChannelFilter(storageKey: "category:Кино"), .category("group:Кино"))
     }
 
     // MARK: Guide grid

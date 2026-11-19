@@ -156,12 +156,25 @@ extension Date {
 }
 
 extension ChannelFilter {
-    /// The filter's name in the pill.
-    var title: String {
+    /// What the filter is called: «Все каналы», «Избранное», a category by its name (the
+    /// server's `categories`, else a group's own name) or «Без категории».
+    func title(in categories: [ChannelCategory]) -> String {
         switch self {
-        case .all: return String(localized: "All", bundle: .localized)
+        case .all: return String(localized: "All Channels", bundle: .localized)
         case .favorites: return String(localized: "Favourites", bundle: .localized)
-        case .category(let name): return name
+        case .category: return categoryName(in: categories) ?? String(localized: "No category", bundle: .localized)
+        }
+    }
+}
+
+extension ChannelCategory {
+    /// The heading of a kind of category in the list: «Темы», «Источники», «Группы».
+    static func kindTitle(_ kind: String?) -> String? {
+        switch kind {
+        case kindAI: return String(localized: "Topics", bundle: .localized)
+        case kindSource: return String(localized: "Sources", bundle: .localized)
+        case kindGroup: return String(localized: "Groups", bundle: .localized)
+        default: return nil
         }
     }
 }

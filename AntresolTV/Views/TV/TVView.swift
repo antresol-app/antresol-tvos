@@ -3,8 +3,9 @@ import SwiftUI
 import UIKit
 
 /// The TV tab: the server's live channels («ТВ») as a television has them. One numbered
-/// list (Channels) or the programme guide (Guide), switched at the top; filters All,
-/// Favourites and the themes narrow either view without reordering it. Focus starts on
+/// list (Channels) or the programme guide (Guide), switched at the top; the category
+/// button narrows either view without reordering it (All, Favourites, then the server's
+/// categories: AI topics, sources, playlist groups). Focus starts on
 /// the channel the profile watched last, and a small pill returns to it. Long-press a row
 /// (or open a programme in the guide) to star a channel.
 struct TVView: View {
@@ -24,10 +25,14 @@ struct TVView: View {
     @State private var focusRequest: Int?
     /// Where focus was when that row was asked for (`FocusPlace`).
     @State private var focusPlaceAtRequest: CGRect?
+    /// The category list is up.
+    @State private var showsCategories = false
+    /// A category was chosen in the list now closing: focus goes to the channels.
+    @State private var choseCategory = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TVHeader(model: model, watchLast: watchLast)
+            TVHeader(model: model, watchLast: watchLast, openCategories: { showsCategories = true })
                 .padding(.horizontal, Theme.Layout.margin)
                 .padding(.bottom, 28)
             content
@@ -38,6 +43,16 @@ struct TVView: View {
         // Coming into the page (from the sidebar or back from the player), focus goes to
         // the last channel, not to the header's first control.
         .defaultFocus($focusedRow, initialRow, priority: .userInitiated)
+        // A cover, not an overlay: it keeps focus inside while it is up (the sidebar and the
+        // list behind cannot take it) and Menu closes it, back on the button.
+        .fullScreenCover(isPresented: $showsCategories, onDismiss: focusChosenCategory) {
+            CategoriesPanel(model: model) { filter in
+                model.filter = filter
+                choseCategory = true
+                showsCategories = false
+            }
+            .presentationBackground(.clear)
+        }
         .navigationDestination(item: $details) { details in
             ProgramDetailView(details: details, model: model)
         }
@@ -121,6 +136,22 @@ struct TVView: View {
         }
     }
 
+    /// After a category was chosen: its channels take focus (the last channel when it is
+    /// among them), as on a TV, not the button the list was opened from.
+    private func focusChosenCategory() {
+        guard choseCategory else { return }
+        choseCategory = false
+        guard model.mode == .channels else { return }
+        Task {
+            // The system hands focus back to the button as the cover goes: ask after that,
+            // or the request sees focus move and gives way to it.
+            try? await Task.sleep(for: .milliseconds(400))
+            guard let initialRow else { return }
+            focusPlaceAtRequest = FocusPlace.current()
+            focusRequest = initialRow
+        }
+    }
+
     /// The last channel when the list shows it, else the first channel.
     private var initialRow: Int? {
         let channels = model.channels
@@ -128,12 +159,12 @@ struct TVView: View {
     }
 
     private func watch(_ channel: Channel) {
-        playback.watch(channel, channels: model.list.channels, filter: model.activeFilter)
+        playback.watch(channel, channels: model.list.channels, filter: model.activeFilter, categories: model.list.categories ?? [])
     }
 
     private func watchLast() {
         guard let last = model.list.last else { return }
-        playback.watch(last, channels: model.list.channels, filter: model.activeFilter)
+        playback.watch(last, channels: model.list.channels, filter: model.activeFilter, categories: model.list.categories ?? [])
     }
 }
 
@@ -161,49 +192,217 @@ struct ProgramDetails: Hashable {
 
 // MARK: - Header
 
-/// The page title with the view switch («Каналы | Телегид») and the return to the last
-/// channel, then the filters («Все · Избранное · <themes>»).
+/// The page title with the category button and the view switch («Каналы | Телегид»).
+/// A playlist can bring dozens of categories: a button that opens the list, not a row of
+/// pills.
 private struct TVHeader: View {
     let model: TVModel
     let watchLast: () -> Void
+    let openCategories: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 26) {
-            HStack(alignment: .center, spacing: 32) {
-                Text("TV")
-                    .font(Theme.Typography.pageTitle)
-                    .foregroundStyle(Theme.Colors.label)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 24)
-                // (no «Back to …» pill: the list opens on the last channel, tinted)
-                SegmentedPill(
-                    options: [
-                        .init(value: TVModel.Mode.channels, title: String(localized: "Channels", bundle: .localized)),
-                        .init(value: TVModel.Mode.guide, title: String(localized: "Guide", bundle: .localized)),
-                    ],
-                    selection: Binding(get: { model.mode }, set: { model.mode = $0 })
-                )
+        HStack(alignment: .center, spacing: 32) {
+            Text("TV")
+                .font(Theme.Typography.pageTitle)
+                .foregroundStyle(Theme.Colors.label)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 24)
+            // (no «Back to …» pill: the list opens on the last channel, tinted)
+            CategoryButton(
+                title: model.activeFilter.title(in: model.list.categories ?? []),
+                count: model.channels.count,
+                action: openCategories
+            )
+            SegmentedPill(
+                options: [
+                    .init(value: TVModel.Mode.channels, title: String(localized: "Channels", bundle: .localized)),
+                    .init(value: TVModel.Mode.guide, title: String(localized: "Guide", bundle: .localized)),
+                ],
+                selection: Binding(get: { model.mode }, set: { model.mode = $0 })
+            )
+        }
+        .focusSection()
+        .padding(.top, 24)
+    }
+}
+
+/// The current category and how many channels it shows, with a chevron: Select opens the
+/// category list. Glass at rest, white with black text when focused, like the pills.
+private struct CategoryButton: View {
+    let title: String
+    let count: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 24, weight: .semibold))
+                Text(verbatim: title)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(verbatim: String(count))
+                    .monospacedDigit()
+                    .opacity(0.6)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 20, weight: .bold))
             }
-            .focusSection()
-            ScrollView(.horizontal, showsIndicators: false) {
-                SegmentedPill(
-                    options: model.filters.map { .init(value: $0, title: $0.title) },
-                    selection: Binding(get: { model.activeFilter }, set: { model.filter = $0 })
-                )
-                .padding(.vertical, 12)
-                .padding(.trailing, Theme.Layout.margin)
-            }
-            .scrollClipDisabled()
-            .padding(.vertical, -12)
-            // Themes that run past the screen's edge fade out instead of being cut.
-            .mask(alignment: .leading) {
-                LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.9), .init(color: .clear, location: 1)], startPoint: .leading, endPoint: .trailing)
-                    .padding(.vertical, -40)
-                    .padding(.leading, -Theme.Layout.margin)
-                    .padding(.trailing, -Theme.Layout.margin)
+            .frame(maxWidth: 560)
+            .fixedSize(horizontal: true, vertical: false)
+        }
+        .buttonStyle(CategoryButtonStyle())
+        .accessibilityLabel(Text(verbatim: String(localized: "\(title), \(count) channels. Choose a category", bundle: .localized)))
+        .accessibilityIdentifier("tv.categories")
+    }
+}
+
+private struct CategoryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        CategoryButtonBody(configuration: configuration)
+    }
+}
+
+private struct CategoryButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    @Environment(\.isFocused) private var isFocused
+
+    var body: some View {
+        configuration.label
+            .font(Theme.Typography.segment)
+            .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
+            .padding(.horizontal, 30)
+            .frame(minHeight: 72)
+            .glassSurface(in: Capsule(), highlighted: isFocused)
+            .scaleEffect(isFocused ? Theme.Motion.focusScale : (configuration.isPressed ? 0.97 : 1))
+            .shadow(color: .black.opacity(isFocused ? 0.5 : 0), radius: 16, y: 8)
+            .animation(Theme.Motion.easeOut, value: isFocused)
+    }
+}
+
+// MARK: - Categories
+
+/// The category list on the left: «Все каналы», «Избранное», then the categories as the
+/// server orders them (its AI topics, the sources, the playlists' groups), each with its
+/// channel count; with more than one kind they have headings. The current one is checked
+/// and has focus when the list opens. Select chooses; Menu closes it as it was.
+private struct CategoriesPanel: View {
+    let model: TVModel
+    let choose: (ChannelFilter) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var focused: ChannelFilter?
+
+    /// A row, or the heading above the first row of a kind.
+    private enum Entry: Identifiable {
+        case heading(String)
+        case option(ChannelFilterOption)
+
+        var id: String {
+            switch self {
+            case .heading(let title): return "heading:" + title
+            case .option(let option): return option.filter.storageKey
             }
         }
-        .padding(.top, 24)
+    }
+
+    private var entries: [Entry] {
+        let options = model.filterOptions
+        let headings = Set(options.compactMap(\.kind)).count > 1
+        var shown: String?
+        var out: [Entry] = []
+        for option in options {
+            if headings, let kind = option.kind, kind != shown, let title = ChannelCategory.kindTitle(kind) {
+                out.append(.heading(title))
+            }
+            if option.kind != nil { shown = option.kind }
+            out.append(.option(option))
+        }
+        return out
+    }
+
+    var body: some View {
+        let current = model.activeFilter
+        let categories = model.list.categories ?? []
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Categories")
+                    .font(Theme.Typography.sectionTitle)
+                    .foregroundStyle(Theme.Colors.label)
+                    .padding(.horizontal, Theme.Layout.listRowInset)
+                    .accessibilityAddTraits(.isHeader)
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        LazyVStack(alignment: .leading, spacing: 4) {
+                            ForEach(entries) { entry in
+                                switch entry {
+                                case .heading(let title):
+                                    Text(verbatim: title)
+                                        .font(Theme.Typography.eyebrow)
+                                        .foregroundStyle(Theme.Colors.label3)
+                                        .textCase(.uppercase)
+                                        .padding(.horizontal, Theme.Layout.listRowInset)
+                                        .padding(.top, 22)
+                                        .padding(.bottom, 4)
+                                case .option(let option):
+                                    row(option, title: title(of: option, categories: categories), isOn: option.filter == current)
+                                        .id(option.filter.storageKey)
+                                }
+                            }
+                        }
+                        // room for the focused row's lift
+                        .padding(.vertical, 12)
+                    }
+                    .onAppear { proxy.scrollTo(current.storageKey, anchor: .center) }
+                }
+            }
+            .padding(.vertical, 60)
+            .padding(.horizontal, 32)
+            .frame(width: 720)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background(.black.opacity(0.35))
+            .glassSurface(in: Rectangle(), highlighted: false, interactive: false)
+            .focusSection()
+            .defaultFocus($focused, current)
+            Spacer(minLength: 0)
+        }
+        .background {
+            // The page stays visible behind, dimmed.
+            LinearGradient(colors: [.black.opacity(0.75), .black.opacity(0.2)], startPoint: .leading, endPoint: .trailing)
+                .ignoresSafeArea()
+        }
+        .ignoresSafeArea()
+        .onAppear { focused = current }
+        .onExitCommand { dismiss() }
+    }
+
+    private func title(of option: ChannelFilterOption, categories: [ChannelCategory]) -> String {
+        if case .category = option.filter, let label = option.label, !label.isEmpty { return label }
+        return option.filter.title(in: categories)
+    }
+
+    private func row(_ option: ChannelFilterOption, title: String, isOn: Bool) -> some View {
+        Button {
+            choose(option.filter)
+        } label: {
+            HStack(spacing: 18) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 22, weight: .bold))
+                    .opacity(isOn ? 1 : 0)
+                    .frame(width: 28)
+                Text(verbatim: title)
+                    .font(Theme.Typography.headline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 12)
+                Text(verbatim: String(option.count))
+                    .font(Theme.Typography.meta)
+                    .monospacedDigit()
+                    .opacity(0.6)
+            }
+        }
+        .buttonStyle(ListRowButtonStyle())
+        .focused($focused, equals: option.filter)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+        .accessibilityIdentifier("tv.category.\(option.filter.storageKey)")
     }
 }
 
@@ -289,7 +488,7 @@ private struct ChannelListView: View {
                     .padding(.trailing, 44)
                     .padding(.vertical, 20)
                 }
-                // Rows scroll under the header's edge (softly), not over the filters.
+                // Rows scroll under the header's edge (softly), not over it.
                 .mask {
                     LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.06), .init(color: .black, location: 1)], startPoint: .top, endPoint: .bottom)
                         .padding(.horizontal, -Theme.Layout.margin)
