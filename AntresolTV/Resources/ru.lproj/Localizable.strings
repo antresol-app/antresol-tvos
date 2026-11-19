@@ -28,7 +28,7 @@
 "Search" = "Поиск";
 "Home" = "Главная";
 "Movies" = "Фильмы";
-"TV Shows" = "Сериалы";
+"Shows" = "Сериалы";
 "Music" = "Музыка";
 
 /* Profile tab */
@@ -64,11 +64,11 @@
 "By Title" = "По названию";
 "By Year" = "По году";
 "No movies yet" = "Фильмов пока нет";
-"No TV shows yet" = "Сериалов пока нет";
+"No shows yet" = "Сериалов пока нет";
 "Add them to the server's media folders and scan the library." = "Добавьте их в медиапапки сервера и обновите библиотеку.";
 
 /* Detail */
-"TV Show" = "Сериал";
+"Show" = "Сериал";
 "%lld min left" = "Осталось %lld мин";
 "%lld h %lld min" = "%lld ч %lld мин";
 "%lld h" = "%lld ч";
@@ -281,6 +281,13 @@
 "Press and hold a channel, or use the star in the player, to add it to Favourites." = "Чтобы добавить канал в избранное, нажмите и удерживайте его в списке или нажмите звёздочку в плеере.";
 "Press and hold a channel in the list, or use the star in the player, to add it to Favourites." = "Чтобы добавить канал в избранное, нажмите и удерживайте его в списке каналов или нажмите звёздочку в плеере.";
 "Choose another filter." = "Выберите другой фильтр.";
+"All Channels" = "Все каналы";
+"No category" = "Без категории";
+"Categories" = "Категории";
+"Topics" = "Темы";
+"Sources" = "Источники";
+"Groups" = "Группы";
+"%@, %lld channels. Choose a category" = "%1$@, каналов: %2$lld. Выбрать категорию";
 "Watch" = "Смотреть";
 "Remove from Favourites" = "Убрать из избранного";
 "Add to Favourites" = "В избранное";

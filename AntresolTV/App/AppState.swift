@@ -275,6 +275,17 @@ final class AppState {
         signInMethod = .remote
     }
 
+    /// Reads the signed-in profile again (`/api/me`): its photo, name or kid flag may have
+    /// changed on the web while the TV stayed on. Errors leave the profile as it is (a 401
+    /// reaches `handleUnauthorized` through the client).
+    func refreshUser() async {
+        guard let client = profileClient, let current = currentUser,
+              let user = try? await client.me(), user.id == current.id, user != current,
+              client === profileClient
+        else { return }
+        phase = .signedIn(user)
+    }
+
     /// Reads the profile's interface language and switches the app to it.
     func refreshInterfaceLanguage() async {
         guard let client = profileClient, let value = try? await client.uiLanguage() else { return }

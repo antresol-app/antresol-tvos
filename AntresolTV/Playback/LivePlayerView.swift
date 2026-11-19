@@ -472,7 +472,7 @@ private struct LiveChannelRail: View {
         let channels = fresh(order ?? model.zapList.map(\.id))
         VStack(alignment: .leading, spacing: 8) {
             Spacer()
-            Text(verbatim: model.filter == .all ? String(localized: "Channels", bundle: .localized) : model.filter.title)
+            Text(verbatim: model.filter == .all ? String(localized: "Channels", bundle: .localized) : model.filter.title(in: model.categories))
                 .font(Theme.Typography.sectionTitle)
                 .foregroundStyle(Theme.Colors.label)
                 .padding(.horizontal, Theme.Layout.margin)

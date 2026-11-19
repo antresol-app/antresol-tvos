@@ -1,7 +1,7 @@
 import AntresolKit
 import SwiftUI
 
-/// The Movies and TV Shows tabs: a large page title, the sort pill (Recently Added /
+/// The Movies and Shows tabs: a large page title, the sort pill (Recently Added /
 /// By Title / By Year) and a poster grid that loads further pages as focus nears the end.
 struct LibraryView: View {
     let kind: ItemKind
@@ -124,7 +124,7 @@ struct LibraryView: View {
             if list.items.isEmpty {
                 EmptyStateView(
                     systemImage: kind == .series ? "tv" : "film",
-                    title: kind == .series ? "No TV shows yet" : "No movies yet",
+                    title: kind == .series ? "No shows yet" : "No movies yet",
                     message: "Add them to the server's media folders and scan the library."
                 )
                 .frame(minHeight: 700)

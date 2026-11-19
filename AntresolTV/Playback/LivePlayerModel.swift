@@ -45,6 +45,8 @@ final class LivePlayerModel {
     private(set) var channels: [Channel]
     /// The list the player was opened from: channel up / down stays inside it.
     let filter: ChannelFilter
+    /// The server's categories, which name `filter` (the mini-guide's title).
+    private(set) var categories: [ChannelCategory]
     private(set) var guide: ChannelGuide?
     /// The options row (star, audio, subtitles, channels) under the banner has focus.
     private(set) var showsControls = false
@@ -125,6 +127,7 @@ final class LivePlayerModel {
     init(request: PlaybackCoordinator.LiveRequest) {
         channel = request.channel
         filter = request.filter
+        categories = request.categories
         var channels = request.channels.sorted(by: Channel.byNumber)
         if !channels.contains(where: { $0.id == request.channel.id }) {
             channels.append(request.channel)
@@ -841,6 +844,7 @@ final class LivePlayerModel {
         guard let service, let list = try? await service.list() else { return }
         guard !isStopped, !list.channels.isEmpty else { return }
         channels = list.channels
+        if let fresh = list.categories { categories = fresh }
         if let fresh = channels.first(where: { $0.id == channel.id }) {
             channel = fresh
         }

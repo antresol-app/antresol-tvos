@@ -82,7 +82,7 @@ struct ProgramDetailView: View {
             HStack(spacing: 28) {
                 if onAir, let channel = model.channel(details.channelId) {
                     Button {
-                        playback.watch(channel, channels: model.list.channels, filter: model.activeFilter)
+                        playback.watch(channel, channels: model.list.channels, filter: model.activeFilter, categories: model.list.categories ?? [])
                     } label: {
                         Label("Watch", systemImage: "play.fill")
                     }

@@ -8,7 +8,7 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 
 - **Look**: Liquid Glass on tvOS 26 and later (the app's own pills, round controls, segmented
   pills and settings rows use the system glass, lit white when focused), and the system
-  sidebar on tvOS 18 and later: profile and time at the top, Search, Home, Movies, TV Shows,
+  sidebar on tvOS 18 and later: profile and time at the top, Search, Home, Movies, Shows,
   TV and Music, collapsing to a chip naming the section. Earlier systems keep the top tab
   bar and flat dark-glass fills.
 - **Onboarding**: "Set up with your phone" first: a QR code of a small setup endpoint the Apple
@@ -28,7 +28,7 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   episode's page or a fresh start), and the server's shelves: recently added,
   new episodes, Want to Watch, recently played. The server's books, audiobooks and comics are
   left out: the TV app does not offer them.
-- **Movies and TV Shows**: poster grids with sort pills (recent, title, year) and paging; the
+- **Movies and Shows**: poster grids with sort pills (recent, title, year) and paging; the
   title and pill stay put while the grid scrolls below them.
 - **Cards**: watched movies, episodes and fully watched shows are dimmed with an eye mark;
   episode tiles show the episode's own still (a frame of its video when it has none).
@@ -69,7 +69,8 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 - **TV**: the server's live channels made of the library, as a television has them.
   - One numbered list: a row per channel with its number, the programme's still, what is on
     (progress, "until 21:40") and what is next. Focus starts on the last channel; a small pill
-    returns to it. Filters: All, Favourites and the themes; a long press stars a channel.
+    returns to it. The category button opens the list of All, Favourites and the server's categories
+    (AI topics, sources, playlist groups, with counts); a long press stars a channel.
   - The Guide: channels × time with a ruler, the now line and a block per programme; the
     remote moves between blocks keeping the time; a programme opens its details (Watch while
     it is on air, the channel's star).

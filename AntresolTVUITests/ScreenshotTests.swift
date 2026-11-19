@@ -93,7 +93,7 @@ final class ScreenshotTests: XCTestCase {
         pause(2)
 
         // TV Shows, then the show's page.
-        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(openSection(app, "Shows", showing: card(app, "Test Show")))
         pause(2)
         snapshot(app, "12-shows")
         XCTAssertTrue(moveFocus(.down, to: card(app, "Test Show"), limit: 3))
@@ -403,7 +403,7 @@ final class ScreenshotTests: XCTestCase {
     func test12EpisodeGuide() {
         let app = signInAsKid()
 
-        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(openSection(app, "Shows", showing: card(app, "Test Show")))
         pause(2)
         XCTAssertTrue(moveFocus(.down, to: card(app, "Test Show"), limit: 3))
         remote.press(.select)
@@ -526,7 +526,7 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.menu)
         pause(2)
 
-        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(openSection(app, "Shows", showing: card(app, "Test Show")))
         XCTAssertTrue(moveFocus(.down, to: card(app, "Test Show"), limit: 3))
         remote.press(.select)
         XCTAssertTrue(trailer.waitForExistence(timeout: 20))
@@ -590,7 +590,7 @@ final class ScreenshotTests: XCTestCase {
         }
         pause(2)
         snapshot(app, "79-movies-scrolled")
-        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(openSection(app, "Shows", showing: card(app, "Test Show")))
         pause(2)
         snapshot(app, "80-shows-grid")
     }
@@ -606,7 +606,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["Watchlist"].waitForExistence(timeout: 20))
         pause(2)
 
-        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(openSection(app, "Shows", showing: card(app, "Test Show")))
         pause(8)
         XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Recently Added"]), "Movies is back at its grid")
         XCTAssertFalse(app.buttons["Watchlist"].exists, "the movie page was popped")
@@ -626,7 +626,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["Watchlist"].waitForExistence(timeout: 20))
         pause(2)
         let started = Date()
-        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(openSection(app, "Shows", showing: card(app, "Test Show")))
         XCTAssertTrue(openSection(app, "Movies", showing: app.buttons["Watchlist"]), "the movie page is still there")
         print("Round trip through the sidebar: \(Int(Date().timeIntervalSince(started))) s")
         snapshot(app, "75-tab-kept")
@@ -636,7 +636,7 @@ final class ScreenshotTests: XCTestCase {
     /// froze doing this).
     func test17RepeatedEnterAndLeave() {
         let app = signInAsKid()
-        XCTAssertTrue(openSection(app, "TV Shows", showing: card(app, "Test Show")))
+        XCTAssertTrue(openSection(app, "Shows", showing: card(app, "Test Show")))
         let show = card(app, "Test Show")
         XCTAssertTrue(moveFocus(.down, to: show, limit: 3))
         let watchlist = app.buttons["Watchlist"]

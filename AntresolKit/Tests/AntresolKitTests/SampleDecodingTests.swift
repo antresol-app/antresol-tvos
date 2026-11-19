@@ -276,6 +276,19 @@ final class SampleDecodingTests: XCTestCase {
         let profile = try JSONDecoder().decode(Profile.self, from: Data(#"{"id": 3, "name": "N", "avatar": "sparkles"}"#.utf8))
         XCTAssertEqual(profile.avatarPreset, .grad8)
         XCTAssertFalse(profile.hasPassword)
+        XCTAssertEqual(profile.photo, "")
+    }
+
+    func testProfilePhoto() throws {
+        // A profile with a photo: its address carries the upload's version, resolved on the server.
+        let profile = try JSONDecoder().decode(
+            Profile.self, from: Data(#"{"id": 3, "name": "N", "avatar": "grad-2", "photo": "/api/profiles/3/photo?v=17"}"#.utf8)
+        )
+        XCTAssertEqual(profile.photo, "/api/profiles/3/photo?v=17")
+        let user = try JSONDecoder().decode(User.self, from: Data(#"{"id": 3, "name": "N", "photo": "/api/profiles/3/photo?v=17"}"#.utf8))
+        XCTAssertEqual(user.photo, "/api/profiles/3/photo?v=17")
+        let urls = ServerURLs(baseURL: URL(string: "http://nas.local:8420")!)
+        XCTAssertEqual(urls.image(user.photo)?.absoluteString, "http://nas.local:8420/api/profiles/3/photo?v=17")
     }
 
     func testCardRoundTrip() throws {

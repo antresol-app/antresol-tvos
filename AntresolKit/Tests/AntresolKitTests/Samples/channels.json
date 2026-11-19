@@ -81,7 +81,11 @@
         "poster": "/api/images/local/14/poster",
         "backdrop": "/api/images/local/14/backdrop",
         "audio": []
-      }
+      },
+      "categories": [
+        "ai:movies",
+        "group:Кино и сериалы"
+      ]
     },
     {
       "id": 2,
@@ -136,7 +140,12 @@
         "end": "2026-11-11T22:44:53.751Z",
         "poster": "/api/images/local/13/poster",
         "backdrop": "/api/images/local/13/backdrop"
-      }
+      },
+      "categories": [
+        "ai:movies",
+        "ai:comedy",
+        "group:Кино по жанрам"
+      ]
     },
     {
       "id": 3,
@@ -190,7 +199,11 @@
         "end": "2026-11-11T22:43:53.757Z",
         "poster": "/api/images/local/7/poster",
         "backdrop": "/api/images/local/7/backdrop"
-      }
+      },
+      "categories": [
+        "ai:drama",
+        "group:Кино по жанрам"
+      ]
     },
     {
       "id": 4,
@@ -245,8 +258,51 @@
         "end": "2026-11-11T22:40:53.739Z",
         "poster": "/api/images/local/19/poster",
         "backdrop": "/api/images/local/19/backdrop"
-      }
+      },
+      "categories": [
+        "ai:kids",
+        "ai:movies",
+        "group:Кино по жанрам"
+      ]
     }
   ],
-  "lastChannel": 2
+  "lastChannel": 2,
+  "categories": [
+    {
+      "id": "ai:movies",
+      "name": "Фильмы",
+      "kind": "ai",
+      "count": 3
+    },
+    {
+      "id": "ai:comedy",
+      "name": "Комедии",
+      "kind": "ai",
+      "count": 1
+    },
+    {
+      "id": "ai:drama",
+      "name": "Драмы",
+      "kind": "ai",
+      "count": 1
+    },
+    {
+      "id": "ai:kids",
+      "name": "Детям",
+      "kind": "ai",
+      "count": 1
+    },
+    {
+      "id": "group:Кино по жанрам",
+      "name": "Кино по жанрам",
+      "kind": "group",
+      "count": 3
+    },
+    {
+      "id": "group:Кино и сериалы",
+      "name": "Кино и сериалы",
+      "kind": "group",
+      "count": 1
+    }
+  ]
 }

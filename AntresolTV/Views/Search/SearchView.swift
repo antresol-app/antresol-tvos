@@ -110,7 +110,7 @@ private struct BrowseTile: Identifiable {
 
     static let all: [BrowseTile] = [
         BrowseTile(id: "movies", title: "Movies", systemImage: "film", colors: (0xFF375F, 0xFF9F0A), tab: .movies),
-        BrowseTile(id: "shows", title: "TV Shows", systemImage: "tv", colors: (0x5E5CE6, 0xBF5AF2), tab: .shows),
+        BrowseTile(id: "shows", title: "Shows", systemImage: "tv", colors: (0x5E5CE6, 0xBF5AF2), tab: .shows),
         BrowseTile(id: "music", title: "Music", systemImage: "music.note", colors: (0xBF5AF2, 0xFF375F), tab: .music),
     ]
 }

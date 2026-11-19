@@ -34,6 +34,8 @@ final class PlaybackCoordinator {
         let channel: Channel
         let channels: [Channel]
         let filter: ChannelFilter
+        /// The server's category list, to name `filter` in the player.
+        var categories: [ChannelCategory] = []
     }
 
     /// A trailer the server plays itself (`Trailer.play`), over the title it belongs to.
@@ -70,8 +72,8 @@ final class PlaybackCoordinator {
 
     /// Opens the live player on `channel`; channel up / down moves through the channels of
     /// `filter`, by number.
-    func watch(_ channel: Channel, channels: [Channel], filter: ChannelFilter = .all) {
-        presentedChannel = LiveRequest(channel: channel, channels: channels, filter: filter)
+    func watch(_ channel: Channel, channels: [Channel], filter: ChannelFilter = .all, categories: [ChannelCategory] = []) {
+        presentedChannel = LiveRequest(channel: channel, channels: channels, filter: filter, categories: categories)
     }
 
     /// Opens the trailer player. A trailer is not a playback session: no progress, no

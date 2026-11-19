@@ -28,7 +28,7 @@
 "Search" = "Search";
 "Home" = "Home";
 "Movies" = "Movies";
-"TV Shows" = "TV Shows";
+"Shows" = "Shows";
 "Music" = "Music";
 
 /* Profile tab */
@@ -64,11 +64,11 @@
 "By Title" = "By Title";
 "By Year" = "By Year";
 "No movies yet" = "No movies yet";
-"No TV shows yet" = "No TV shows yet";
+"No shows yet" = "No shows yet";
 "Add them to the server's media folders and scan the library." = "Add them to the server's media folders and scan the library.";
 
 /* Detail */
-"TV Show" = "TV Show";
+"Show" = "Show";
 "%lld min left" = "%lld min left";
 "%lld h %lld min" = "%lld h %lld min";
 "%lld h" = "%lld h";
@@ -281,6 +281,13 @@
 "Press and hold a channel, or use the star in the player, to add it to Favourites." = "Press and hold a channel, or use the star in the player, to add it to Favourites.";
 "Press and hold a channel in the list, or use the star in the player, to add it to Favourites." = "Press and hold a channel in the list, or use the star in the player, to add it to Favourites.";
 "Choose another filter." = "Choose another filter.";
+"All Channels" = "All Channels";
+"No category" = "No category";
+"Categories" = "Categories";
+"Topics" = "Topics";
+"Sources" = "Sources";
+"Groups" = "Groups";
+"%@, %lld channels. Choose a category" = "%@, %lld channels. Choose a category";
 "Watch" = "Watch";
 "Remove from Favourites" = "Remove from Favourites";
 "Add to Favourites" = "Add to Favourites";

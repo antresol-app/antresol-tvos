@@ -24,6 +24,10 @@
           "poster": "/api/images/local/18/poster",
           "backdrop": "/api/images/local/18/backdrop"
         }
+      ],
+      "categories": [
+        "ai:movies",
+        "group:Кино и сериалы"
       ]
     },
     {
@@ -50,6 +54,11 @@
           "poster": "/api/images/local/1/poster",
           "backdrop": "/api/images/local/1/backdrop"
         }
+      ],
+      "categories": [
+        "ai:movies",
+        "ai:comedy",
+        "group:Кино по жанрам"
       ]
     },
     {
@@ -76,6 +85,10 @@
           "poster": "/api/images/local/16/poster",
           "backdrop": "/api/images/local/16/backdrop"
         }
+      ],
+      "categories": [
+        "ai:drama",
+        "group:Кино по жанрам"
       ]
     }
   ],
