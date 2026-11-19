@@ -28,7 +28,7 @@
 "Search" = "Поиск";
 "Home" = "Главная";
 "Movies" = "Фильмы";
-"TV Shows" = "Сериалы";
+"Shows" = "Сериалы";
 "Music" = "Музыка";
 
 /* Profile tab */
@@ -64,11 +64,11 @@
 "By Title" = "По названию";
 "By Year" = "По году";
 "No movies yet" = "Фильмов пока нет";
-"No TV shows yet" = "Сериалов пока нет";
+"No shows yet" = "Сериалов пока нет";
 "Add them to the server's media folders and scan the library." = "Добавьте их в медиапапки сервера и обновите библиотеку.";
 
 /* Detail */
-"TV Show" = "Сериал";
+"Show" = "Сериал";
 "%lld min left" = "Осталось %lld мин";
 "%lld h %lld min" = "%lld ч %lld мин";
 "%lld h" = "%lld ч";

@@ -70,7 +70,7 @@ struct SearchGroup: Identifiable {
         let shows = results.library.filter { $0.kind != .movie }
         let groups = [
             SearchGroup(id: "movies", title: String(localized: "Movies", bundle: .localized), cards: movies),
-            SearchGroup(id: "shows", title: String(localized: "TV Shows", bundle: .localized), cards: shows),
+            SearchGroup(id: "shows", title: String(localized: "Shows", bundle: .localized), cards: shows),
             SearchGroup(id: "artists", title: String(localized: "Artists", bundle: .localized), cards: results.artists),
             SearchGroup(id: "albums", title: String(localized: "Albums", bundle: .localized), cards: results.albums),
             SearchGroup(id: "songs", title: String(localized: "Songs", bundle: .localized), entries: results.songs.map(Self.entry(for:))),

@@ -153,7 +153,7 @@ struct VideoDetailView: View {
             return shownCard.subtitle
         }
         if shownCard.kind == .series {
-            return String(localized: "TV Show", bundle: .localized)
+            return String(localized: "Show", bundle: .localized)
         }
         return shownCard.kind.displayName
     }

@@ -131,7 +131,7 @@ struct MainShellView: View {
             Tab("Movies", systemImage: "film", value: ShellTab.movies) {
                 moviesTab
             }
-            Tab("TV Shows", systemImage: "tv", value: ShellTab.shows) {
+            Tab("Shows", systemImage: "tv", value: ShellTab.shows) {
                 showsTab
             }
             Tab("TV", systemImage: "antenna.radiowaves.left.and.right", value: ShellTab.tv) {
@@ -173,7 +173,7 @@ struct MainShellView: View {
                 .tag(ShellTab.movies)
 
             showsTab
-                .tabItem { Text("TV Shows") }
+                .tabItem { Text("Shows") }
                 .tag(ShellTab.shows)
 
             tvTab
@@ -216,7 +216,7 @@ struct MainShellView: View {
     }
 
     private var showsTab: some View {
-        TabNavigation(tab: .shows, reset: tabReset) { LibraryView(kind: .series, title: "TV Shows") }
+        TabNavigation(tab: .shows, reset: tabReset) { LibraryView(kind: .series, title: "Shows") }
     }
 
     private var tvTab: some View {

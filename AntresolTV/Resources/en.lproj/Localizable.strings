@@ -28,7 +28,7 @@
 "Search" = "Search";
 "Home" = "Home";
 "Movies" = "Movies";
-"TV Shows" = "TV Shows";
+"Shows" = "Shows";
 "Music" = "Music";
 
 /* Profile tab */
@@ -64,11 +64,11 @@
 "By Title" = "By Title";
 "By Year" = "By Year";
 "No movies yet" = "No movies yet";
-"No TV shows yet" = "No TV shows yet";
+"No shows yet" = "No shows yet";
 "Add them to the server's media folders and scan the library." = "Add them to the server's media folders and scan the library.";
 
 /* Detail */
-"TV Show" = "TV Show";
+"Show" = "Show";
 "%lld min left" = "%lld min left";
 "%lld h %lld min" = "%lld h %lld min";
 "%lld h" = "%lld h";
