@@ -79,6 +79,12 @@ final class AppState {
     private var profileClient: APIClient?
     /// Where "Cancel" on the server screen returns to.
     private var phaseBeforeServerChange: Phase?
+    /// «Switch Profile» opened the picker over this live session: its client, its stored
+    /// token and `lastUserId` stay, and its shell stays alive under the picker (`RootView`),
+    /// so Menu (or picking it again) returns to where the user was.
+    private(set) var profileSwitch: ProfileSwitch?
+    /// The `/api/me` check of a 401 now running.
+    @ObservationIgnored private var sessionCheck: Task<Void, Never>?
     /// The sign-in screen's method: the QR code first, the profile picker after
     /// "Sign in with the remote" (and after Switch Profile, where the household is at the TV).
     var signInMethod: SignInMethod = .phone
@@ -105,6 +111,11 @@ final class AppState {
     var currentUser: User? {
         if case .signedIn(let user) = phase { return user }
         return nil
+    }
+
+    /// Whose shell is alive: the signed-in profile, or the one «Switch Profile» was opened over.
+    var shellUser: User? {
+        currentUser ?? (phase == .needsProfile ? profileSwitch?.from : nil)
     }
 
     /// Restores the saved server and profile, validating the stored token with `/api/me`.
@@ -171,6 +182,11 @@ final class AppState {
     /// so a stored token never lets someone else walk into a protected profile.
     func selectProfile(_ profile: Profile) async throws -> ProfileSelection {
         guard let server else { throw APIError.invalidURL("") }
+        // The profile «Switch Profile» was opened from: straight back, no password.
+        if profileSwitch?.returnsToCurrent(picking: profile.id) == true {
+            cancelSwitch()
+            return .signedIn
+        }
         if profile.hasPassword {
             return .needsPassword
         }
@@ -179,9 +195,11 @@ final class AppState {
             let candidate = server.profileClient(token: token)
             do {
                 let user = try await candidate.me()
+                let left = takeSwitch()
                 profileClient = candidate
                 settings.lastUserId = profile.id
                 phase = .signedIn(user)
+                retire(left, signedInAs: user.id)
                 return .signedIn
             } catch let error as APIError where error.statusCode == 401 {
                 try? tokens.removeToken(for: key)
@@ -196,9 +214,11 @@ final class AppState {
         guard let server else { throw APIError.invalidURL("") }
         let response = try await server.client.signIn(userId: profile.id, password: password, device: device.info)
         try tokens.setToken(response.token, for: CredentialKey(serverId: server.serverId, userId: profile.id))
+        let left = takeSwitch()
         profileClient = server.profileClient(token: response.token)
         settings.lastUserId = profile.id
         phase = .signedIn(response.user)
+        retire(left, signedInAs: response.user.id)
     }
 
     /// Finishes a QR sign-in: the token a phone approved is a normal device token, kept
@@ -206,9 +226,28 @@ final class AppState {
     func signIn(pairedToken token: String, user: User) throws {
         guard let server else { throw APIError.invalidURL("") }
         try tokens.setToken(token, for: CredentialKey(serverId: server.serverId, userId: user.id))
+        let left = takeSwitch()
         profileClient = server.profileClient(token: token)
         settings.lastUserId = user.id
         phase = .signedIn(user)
+        retire(left, signedInAs: user.id)
+    }
+
+    /// Ends a pending «Switch Profile» because another profile is signing in: its session (to retire).
+    private func takeSwitch() -> (change: ProfileSwitch, client: APIClient?)? {
+        guard let change = profileSwitch else { return nil }
+        profileSwitch = nil
+        return (change, profileClient)
+    }
+
+    /// After another profile signed in from «Switch Profile»: a password profile's token is
+    /// revoked with its own Bearer and forgotten; a passwordless one stays for a quick switch back.
+    private func retire(_ left: (change: ProfileSwitch, client: APIClient?)?, signedInAs userId: Int) {
+        guard let left, left.change.revokesLeftToken(signedInAs: userId), let server else { return }
+        try? tokens.removeToken(for: CredentialKey(serverId: server.serverId, userId: left.change.from.id))
+        if let client = left.client {
+            Task { try? await client.signOut() }
+        }
     }
 
     /// Set up from a phone (`POST /setup` on this TV): checks `url` with `/api/health`
@@ -258,6 +297,7 @@ final class AppState {
         settings.lastUserId = nil
         server = connection
         profileClient = nil
+        profileSwitch = nil
         supportsPairing = true
         signInMethod = .phone
         phaseBeforeServerChange = nil
@@ -354,11 +394,21 @@ final class AppState {
         language = AppLanguage(rawValue: value.effective) ?? .system
     }
 
-    /// Returns to the profile picker, keeping the current profile's token for later.
+    /// Opens the profile picker over the live session: nothing is revoked or forgotten (its
+    /// client, token and `lastUserId` stay), so `cancelSwitch` returns to it and a restart is
+    /// still signed in.
     func switchProfile() {
-        guard server != nil else { return }
-        leaveProfile()
+        guard server != nil, let user = currentUser, profileClient != nil else { return }
+        profileSwitch = ProfileSwitch(from: user)
         signInMethod = .remote
+        phase = .needsProfile
+    }
+
+    /// Menu on the picker «Switch Profile» opened: back to that session, where the user was.
+    func cancelSwitch() {
+        guard let change = profileSwitch, profileClient != nil else { return }
+        profileSwitch = nil
+        phase = .signedIn(change.from)
     }
 
     /// Revokes the current token on the server and forgets it.
@@ -369,14 +419,23 @@ final class AppState {
         leaveProfile()
     }
 
-    /// Called when any request reports `401`: the token was revoked.
+    /// Called when any request reports `401`. That alone ends nothing: `/api/me` is asked with
+    /// the same token, and only its `401` signs the profile out (the token was revoked).
     func handleUnauthorized() {
-        guard let server, let user = currentUser else { return }
-        try? tokens.removeToken(for: CredentialKey(serverId: server.serverId, userId: user.id))
-        leaveProfile()
+        guard sessionCheck == nil, let client = profileClient, shellUser != nil else { return }
+        sessionCheck = Task { [weak self] in
+            let expired = await client.sessionExpired()
+            guard let self else { return }
+            self.sessionCheck = nil
+            // Another profile signed in meanwhile: its session is not the one checked.
+            guard expired, client === self.profileClient, let server = self.server, let user = self.shellUser else { return }
+            try? self.tokens.removeToken(for: CredentialKey(serverId: server.serverId, userId: user.id))
+            self.leaveProfile()
+        }
     }
 
     private func leaveProfile() {
+        profileSwitch = nil
         profileClient = nil
         settings.lastUserId = nil
         phase = .needsProfile
@@ -392,12 +451,11 @@ final class AppState {
         libraryRevision += 1
     }
 
-    /// Routes a failed request: `401` signs the profile out to the picker and returns
-    /// nil; anything else returns a message to show.
+    /// Routes a failed request to a message to show. A `401` also asks `/api/me`
+    /// (`handleUnauthorized`), which signs the profile out to the picker only when it is `401` too.
     func message(for error: Error) -> String? {
         if let error = error as? APIError, error.statusCode == 401 {
             handleUnauthorized()
-            return nil
         }
         return Self.userMessage(for: error)
     }
@@ -456,6 +514,7 @@ final class AppState {
     }
 
     private func restoreProfile(on connection: ServerConnection) async {
+        profileSwitch = nil
         guard let userId = settings.lastUserId,
               let token = tokens.token(for: CredentialKey(serverId: connection.serverId, userId: userId))
         else {

@@ -7,6 +7,19 @@ struct RootView: View {
     var body: some View {
         ZStack {
             Theme.Colors.background.ignoresSafeArea()
+            // The signed-in shell, kept alive under the picker «Switch Profile» opens, so Menu
+            // there returns to where the user was (tab, page, what plays).
+            if let user = appState.shellUser {
+                let picking = appState.currentUser == nil
+                MainShellView(user: user)
+                    // A different profile gets a fresh shell (tabs, stacks, loaded data), and
+                    // so does another «Отдельная история» of this device: every page shows
+                    // that history's progress and Continue Watching.
+                    .id(ShellIdentity(userId: user.id, historyId: user.deviceHistory?.id))
+                    .opacity(picking ? 0 : 1)
+                    .disabled(picking)
+                    .accessibilityHidden(picking)
+            }
             switch appState.phase {
             case .launching:
                 SplashView(status: nil, isWorking: true)
@@ -27,12 +40,8 @@ struct RootView: View {
                     ProfilePickerView()
                         .transition(.opacity)
                 }
-            case .signedIn(let user):
-                MainShellView(user: user)
-                    // A different profile gets a fresh shell (tabs, stacks, loaded data), and
-                    // so does another «Отдельная история» of this device: every page shows
-                    // that history's progress and Continue Watching.
-                    .id(ShellIdentity(userId: user.id, historyId: user.deviceHistory?.id))
+            case .signedIn:
+                EmptyView()
             }
         }
         .animation(Theme.Motion.easeOut, value: appState.phase)

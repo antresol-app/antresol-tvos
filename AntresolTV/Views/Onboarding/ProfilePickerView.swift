@@ -29,8 +29,14 @@ struct ProfilePickerView: View {
         }
         .animation(Theme.Motion.easeOut, value: passwordProfile)
         .task { await load() }
-        // Menu goes back to the QR code when that is where the picker was opened from.
-        .onExitCommand(perform: passwordProfile == nil && appState.supportsPairing ? { appState.signInMethod = .phone } : nil)
+        // Menu goes back to the session «Switch Profile» opened this over (still signed in), or
+        // to the QR code when that is where the picker was opened from.
+        .onExitCommand(perform: passwordProfile == nil ? exitAction : nil)
+    }
+
+    private var exitAction: (() -> Void)? {
+        if appState.profileSwitch != nil { return { appState.cancelSwitch() } }
+        return appState.supportsPairing ? { appState.signInMethod = .phone } : nil
     }
 
     private var picker: some View {
@@ -54,6 +60,15 @@ struct ProfilePickerView: View {
                 // Shown once loading ends, so the focus engine starts on a profile tile.
                 if !isLoading || !profiles.isEmpty {
                     HStack(spacing: 28) {
+                        if appState.profileSwitch != nil {
+                            // Back to the session «Switch Profile» was opened from, still signed in.
+                            Button {
+                                appState.cancelSwitch()
+                            } label: {
+                                Label("Cancel", systemImage: "chevron.backward")
+                            }
+                            .buttonStyle(PillButtonStyle(kind: .glass))
+                        }
                         if appState.supportsPairing {
                             Button {
                                 appState.signInMethod = .phone
@@ -131,7 +146,9 @@ struct ProfilePickerView: View {
             isLoading = false
             // Let the tiles render before moving focus onto the first one.
             await Task.yield()
-            focusedProfileId = profiles.first?.id
+            // «Switch Profile» starts on the profile it was opened from.
+            let current = appState.profileSwitch?.from.id
+            focusedProfileId = profiles.contains { $0.id == current } ? current : profiles.first?.id
         } catch {
             if !Task.isCancelled { loadError = AppState.userMessage(for: error) }
         }

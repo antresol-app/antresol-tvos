@@ -140,7 +140,7 @@ final class AudioPlayer {
                 }
             } catch {
                 guard let self, !Task.isCancelled, !(error is CancellationError) else { return }
-                // A 401 goes back to the profile picker instead.
+                // A 401 also asks `/api/me` (the picker follows only when that is 401 too).
                 if self.appState?.message(for: error) != nil {
                     self.showNotice(String(localized: "Some songs couldn’t be added to the queue.", bundle: .localized))
                 }
