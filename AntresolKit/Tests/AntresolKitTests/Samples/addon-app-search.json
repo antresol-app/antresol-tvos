@@ -1,0 +1,8 @@
+{
+  "titles": [
+    {"kind": "movie", "tmdbId": 603, "title": "Sample Film", "year": 1999, "poster": "https://images.example.test/p/603.jpg", "overview": "A film.", "inLibrary": false},
+    {"kind": "series", "tmdbId": 1399, "title": "Sample Show", "year": 2011, "poster": "/api/images/local/2/poster", "inLibrary": true, "libraryItemId": 2},
+    {"kind": "music", "tmdbId": 5, "title": "Not a title"},
+    {"kind": "movie", "tmdbId": 603, "title": "Sample Film again"}
+  ]
+}

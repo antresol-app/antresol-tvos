@@ -81,6 +81,9 @@ public struct Trailer: Decodable, Hashable, Identifiable, Sendable {
 
 /// `{"trailers": [...]}`.
 public struct TrailerList: Decodable, Sendable {
+    /// How many trailers a page offers, best first: the web's «Ещё» menu lists the best three.
+    public static let maxOffered = 3
+
     public var trailers: [Trailer]
 
     public init(trailers: [Trailer]) {

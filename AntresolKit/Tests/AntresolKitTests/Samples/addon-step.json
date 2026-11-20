@@ -1,0 +1,11 @@
+{
+  "title": "Source",
+  "note": "Pick one",
+  "rows": [
+    {"ref": "r1", "label": "1080p · HDR", "detail": "Second line", "badges": ["4K", "HDR"], "current": true, "final": false},
+    {"ref": "r2", "label": "720p", "final": true},
+    {"ref": "r2", "label": "Same ref"},
+    {"label": "No ref"}
+  ],
+  "empty": "Nothing found"
+}

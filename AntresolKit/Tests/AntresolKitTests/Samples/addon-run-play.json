@@ -1,0 +1,15 @@
+{
+  "play": {
+    "mode": "alpha",
+    "kind": "hls",
+    "url": "/api/addons/alpha/x/media/s1/index.m3u8",
+    "startSec": 12.5,
+    "durationMs": 0,
+    "audio": [],
+    "audioIndex": -1,
+    "subtitles": [{"index": 0, "codec": "webvtt", "lang": "en", "title": "English", "label": "English", "external": true, "url": "/api/addons/alpha/x/media/s1/subs/0.vtt"}],
+    "quality": {"options": ["720", "1080"], "current": "1080"},
+    "session": "s1",
+    "progress": {"path": "x/app/progress", "every": 10}
+  }
+}

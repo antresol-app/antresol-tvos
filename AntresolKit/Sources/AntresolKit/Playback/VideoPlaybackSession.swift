@@ -83,8 +83,11 @@ public enum PlaybackSessionEnd: Sendable, Equatable {
 /// server when `stop()` runs deletes the session it created and throws
 /// `CancellationError`, so no server session is left without a keepalive or a DELETE.
 public actor VideoPlaybackSession {
+    /// The library file this session plays; 0 for a session made with `init(requester:)`.
     public let fileId: Int
     private let client: APIClient
+    /// Asks the server how to play, when it is not a library file's `/api/play`.
+    private let requester: (@Sendable (PlayRequest) async throws -> PlayResponse)?
     private let mediaKeys: MediaKeyStore
     private let caps: DeviceCaps
     private let keepAliveInterval: TimeInterval
@@ -105,6 +108,23 @@ public actor VideoPlaybackSession {
         self.client = client
         self.mediaKeys = mediaKeys
         self.fileId = fileId
+        self.requester = nil
+        self.caps = caps
+        self.keepAliveInterval = keepAliveInterval
+    }
+
+    /// A session for a stream that is not a library file (an addon's input): `requester` asks the
+    /// server how to play it, as `/api/play` does for a file. Everything else (the keepalive of an
+    /// HLS session, replacing it for a seek, stopping it) is the same.
+    public init(
+        client: APIClient, mediaKeys: MediaKeyStore,
+        caps: DeviceCaps = .appleTV(), keepAliveInterval: TimeInterval = 20,
+        requester: @escaping @Sendable (PlayRequest) async throws -> PlayResponse
+    ) {
+        self.client = client
+        self.mediaKeys = mediaKeys
+        self.fileId = 0
+        self.requester = requester
         self.caps = caps
         self.keepAliveInterval = keepAliveInterval
     }
@@ -209,6 +229,9 @@ public actor VideoPlaybackSession {
             replaceSession: session,
             burnSubtitle: options.burnSubtitle
         )
+        if let requester {
+            return try await requester(request)
+        }
         return try await client.play(fileId: fileId, request)
     }
 

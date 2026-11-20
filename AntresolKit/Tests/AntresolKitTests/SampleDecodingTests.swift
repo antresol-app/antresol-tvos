@@ -10,6 +10,12 @@ final class SampleDecodingTests: XCTestCase {
             { try JSONDecoder().decode(T.self, from: $0) }
         }
         return [
+            "addon-app-info.json": d(AppInfo.self),
+            "addon-app-search.json": d(AddonTitleList.self),
+            "addon-run-input.json": d(WayRunResult.self),
+            "addon-run-play.json": d(WayRunResult.self),
+            "addon-state.json": d(WayStates.self),
+            "addon-step.json": d(WayStep.self),
             "auth-media-key.json": d(MediaKey.self),
             "auth-token.json": d(TokenResponse.self),
             "book-audiobook-mp3.json": d(BookDetail.self),
@@ -63,6 +69,7 @@ final class SampleDecodingTests: XCTestCase {
             "search-music.json": d(SearchResults.self),
             "search.json": d(SearchResults.self),
             "setup-get.json": d(SetupStatus.self),
+            "title-info.json": d(TitleInfo.self),
             "tracking-episodes.json": d(TrackingEpisodes.self),
             "users-create.json": d(User.self),
             "users-list.json": d([User].self),

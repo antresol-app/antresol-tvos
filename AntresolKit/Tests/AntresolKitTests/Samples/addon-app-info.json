@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "ways": [
+    {"id": "go", "label": "Watch here", "icon": "globe", "role": "watch", "kinds": ["movie", "series"], "scope": "any", "episodes": true},
+    {"id": "fetch", "label": "Add to server", "icon": "download", "role": "keep", "kinds": ["movie", "series"], "scope": "outside", "episodes": false},
+    {"id": "odd", "label": "Odd icon", "icon": "rocket", "role": "watch", "kinds": ["movie"], "scope": "inside"},
+    {"id": "gone", "label": "Unknown role", "role": "sing", "kinds": ["movie"], "scope": "any"},
+    {"label": "No id", "role": "watch", "kinds": ["movie"], "scope": "any"}
+  ],
+  "search": {"label": "Find and watch"}
+}

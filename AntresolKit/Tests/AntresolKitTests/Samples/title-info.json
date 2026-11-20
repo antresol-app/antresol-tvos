@@ -1,0 +1,7 @@
+{
+  "tmdbId": 1399, "extId": "", "kind": "series", "title": "Sample Show", "subtitle": "", "year": 2011,
+  "poster": "https://images.example.test/p/1399.jpg", "overview": "A show.", "inLibrary": false, "libraryItemId": null,
+  "backdrop": "https://images.example.test/b/1399.jpg", "genres": ["Drama"], "runtime": 55, "rating": "16+",
+  "cast": [{"name": "Ada Example", "character": "Captain", "photo": ""}],
+  "seasons": [{"number": 1, "episodes": 10}, {"number": 2, "episodes": 8}]
+}

@@ -4,8 +4,12 @@ import Foundation
 /// does (§11): periodically while playing when the position moved enough, and on
 /// demand (pause, backgrounding, exit) via `flush()`.
 public actor PlaybackProgressReporter {
+    /// Where a position goes: milliseconds played, the duration, and whether the write must not be
+    /// held back (a pause, the end, the player closing).
+    public typealias Sender = @Sendable (_ positionMs: Int, _ durationMs: Int, _ keepalive: Bool) async throws -> Void
+
     public let itemId: Int
-    private let client: APIClient
+    private let send: Sender
     private let interval: TimeInterval
     private let minimumChangeMs: Int
     private var latest: (positionMs: Int, durationMs: Int)?
@@ -17,8 +21,19 @@ public actor PlaybackProgressReporter {
     ///   - minimumChangeMs: periodic writes are skipped below this movement
     ///     (500 ms for video, 1000 ms for audiobooks).
     public init(client: APIClient, itemId: Int, interval: TimeInterval = 10, minimumChangeMs: Int = 500) {
-        self.client = client
         self.itemId = itemId
+        self.send = { positionMs, durationMs, _ in
+            try await client.updateProgress(itemId: itemId, .media(positionMs: positionMs, durationMs: durationMs))
+        }
+        self.interval = interval
+        self.minimumChangeMs = minimumChangeMs
+    }
+
+    /// A reporter whose writes go to `send`: an addon's stream, whose position is not a library
+    /// item's. `itemId` is 0.
+    public init(interval: TimeInterval = 10, minimumChangeMs: Int = 500, send: @escaping Sender) {
+        self.itemId = 0
+        self.send = send
         self.interval = interval
         self.minimumChangeMs = minimumChangeMs
     }
@@ -56,18 +71,18 @@ public actor PlaybackProgressReporter {
     public func reportIfMoved() async {
         guard let latest else { return }
         if let last = lastSentPositionMs, abs(latest.positionMs - last) < minimumChangeMs { return }
-        await send(latest)
+        await deliver(latest, keepalive: false)
     }
 
     /// Forced write of the latest position if it differs from the last one sent.
     public func flush() async {
         guard let latest, latest.positionMs != lastSentPositionMs else { return }
-        await send(latest)
+        await deliver(latest, keepalive: true)
     }
 
-    private func send(_ value: (positionMs: Int, durationMs: Int)) async {
+    private func deliver(_ value: (positionMs: Int, durationMs: Int), keepalive: Bool) async {
         do {
-            try await client.updateProgress(itemId: itemId, .media(positionMs: value.positionMs, durationMs: value.durationMs))
+            try await send(value.positionMs, value.durationMs, keepalive)
             lastSentPositionMs = value.positionMs
         } catch {
             // Keep the value; the next tick or flush retries.
