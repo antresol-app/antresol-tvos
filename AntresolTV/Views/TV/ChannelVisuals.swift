@@ -218,6 +218,7 @@ extension ChannelCategory {
         case kindAI: return String(localized: "Topics", bundle: .localized)
         case kindSource: return String(localized: "Sources", bundle: .localized)
         case kindGroup: return String(localized: "Groups", bundle: .localized)
+        case "lang": return String(localized: "Languages", bundle: .localized)
         default: return nil
         }
     }

@@ -287,6 +287,7 @@
 "Topics" = "Topics";
 "Sources" = "Sources";
 "Groups" = "Groups";
+"Languages" = "Languages";
 "%@, %lld channels. Choose a category" = "%@, %lld channels. Choose a category";
 "Watch" = "Watch";
 "Remove from Favourites" = "Remove from Favourites";
