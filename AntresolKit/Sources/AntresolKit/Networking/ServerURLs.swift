@@ -56,9 +56,10 @@ public struct ServerURLs: Hashable, Sendable {
     }
 
     /// A channel's live HLS playlist. With a media key the server signs every segment
-    /// line too, so the player needs no headers.
-    public func liveChannel(id: Int, mediaKey: String?) -> URL? {
-        url(path: "/api/channels/live/\(id)/index.m3u8", query: Self.mediaKeyQuery(mediaKey))
+    /// line too, so the player needs no headers. A quality other than «Авто» goes as `q`
+    /// (the server carries it into every URI of the playlists).
+    public func liveChannel(id: Int, mediaKey: String?, quality: VideoQuality = .auto) -> URL? {
+        url(path: "/api/channels/live/\(id)/index.m3u8", query: Self.liveQuery(quality: quality, mediaKey: mediaKey))
     }
 
     /// `/api/download/{fileId}` (Bearer only).
@@ -99,6 +100,12 @@ public struct ServerURLs: Hashable, Sendable {
     static func mediaKeyQuery(_ key: String?) -> [URLQueryItem] {
         guard let key, !key.isEmpty else { return [] }
         return [URLQueryItem(name: "mk", value: key)]
+    }
+
+    /// `q` (none for «Авто») then `mk`.
+    static func liveQuery(quality: VideoQuality, mediaKey: String?) -> [URLQueryItem] {
+        let q = quality == .auto ? [] : [URLQueryItem(name: "q", value: quality.rawValue)]
+        return q + mediaKeyQuery(mediaKey)
     }
 
     static func audioQuery(accept: [AudioCodec], format: AudioTranscodeFormat?, startSec: Double?, mediaKey: String?) -> [URLQueryItem] {

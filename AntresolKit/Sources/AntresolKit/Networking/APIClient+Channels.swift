@@ -45,6 +45,12 @@ extension APIClient {
         try await sendWithoutResponse(.post, "/api/channels/opened")
     }
 
+    /// `GET /api/channels/live/quality?q=`: what a channel would play at for this choice
+    /// here (`applied`, the remote cap in `remote`), for «Авто (720p)» in the menu.
+    public func liveChannelQuality(_ quality: VideoQuality) async throws -> PlayQuality {
+        try await send(.get, "/api/channels/live/quality", query: [URLQueryItem(name: "q", value: quality.rawValue)])
+    }
+
     public func setLastChannel(id: Int) async throws {
         try await sendWithoutResponse(.put, "/api/channels/last", json: LastChannelBody(channelId: id))
     }
@@ -64,20 +70,22 @@ extension APIClient {
     /// `startLiveChannel`, with the renditions of the master playlist it fetched: the player
     /// tells AVFoundation's options apart by them (`LiveRenditions`).
     public func startLiveStream(
-        id: Int, mediaKey: String?, maxAttempts: Int = 15,
+        id: Int, mediaKey: String?, quality: VideoQuality = .auto, maxAttempts: Int = 15,
         onStarting: @Sendable () async -> Void = {}
     ) async throws -> LiveStream {
-        guard let url = urls.liveChannel(id: id, mediaKey: mediaKey) else {
+        guard let url = urls.liveChannel(id: id, mediaKey: mediaKey, quality: quality) else {
             throw APIError.invalidURL("/api/channels/live/\(id)/index.m3u8")
         }
         var attempt = 0
         while true {
             attempt += 1
             do {
-                var request = try makeRequest(.get, "/api/channels/live/\(id)/index.m3u8", query: ServerURLs.mediaKeyQuery(mediaKey))
+                var request = try makeRequest(.get, "/api/channels/live/\(id)/index.m3u8",
+                                              query: ServerURLs.liveQuery(quality: quality, mediaKey: mediaKey))
                 request.setValue("application/vnd.apple.mpegurl", forHTTPHeaderField: "Accept")
-                let (data, _) = try await perform(request)
-                return LiveStream(url: url, renditions: LiveRenditions(master: data))
+                let (data, response) = try await perform(request)
+                return LiveStream(url: url, renditions: LiveRenditions(master: data),
+                                  appliedQuality: response.value(forHTTPHeaderField: "X-Antresol-Quality"))
             } catch let error as APIError {
                 guard attempt < maxAttempts, let delay = LiveChannelStart.retryDelay(after: error) else { throw error }
                 await onStarting()
@@ -91,10 +99,13 @@ extension APIClient {
 public struct LiveStream: Sendable, Equatable {
     public let url: URL
     public let renditions: LiveRenditions
+    /// The server's `X-Antresol-Quality` ("720", "original"), nil when it did not say.
+    public let appliedQuality: String?
 
-    public init(url: URL, renditions: LiveRenditions = LiveRenditions()) {
+    public init(url: URL, renditions: LiveRenditions = LiveRenditions(), appliedQuality: String? = nil) {
         self.url = url
         self.renditions = renditions
+        self.appliedQuality = appliedQuality
     }
 }
 

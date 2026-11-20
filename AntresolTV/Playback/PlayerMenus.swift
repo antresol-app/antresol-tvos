@@ -106,7 +106,7 @@ enum PlayerMenus {
     }
 
     /// "720p" for "720", "Original" for "original".
-    private static func appliedName(_ applied: String) -> String? {
+    static func appliedName(_ applied: String) -> String? {
         if let quality = VideoQuality(rawValue: applied), quality != .auto {
             return quality.displayName
         }

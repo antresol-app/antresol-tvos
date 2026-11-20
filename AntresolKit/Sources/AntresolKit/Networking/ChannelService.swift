@@ -30,6 +30,11 @@ public struct ChannelService: Sendable {
         try await client.playbackPrefs()
     }
 
+    /// What a channel plays at for this quality choice (a read; nothing is saved).
+    public func liveQuality(_ quality: VideoQuality) async throws -> PlayQuality {
+        try await client.liveChannelQuality(quality)
+    }
+
     /// «ТВ» opened: lets the server refresh external sources marked «при открытии».
     public func opened() async {
         try? await client.channelsOpened()
@@ -56,9 +61,9 @@ public struct ChannelService: Sendable {
 
     /// `tuneIn` with the master playlist's renditions (which option is which NAME).
     public func tuneInStream(
-        channelId: Int, mediaKey: String?, onStarting: @Sendable () async -> Void = {}
+        channelId: Int, mediaKey: String?, quality: VideoQuality = .auto, onStarting: @Sendable () async -> Void = {}
     ) async throws -> LiveStream {
-        let stream = try await client.startLiveStream(id: channelId, mediaKey: mediaKey, onStarting: onStarting)
+        let stream = try await client.startLiveStream(id: channelId, mediaKey: mediaKey, quality: quality, onStarting: onStarting)
         try? await client.setLastChannel(id: channelId)
         return stream
     }

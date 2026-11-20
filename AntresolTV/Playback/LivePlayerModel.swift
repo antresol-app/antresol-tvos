@@ -116,6 +116,16 @@ final class LivePlayerModel {
     @ObservationIgnored private var externalPlayingSince: Date?
     @ObservationIgnored private var externalWatch: Task<Void, Never>?
     @ObservationIgnored private let trackMemory = ExternalTrackMemory()
+    @ObservationIgnored private let preferences = PlayerPreferences()
+
+    /// «Качество» of our own channels: the film player's choice (saved, shared with it).
+    private(set) var quality: VideoQuality = PlayerPreferences().quality
+    /// What the server applies for `quality` here («Авто (720p)» away from home).
+    private(set) var appliedQuality: String?
+    /// The external stream's picture sizes (its master's variants), per slot.
+    private(set) var externalVariants = [StreamVariants(), StreamVariants()]
+    /// The height an external channel is capped at, per channel, this session; none is «Авто».
+    @ObservationIgnored private var externalCaps: [Int: Int] = [:]
     /// How long an external source may take to start before the next one is tried.
     private static let externalStartTimeout: Duration = .seconds(20)
 
@@ -171,6 +181,7 @@ final class LivePlayerModel {
         service = appState.client.map(ChannelService.init(client:))
         nowPlaying.begin(client: appState.client)
         open()
+        refreshAppliedQuality()
         Task { [weak self] in
             guard let prefs = try? await self?.service?.playbackPrefs() else { return }
             self?.prefs = prefs
@@ -451,6 +462,60 @@ final class LivePlayerModel {
         return index.map { usable[$0].offset }
     }
 
+    // MARK: - Quality
+
+    /// The «Качество» rows: our channels the film player's choices, an external one its
+    /// stream's own sizes when it has several; none means no menu.
+    var qualityEntries: [LiveQualityEntry] {
+        if channel.external {
+            let variants = externalVariants[front]
+            guard variants.offersChoice else { return [] }
+            let cap = variants.size(forCap: externalCaps[channel.id])
+            return [LiveQualityEntry(id: "auto", title: VideoQuality.auto.displayName, isOn: cap == nil, pick: .cap(nil))]
+                + variants.sizes.map { LiveQualityEntry(id: $0.label, title: $0.label, isOn: $0 == cap, pick: .cap($0.height)) }
+        }
+        return VideoQuality.allCases.map { q in
+            var title = q.displayName
+            if q == .auto, quality == .auto, let applied = appliedQuality.flatMap(PlayerMenus.appliedName) {
+                title += " (\(applied))"
+            }
+            return LiveQualityEntry(id: q.rawValue, title: title, isOn: q == quality, pick: .quality(q))
+        }
+    }
+
+    func selectQuality(_ pick: LiveQualityEntry.Pick) {
+        openMenu = nil
+        switch pick {
+        case .quality(let q):
+            guard q != quality, !channel.external else { return }
+            quality = q
+            preferences.quality = q
+            appliedQuality = nil
+            refreshAppliedQuality()
+            // the stream again at the live edge, with the new `q`
+            open()
+        case .cap(let height):
+            guard channel.external else { return }
+            externalCaps[channel.id] = height
+            for slot in 0..<2 { applyCap(slot) }
+        }
+    }
+
+    private func refreshAppliedQuality() {
+        let q = quality
+        Task { [weak self] in
+            guard let info = try? await self?.service?.liveQuality(q), let self, self.quality == q else { return }
+            self.appliedQuality = info.applied
+        }
+    }
+
+    /// Caps an external item at the picked size (none: no cap, the stream's own choice).
+    private func applyCap(_ slot: Int) {
+        guard channel.external, let item = players[slot].currentItem else { return }
+        let size = externalVariants[slot].size(forCap: externalCaps[channel.id])
+        item.preferredMaximumResolution = size.map { CGSize(width: $0.width, height: $0.height) } ?? .zero
+    }
+
     func hideGuide() {
         showsGuide = false
     }
@@ -602,12 +667,15 @@ final class LivePlayerModel {
             // never the URL: a provider's may carry credentials
             Self.log.info("live: external source \(attempt + 1) of \(self.externalSources.count), headers \(source.headers.keys.sorted(), privacy: .public)")
             self.renditions[slot] = LiveRenditions()
+            self.externalVariants[slot] = StreamVariants()
             self.load(url, headers: source.headers, into: slot)
             self.watchExternalStart(id: id, attempt: attempt)
             // the master's renditions name the stream's options (best effort)
             if let master = await Self.fetchMaster(url, headers: source.headers),
                !Task.isCancelled, self.channel.id == id, self.externalAttempt == attempt, !self.isStopped {
                 self.renditions[slot] = LiveRenditions(master: master)
+                self.externalVariants[slot] = StreamVariants(master: master)
+                self.applyCap(slot)
                 self.applyTracks(force: true)
             }
         }
@@ -689,11 +757,13 @@ final class LivePlayerModel {
         guard let appState, let coordinator, let client = appState.client, let service else { return }
         do {
             let key = try await coordinator.mediaKeyStore(for: client).key()
-            let stream = try await service.tuneInStream(channelId: channelId, mediaKey: key) { [weak self] in
+            let stream = try await service.tuneInStream(channelId: channelId, mediaKey: key, quality: quality) { [weak self] in
                 await self?.channelIsStarting(channelId)
             }
             guard !Task.isCancelled, channel.id == channelId, !isStopped else { return }
             renditions[back] = stream.renditions
+            externalVariants[back] = StreamVariants()
+            if let applied = stream.appliedQuality, !applied.isEmpty { appliedQuality = applied }
             load(stream.url, into: back)
         } catch {
             guard !Task.isCancelled, channel.id == channelId, !isStopped else { return }
@@ -905,4 +975,20 @@ final class LivePlayerModel {
 enum TrackMenuKind: Equatable {
     case audio
     case subtitles
+    case quality
+}
+
+/// A row of the live «Качество» list.
+struct LiveQualityEntry: Identifiable, Equatable {
+    enum Pick: Equatable {
+        /// Our channel: the server's `q`.
+        case quality(VideoQuality)
+        /// An external channel: the height to cap at, nil for «Авто».
+        case cap(Int?)
+    }
+
+    let id: String
+    let title: String
+    let isOn: Bool
+    let pick: Pick
 }

@@ -169,6 +169,59 @@ final class ChannelTests: XCTestCase {
         XCTAssertEqual(urls.liveChannel(id: 2, mediaKey: nil)?.absoluteString, "http://tv.test:8420/api/channels/live/2/index.m3u8")
     }
 
+    func testLiveURLCarriesTheQualityBesideTheMediaKey() {
+        let urls = ServerURLs(baseURL: base)
+        let live = "http://tv.test:8420/api/channels/live/2/index.m3u8"
+        XCTAssertEqual(urls.liveChannel(id: 2, mediaKey: "v1.k", quality: .p720)?.absoluteString, live + "?q=720&mk=v1.k")
+        XCTAssertEqual(urls.liveChannel(id: 2, mediaKey: nil, quality: .original)?.absoluteString, live + "?q=original")
+        // «Авто» sends no q
+        XCTAssertEqual(urls.liveChannel(id: 2, mediaKey: "v1.k", quality: .auto)?.absoluteString, live + "?mk=v1.k")
+    }
+
+    func testLiveStreamAsksForTheQualityAndReadsWhatWasApplied() async throws {
+        let transport = MockTransport { request in
+            switch request.url?.path {
+            case "/api/channels/live/quality": return .json(#"{"selected":"auto","applied":"720","remote":true}"#)
+            default: return .json("#EXTM3U\n", headers: ["X-Antresol-Quality": "480"])
+            }
+        }
+        let client = APIClient(baseURL: base, token: "t", transport: transport)
+        let stream = try await client.startLiveStream(id: 2, mediaKey: "k", quality: .p480)
+        XCTAssertEqual(stream.url.absoluteString, "http://tv.test:8420/api/channels/live/2/index.m3u8?q=480&mk=k")
+        XCTAssertEqual(stream.appliedQuality, "480")
+        let info = try await client.liveChannelQuality(.auto)
+        XCTAssertEqual(info, PlayQuality(selected: "auto", applied: "720", remote: true))
+        XCTAssertEqual(transport.requests.map(\.pathAndQuery), [
+            "/api/channels/live/2/index.m3u8?q=480&mk=k", "/api/channels/live/quality?q=auto",
+        ])
+    }
+
+    func testStreamVariantsOfAMaster() {
+        let master = """
+        #EXTM3U
+        #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2"
+        360.m3u8
+        #EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080
+        1080.m3u8
+        #EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720
+        720.m3u8
+        #EXT-X-STREAM-INF:BANDWIDTH=2400000,RESOLUTION=1280x720
+        720b.m3u8
+        """
+        let variants = StreamVariants(master: master)
+        XCTAssertEqual(variants.sizes.map(\.label), ["1080p", "720p", "360p"])
+        XCTAssertTrue(variants.offersChoice)
+        XCTAssertNil(variants.size(forCap: nil))
+        XCTAssertEqual(variants.size(forCap: 720), .init(width: 1280, height: 720))
+        // a cap the stream lacks: the tallest under it
+        XCTAssertEqual(variants.size(forCap: 480)?.height, 360)
+        XCTAssertNil(variants.size(forCap: 240))
+        // one size, no RESOLUTION or a media playlist: no menu
+        XCTAssertFalse(StreamVariants(master: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=1280x720\na.m3u8\n").offersChoice)
+        XCTAssertFalse(StreamVariants(master: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2\nb.m3u8\n").offersChoice)
+        XCTAssertFalse(StreamVariants(master: "#EXTM3U\n#EXTINF:6,\nseg.ts\n").offersChoice)
+    }
+
     func testRequests() async throws {
         let transport = MockTransport { request in
             switch request.url?.path {

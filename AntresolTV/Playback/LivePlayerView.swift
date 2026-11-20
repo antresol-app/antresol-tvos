@@ -255,7 +255,7 @@ private struct LiveControls: View {
     @FocusState private var focused: Control?
 
     enum Control: Hashable {
-        case goLive, audio, subtitles, favorite, number, channels
+        case goLive, audio, subtitles, quality, favorite, number, channels
     }
 
     var body: some View {
@@ -277,6 +277,12 @@ private struct LiveControls: View {
                 if !subtitles.isEmpty {
                     control(.subtitles, "Subtitles", model.subtitleTrack == nil ? "captions.bubble" : "captions.bubble.fill", isActive: model.openMenu == .subtitles) {
                         model.openMenu = model.openMenu == .subtitles ? nil : .subtitles
+                    }
+                }
+                // the film player's «Качество» (its symbol and choices)
+                if !model.qualityEntries.isEmpty {
+                    control(.quality, "Quality", "slider.horizontal.3", isActive: model.openMenu == .quality) {
+                        model.openMenu = model.openMenu == .quality ? nil : .quality
                     }
                 }
                 control(.favorite, model.isFavorite ? "Remove from Favourites" : "Add to Favourites", model.isFavorite ? "star.fill" : "star", isActive: false) {
@@ -303,7 +309,11 @@ private struct LiveControls: View {
         // Menu (Back) on an open list closes it: focus goes back to the button that opened it.
         .onChange(of: model.openMenu) { old, new in
             guard new == nil, let old else { return }
-            focused = old == .audio ? .audio : .subtitles
+            switch old {
+            case .audio: focused = .audio
+            case .subtitles: focused = .subtitles
+            case .quality: focused = .quality
+            }
         }
     }
 
@@ -343,6 +353,24 @@ private struct TrackMenu: View {
     static let visibleRows = 6
 
     var body: some View {
+        if kind == .quality { qualityList } else { trackList }
+    }
+
+    /// «Качество»: the same list, one row per choice.
+    private var qualityList: some View {
+        let entries = model.qualityEntries
+        let selected = entries.first(where: \.isOn)?.id ?? ""
+        return list(title: "Quality", count: entries.count, selected: selected) {
+            ForEach(entries) { entry in
+                row(id: entry.id, title: entry.title, isOn: entry.isOn) {
+                    model.selectQuality(entry.pick)
+                }
+                .id(entry.id)
+            }
+        }
+    }
+
+    private var trackList: some View {
         let all = kind == .audio ? model.audioEntries() : model.subtitleEntries()
         // a cleaned voice is not a row: «Clean voice-over» under the voices (the film player's switch)
         let current = kind == .audio ? all.first { $0.name == model.audioTrack?.name } : nil
@@ -352,9 +380,35 @@ private struct TrackMenu: View {
         let twin = { (name: String) in all.first { $0.cleanedOf == name } }
         let cleanedTwin = kind == .audio ? twin(selected) : nil
         let count = entries.count + (kind == .subtitles ? 1 : 0)
-        VStack(alignment: .leading, spacing: 4) {
+        return list(title: kind == .audio ? "Audio" : "Subtitles", count: count, selected: selected) {
+            if kind == .subtitles {
+                row(id: "", title: String(localized: "Off", bundle: .localized), isOn: selected.isEmpty) {
+                    model.selectSubtitle(nil)
+                }
+                .id("")
+            }
+            ForEach(entries) { entry in
+                row(id: entry.name, title: entry.voiceAndLanguage.voice, detail: entry.voiceAndLanguage.language, isOn: entry.name == selected) {
+                    if kind == .audio { model.selectAudio((cleanedOn ? twin(entry.name) : nil) ?? entry) } else { model.selectSubtitle(entry) }
+                }
+                .id(entry.name)
+            }
+            if let tw = cleanedTwin {
+                row(id: "clean", title: String(localized: "Clean voice-over", bundle: .localized),
+                    detail: String(localized: "Without the original speech under it", bundle: .localized), isOn: cleanedOn) {
+                    model.selectAudio(cleanedOn ? (all.first { $0.name == selected } ?? tw) : tw)
+                }
+                .id("clean")
+            }
+        }
+    }
+
+    /// The list's frame: its title (and count past what fits), the scrolling rows.
+    private func list<Rows: View>(title: LocalizedStringKey, count: Int, selected: String, @ViewBuilder rows: () -> Rows) -> some View {
+        let content = rows()
+        return VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(kind == .audio ? "Audio" : "Subtitles")
+                Text(title)
                     .font(Theme.Typography.eyebrow)
                     .foregroundStyle(Theme.Colors.label3)
                 Spacer()
@@ -370,25 +424,7 @@ private struct TrackMenu: View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 4) {
-                        if kind == .subtitles {
-                            row(id: "", title: String(localized: "Off", bundle: .localized), isOn: selected.isEmpty) {
-                                model.selectSubtitle(nil)
-                            }
-                            .id("")
-                        }
-                        ForEach(entries) { entry in
-                            row(id: entry.name, title: entry.voiceAndLanguage.voice, detail: entry.voiceAndLanguage.language, isOn: entry.name == selected) {
-                                if kind == .audio { model.selectAudio((cleanedOn ? twin(entry.name) : nil) ?? entry) } else { model.selectSubtitle(entry) }
-                            }
-                            .id(entry.name)
-                        }
-                        if let tw = cleanedTwin {
-                            row(id: "clean", title: String(localized: "Clean voice-over", bundle: .localized),
-                                detail: String(localized: "Without the original speech under it", bundle: .localized), isOn: cleanedOn) {
-                                model.selectAudio(cleanedOn ? (all.first { $0.name == selected } ?? tw) : tw)
-                            }
-                            .id("clean")
-                        }
+                        content
                     }
                     // room for the focused row's lift
                     .padding(.vertical, 8)
