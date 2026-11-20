@@ -12,6 +12,7 @@ struct MainShellView: View {
     @State private var playback = PlaybackCoordinator()
     @State private var audio = AudioPlayer()
     @State private var playlists = PlaylistActions()
+    @State private var addons = AddonWays()
     @State private var showsNowPlaying = false
     @State private var tabReset = TabResetCoordinator()
     /// The profile's avatar, drawn once for the profile tab.
@@ -23,6 +24,7 @@ struct MainShellView: View {
         .environment(playback)
         .environment(audio)
         .environment(playlists)
+        .environment(addons)
         .overlay(alignment: .bottom) {
             if let message = bannerMessage {
                 NoticeBanner(message: message)
@@ -37,6 +39,7 @@ struct MainShellView: View {
                 .environment(appState)
                 .environment(playlists)
         }
+        .modifier(WayPresentations(addons: addons, playback: playback, appState: appState) { audio.pause() })
         .fullScreenCover(item: $playback.presented) { request in
             VideoPlayerView(request: request)
                 .environment(appState)
@@ -346,6 +349,8 @@ struct TabNavigation<Root: View>: View {
                             GenreView(name: name)
                         case .shelf(let id, let title):
                             ShelfGridView(shelfId: id, title: title)
+                        case .title(let ref):
+                            TitleDetailView(ref: ref)
                         }
                     }
                     .modifier(FullScreenWidth())

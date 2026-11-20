@@ -2,10 +2,12 @@ import AntresolKit
 import SwiftUI
 import UIKit
 
-/// «Трейлер» on a movie or series page. One trailer opens at once; several open a chooser.
-/// A trailer the server can play (`play`) opens in the app's trailer player. On an older
-/// server, or with trailers off there, it plays in the YouTube app when it is installed;
-/// otherwise a sheet shows the trailer's QR code, to watch it on a phone.
+/// «Трейлер» on a movie or series page. One trailer opens at once; several (the best three, as the
+/// web's menu lists them) open a chooser. The button shows for any trailer the server lists, as the
+/// web's does. A trailer the server can play (`play`) opens in the app's trailer player. Without
+/// `play` (an older server, or trailers turned off there) the web plays the video site's own embedded
+/// player in the same place; an Apple TV has none, so it plays in the YouTube app when it is installed
+/// and otherwise a sheet shows the trailer's QR code, to watch it on a phone.
 struct TrailerButton: View {
     let trailers: [Trailer]
     /// The movie or series the trailers belong to (the player's backdrop).

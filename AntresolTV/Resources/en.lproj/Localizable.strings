@@ -386,3 +386,7 @@
 "Via Antresol" = "Via Antresol";
 "Source %lld of %lld" = "Source %1$lld of %2$lld";
 "This channel has no supported audio" = "This channel has no supported audio";
+
+/* Addon ways: the buttons' own words come from the server */
+"Cancel Task" = "Cancel";
+"Nothing Found" = "Nothing Found";

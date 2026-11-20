@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
+    @Environment(AddonWays.self) private var addons
     @Environment(\.openRoute) private var openRoute
     @State private var model = HomeModel()
 
@@ -32,6 +33,8 @@ struct HomeView: View {
         }
         .background(Theme.Colors.background.ignoresSafeArea())
         .task { await model.load(using: appState) }
+        // tvOS has no pull-to-refresh: Home coming up again (a reset tab) looks at the addons again.
+        .task { await addons.load(using: appState, refresh: true) }
         .onChange(of: playback.completedSessions) {
             Task { await model.load(using: appState) }
         }

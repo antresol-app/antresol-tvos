@@ -10,6 +10,7 @@ struct SeasonSection: View {
 
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
+    @Environment(AddonWays.self) private var addons
 
     var body: some View {
         if let guide = model.guide, let season = model.selectedSeason {
@@ -63,17 +64,45 @@ struct SeasonSection: View {
             }
             .buttonStyle(CardButtonStyle())
             .playsOnPlayPause(card.card)
-            .contextMenu { menu(for: card) }
+            .contextMenu {
+                menu(for: card)
+                wayItems(for: episode, inLibrary: true)
+            }
         } else {
-            // Not in the library: focusable, so the row scrolls to it, but nothing plays.
+            // Not in the library: focusable, so the row scrolls to it. An addon's way plays it
+            // (the first one, as Play would); without one nothing plays.
             Button {
-                if episode.state == .missing {
+                if let target = wayTarget(for: episode, inLibrary: false),
+                   let way = addons.ways(for: target, role: .watch).first {
+                    addons.start(WayLaunch(way: way, target: target, card: wayCard(for: episode)), choose: false, appState: appState, playback: playback)
+                } else if episode.state == .missing {
                     appState.showNotice(String(localized: "Not in the library", bundle: .localized))
                 }
             } label: {
                 EpisodeCardView(guide: episode)
             }
             .buttonStyle(CardButtonStyle())
+            .contextMenu { wayItems(for: episode, inLibrary: false) }
+        }
+    }
+
+    /// The addons' ways for one episode: an episode still to air has none.
+    private func wayTarget(for episode: GuideEpisode, inLibrary: Bool) -> WayTarget? {
+        guard episode.state != .upcoming else { return nil }
+        return model.wayTarget?.episode(season: episode.season, episode: episode.number, inLibrary: inLibrary)
+    }
+
+    /// The series' card with the episode's code as its context line.
+    private func wayCard(for episode: GuideEpisode) -> Card {
+        var card = model.detail?.card ?? model.card
+        card.subtitle = String(localized: "S\(episode.season), E\(episode.number)", bundle: .localized)
+        return card
+    }
+
+    @ViewBuilder
+    private func wayItems(for episode: GuideEpisode, inLibrary: Bool) -> some View {
+        if let target = wayTarget(for: episode, inLibrary: inLibrary) {
+            EpisodeWayMenu(target: target, card: wayCard(for: episode))
         }
     }
 

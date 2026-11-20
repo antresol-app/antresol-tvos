@@ -125,7 +125,19 @@ final class VideoDetailModel {
         let list = (try? await client.trailers(itemId: itemId)) ?? []
         guard !Task.isCancelled else { return }
         trailersLoaded = true
-        trailers = list
+        // The best few, as the web's menu lists them.
+        trailers = Array(list.prefix(TrailerList.maxOffered))
+    }
+
+    /// What the addons' ways are called for on this page: the movie or series, by its TMDB id.
+    /// Nil on an episode's page, or for a title without a TMDB id.
+    var wayTarget: WayTarget? {
+        guard let detail, let tmdbId = detail.tmdbId, tmdbId > 0 else { return nil }
+        switch detail.kind {
+        case .movie: return WayTarget(kind: "movie", tmdbId: tmdbId, inLibrary: true)
+        case .series: return WayTarget(kind: "series", tmdbId: tmdbId, inLibrary: true)
+        default: return nil
+        }
     }
 
     private func updateGuide(_ detail: ItemDetail) {

@@ -9,7 +9,9 @@ struct VideoDetailView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(PlaybackCoordinator.self) private var playback
+    @Environment(AddonWays.self) private var addons
     @State private var model: VideoDetailModel
+    @State private var wayStates = WayStateModel()
     @FocusState private var focusedButton: HeaderButton?
     @Environment(\.claimsFocusOnAppear) private var claimsFocusOnAppear
     @State private var didClaimFocus = false
@@ -56,6 +58,10 @@ struct VideoDetailView: View {
         }
         .task(id: card.uniqueKey) { await model.load(using: appState) }
         .task(id: card.uniqueKey) { await model.loadTrailers(using: appState) }
+        .task(id: WayPollKey(target: model.wayTarget, snapshot: addons.snapshot, revision: addons.revision)) {
+            guard let target = model.wayTarget else { return }
+            await wayStates.poll(target: target, ways: addons.ways(for: target), using: appState)
+        }
         .onChange(of: playback.completedSessions) {
             Task { await model.load(using: appState) }
         }
@@ -219,6 +225,11 @@ struct VideoDetailView: View {
     private var playableActions: some View {
         let detail = model.detail
         let hasFile = detail.map { !$0.files.isEmpty } ?? true
+        let wayTarget = shownCard.kind == .movie ? model.wayTarget : nil
+        // A movie the library has no file of: the addons' ways come first.
+        if let wayTarget, !hasFile {
+            WayWatchButtons(target: wayTarget, card: shownCard, hasPlay: false)
+        }
         Button {
             playback.play(shownCard, from: .resume)
         } label: {
@@ -254,9 +265,17 @@ struct VideoDetailView: View {
             }
         }
 
+        if let wayTarget, hasFile {
+            WayWatchButtons(target: wayTarget, card: shownCard, hasPlay: true)
+        }
+
         if shownCard.kind == .movie {
             trailerButton
             watchlistButton
+        }
+
+        if let wayTarget {
+            WayKeepButtons(target: wayTarget, card: shownCard, states: wayStates)
         }
 
         if let detail {
@@ -293,8 +312,16 @@ struct VideoDetailView: View {
         .focused($focusedButton, equals: .play)
         .disabled(model.detail != nil && next == nil)
 
+        if let wayTarget = model.wayTarget {
+            WayWatchButtons(target: wayTarget, card: shownCard, hasPlay: next != nil || model.detail == nil)
+        }
+
         trailerButton
         watchlistButton
+
+        if let wayTarget = model.wayTarget {
+            WayKeepButtons(target: wayTarget, card: shownCard, states: wayStates)
+        }
 
         if let detail = model.detail {
             let watched = model.isSeriesWatched

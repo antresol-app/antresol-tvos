@@ -12,6 +12,8 @@ enum Route: Hashable {
     case genre(String)
     /// Everything in a Home shelf (its title's "See All").
     case shelf(id: String, title: String)
+    /// A movie or show the library does not have, by its TMDB id (a result of an addon's search).
+    case title(TitleRef)
 }
 
 /// Pushes a route onto the current tab's navigation stack, for places that cannot use a

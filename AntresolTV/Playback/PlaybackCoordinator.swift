@@ -45,8 +45,27 @@ final class PlaybackCoordinator {
         let card: Card
     }
 
+    /// A stream an addon's way started (`x/app/run`): played through the core's input player, or
+    /// directly. `run` is what asked for it, to ask again for a fresh link.
+    struct WayRequest: Identifiable, Hashable {
+        enum Source: Hashable {
+            /// `/api/play/input/{id}`.
+            case input(String)
+            /// The addon's own stream, with its session and progress.
+            case stream(WayPlay)
+        }
+
+        let id = UUID()
+        let launch: WayLaunch
+        let source: Source
+        let run: WayRunRequest
+    }
+
     /// The request the player is showing, if any.
     var presented: Request?
+
+    /// The addon stream the way player is showing, if any.
+    var presentedWay: WayRequest?
 
     /// The trailer the trailer player is showing, if any.
     var presentedTrailer: TrailerRequest?
@@ -57,7 +76,7 @@ final class PlaybackCoordinator {
     /// A full-screen player (video, trailer or live) covers the tabs. They stay alive
     /// under it, so their timers check this before doing work nobody sees.
     var isPresenting: Bool {
-        presented != nil || presentedTrailer != nil || presentedChannel != nil
+        presented != nil || presentedTrailer != nil || presentedChannel != nil || presentedWay != nil
     }
 
     /// Incremented each time the player closes; pages observe it to reload progress.
@@ -74,6 +93,19 @@ final class PlaybackCoordinator {
     /// `filter`, in the list's order.
     func watch(_ channel: Channel, channels: [Channel], filter: ChannelFilter = .all, categories: [ChannelCategory] = []) {
         presentedChannel = LiveRequest(channel: channel, channels: channels, filter: filter, categories: categories)
+    }
+
+    /// Opens the player of a stream an addon's way started.
+    func playWay(_ launch: WayLaunch, source: WayRequest.Source, run: WayRunRequest) {
+        presentedWay = WayRequest(launch: launch, source: source, run: run)
+    }
+
+    /// The way player of `request` closed. Only that player's own presentation is cleared: a newer
+    /// one stays up. Its progress was written (to the library item, for an input that names one),
+    /// so pages reload as after any other player.
+    func wayPlayerDidClose(_ request: WayRequest) {
+        if presentedWay?.id == request.id { presentedWay = nil }
+        completedSessions += 1
     }
 
     /// Opens the trailer player. A trailer is not a playback session: no progress, no

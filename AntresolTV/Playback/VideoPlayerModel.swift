@@ -4,7 +4,6 @@ import AntresolKit
 import Foundation
 import Observation
 import UIKit
-import VideoToolbox
 
 /// One playback screen: resolves what to play, offers to resume, asks the server how to
 /// play it (`/api/play`), drives an `AVPlayer` with the media-key URL and keeps the
@@ -856,7 +855,7 @@ final class VideoPlayerModel {
     /// The media-key URL needs no headers for direct play and complete (VOD) playlists.
     /// A growing (EVENT) playlist lists segments without the key, so every request of
     /// that asset carries the Bearer header instead (§5.4).
-    private static func asset(for source: PlaybackSource, client: APIClient?) -> AVURLAsset {
+    static func asset(for source: PlaybackSource, client: APIClient?) -> AVURLAsset {
         guard source.mode.isHLS, !source.response.hlsComplete, let client else {
             return AVURLAsset(url: source.url)
         }
@@ -1018,13 +1017,7 @@ final class VideoPlayerModel {
         return item
     }
 
-    /// What this Apple TV decodes: HEVC and AV1 only where there is a hardware decoder
-    /// (Apple TV HD has neither and tops out at 1080p).
-    private static let caps: DeviceCaps = {
-        let hevc = VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC)
-        let av1 = VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1)
-        return .appleTV(maxHeight: hevc ? 2160 : 1080, hevc: hevc, av1: av1)
-    }()
+    private static var caps: DeviceCaps { PlayerDevice.caps }
 }
 
 /// What the transport-bar menus show and which entries are selected.

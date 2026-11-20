@@ -386,3 +386,7 @@
 "Via Antresol" = "Через Antresol";
 "Source %lld of %lld" = "Источник %1$lld из %2$lld";
 "This channel has no supported audio" = "У канала нет поддерживаемого звука";
+
+/* Addon ways: the buttons' own words come from the server */
+"Cancel Task" = "Отменить";
+"Nothing Found" = "Ничего не найдено";

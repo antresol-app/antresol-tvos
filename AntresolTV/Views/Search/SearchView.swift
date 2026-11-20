@@ -8,6 +8,7 @@ struct SearchView: View {
     let onBrowse: (ShellTab) -> Void
 
     @Environment(AppState.self) private var appState
+    @Environment(AddonWays.self) private var addons
     @State private var query = ""
     @State private var model = SearchModel()
 
@@ -21,7 +22,7 @@ struct SearchView: View {
         .ignoresSafeArea(edges: .horizontal)
         .background(Theme.Colors.background.ignoresSafeArea())
         .searchable(text: $query, prompt: Text("Movies, shows and music"))
-        .task(id: query) { await model.search(query, using: appState) }
+        .task(id: query) { await model.search(query, using: appState, addons: addons) }
     }
 
     @ViewBuilder
@@ -34,11 +35,14 @@ struct SearchView: View {
                 .frame(maxWidth: .infinity, minHeight: 300)
         case .failed(let message):
             ErrorStateView(message: message) {
-                Task { await model.search(query, using: appState) }
+                Task { await model.search(query, using: appState, addons: addons) }
             }
             .frame(minHeight: 500)
         case .results(let groups):
-            if groups.isEmpty {
+            if groups.isEmpty, model.addonSections.isEmpty, model.addonsSearching {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 300)
+            } else if groups.isEmpty, model.addonSections.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 64))
@@ -67,8 +71,26 @@ struct SearchView: View {
                     .buttonStyle(CardButtonStyle())
                 }
             }
+            // The addons' own results, under their own headings, after the library's.
+            ForEach(model.addonSections) { section in
+                ShelfRow(title: section.label, items: section.titles, id: \.id) { title in
+                    NavigationLink(value: Self.route(for: title)) {
+                        PosterCard(card: Self.card(for: title))
+                    }
+                    .buttonStyle(CardButtonStyle())
+                }
+            }
         }
         .padding(.top, 20)
+    }
+
+    /// A title the library has opens its page; one it lacks opens the page of a title off the library.
+    private static func route(for title: AddonTitle) -> Route {
+        title.libraryId == nil ? .title(TitleRef(title)) : .item(card(for: title))
+    }
+
+    private static func card(for title: AddonTitle) -> Card {
+        Card(id: title.libraryId ?? 0, kind: ItemKind(rawValue: title.kind), title: title.title, year: title.year, poster: title.poster)
     }
 
     // MARK: Browse

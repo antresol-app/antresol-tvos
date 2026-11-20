@@ -15,17 +15,43 @@ final class SearchModel {
     }
 
     private(set) var state: State = .idle
+    /// The addons' own searches, after the library's: one section per addon that found titles, in
+    /// the order of the addons' ids. Empty without addons.
+    private(set) var addonSections: [AddonSearchSection] = []
+    /// An addon's search is still under way.
+    private(set) var addonsSearching = false
+
+    @ObservationIgnored private var generation = 0
 
     /// Searches for `text` after a short pause; call it from `.task(id: text)` so a new
-    /// keystroke cancels the previous search.
-    func search(_ text: String, using appState: AppState) async {
+    /// keystroke cancels the previous search. The addons that search are asked too, and their
+    /// results come in as they arrive, without holding back the library's.
+    func search(_ text: String, using appState: AppState, addons: AddonWays) async {
         let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        generation += 1
+        let mine = generation
         guard !query.isEmpty else {
             state = .idle
+            addonSections = []
+            addonsSearching = false
             return
         }
         try? await Task.sleep(nanoseconds: 300_000_000)
         guard !Task.isCancelled, let client = appState.client else { return }
+        await addons.load(using: appState)
+        let searches = addons.snapshot.searches
+        addonSections = []
+        addonsSearching = !searches.isEmpty
+        let addonTask = Task { await self.searchAddons(query, searches: searches, client: client, generation: mine) }
+        await withTaskCancellationHandler {
+            await searchLibrary(query, using: appState, client: client)
+            await addonTask.value
+        } onCancel: {
+            addonTask.cancel()
+        }
+    }
+
+    private func searchLibrary(_ query: String, using appState: AppState, client: APIClient) async {
         if case .results = state {} else { state = .searching }
         do {
             let results = try await client.search(query)
@@ -35,6 +61,25 @@ final class SearchModel {
             guard !Task.isCancelled else { return }
             if let message = appState.message(for: error) { state = .failed(message) }
         }
+    }
+
+    /// Asks each addon that searches, all at once; whatever fails or finds nothing is left out
+    /// without a word.
+    private func searchAddons(_ query: String, searches: [AddonSearch], client: APIClient, generation mine: Int) async {
+        var found: [String: [AddonTitle]] = [:]
+        await withTaskGroup(of: (String, [AddonTitle]?).self) { group in
+            for search in searches {
+                group.addTask { (search.addonId, try? await client.addonTitles(addon: search.addonId, query: query)) }
+            }
+            for await (addon, titles) in group {
+                guard !Task.isCancelled, generation == mine else { continue }
+                if let titles, !titles.isEmpty { found[addon] = titles }
+                addonSections = searches.compactMap { search in
+                    found[search.addonId].map { AddonSearchSection(addonId: search.addonId, label: search.label, titles: $0) }
+                }
+            }
+        }
+        if generation == mine { addonsSearching = false }
     }
 }
 
