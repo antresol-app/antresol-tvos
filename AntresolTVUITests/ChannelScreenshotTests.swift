@@ -205,8 +205,8 @@ final class ChannelScreenshotTests: XCTestCase {
         shot("r3-20-player-starting", delay: 1)
         shot("r3-21-player-banner", delay: 9)
         shot("r3-22-player-clean", delay: 6)
-        // Select: the options row, focus on Audio.
-        remote.press(.select)
+        // Right: the options row, focus on Audio (Select opens the channel list).
+        remote.press(.right)
         shot("r3-23-player-options", delay: 2)
         let audio = app.buttons["live.audio"]
         if audio.exists {
@@ -243,15 +243,20 @@ final class ChannelScreenshotTests: XCTestCase {
         shot("r3-27-zapped", delay: 9)
         remote.press(.down)
         sleep(9)
-        // The mini-guide (from the options row).
-        remote.press(.select)
+        // The channel list (from the options row).
+        remote.press(.right)
         shot("r3-27b-options-again", delay: 2)
         let channels = app.buttons["live.channels"]
         if moveFocus(.right, to: channels, limit: 5) {
             remote.press(.select)
             shot("r3-28-mini-guide", delay: 2)
-            remote.press(.right)
+            remote.press(.down)
             shot("r3-29-mini-guide-moved", delay: 1)
+            // Left: the category column beside the list
+            remote.press(.left)
+            shot("r3-29b-list-categories", delay: 2)
+            remote.press(.right)
+            sleep(1)
             remote.press(.menu)
             sleep(2)
         }
@@ -371,7 +376,7 @@ final class ChannelScreenshotTests: XCTestCase {
         shot("r5-60-list-logo", delay: 4)
         remote.press(.select)
         shot("r5-61-banner-logo", delay: 10)
-        remote.press(.select)
+        remote.press(.right)
         sleep(2)
         let audio = app.buttons["live.audio"]
         if audio.exists {
@@ -404,7 +409,7 @@ final class ChannelScreenshotTests: XCTestCase {
             remote.press(.select)
             shot("r5-66b-subtitles-on", delay: 4)
         }
-        if !app.buttons["live.channels"].exists { remote.press(.select); sleep(2) }
+        if !app.buttons["live.channels"].exists { remote.press(.right); sleep(2) }
         let channels = app.buttons["live.channels"]
         if moveFocus(.right, to: channels, limit: 5) {
             remote.press(.select)

@@ -376,3 +376,12 @@
 "No channel %@" = "Канала %@ нет";
 "Erase" = "Стереть";
 "OK" = "ОК";
+
+/* Live player, TiviMate remote and the playback path */
+"Channel Up" = "Канал выше";
+"Channel Down" = "Канал ниже";
+"Direct" = "Напрямую";
+"Direct · %@" = "Напрямую · %@";
+"Via Antresol" = "Через Antresol";
+"Source %lld of %lld" = "Источник %1$lld из %2$lld";
+"This channel has no supported audio" = "У канала нет поддерживаемого звука";

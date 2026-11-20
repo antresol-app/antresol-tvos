@@ -43,8 +43,9 @@ final class LivePlayerModel {
     private(set) var channel: Channel
     /// Every channel the profile sees, in the server's order.
     private(set) var channels: [Channel]
-    /// The list the player was opened from: channel up / down stays inside it.
-    let filter: ChannelFilter
+    /// The list the player was opened from, or the category picked in the channel list's
+    /// category column: channel up / down stays inside it.
+    private(set) var filter: ChannelFilter
     /// The server's categories, which name `filter` (the mini-guide's title).
     private(set) var categories: [ChannelCategory]
     private(set) var guide: ChannelGuide?
@@ -74,8 +75,18 @@ final class LivePlayerModel {
     private(set) var subtitleText: String?
     /// The channel banner (logo, what is on, next) is up.
     private(set) var showsInfo = true
-    /// The mini-guide (the section's channels along the bottom) is up.
+    /// The channel list (TiviMate's, over the left of the picture) is up; the channel keeps playing.
     private(set) var showsGuide = false
+    /// The list's category column has focus (Left in the list, Right back).
+    private(set) var showsCategories = false
+    /// Counts the openings of the channel list: it takes focus on the channel on screen each time.
+    private(set) var listOpenings = 0
+    /// The channel watched before this one («Предыдущий канал»), nil until a switch.
+    private(set) var previousChannel: Channel?
+    /// How the stream on screen arrives (the banner's quiet line).
+    private(set) var playbackPath: LivePlaybackPath?
+    /// The stream plays without a sound this device decodes (every source tried).
+    private(set) var audioNote: String?
     /// The on-screen number pad is up.
     private(set) var showsNumberPad = false
     private(set) var isPaused = false
@@ -116,6 +127,16 @@ final class LivePlayerModel {
     @ObservationIgnored private var externalPlayingSince: Date?
     @ObservationIgnored private var externalWatch: Task<Void, Never>?
     @ObservationIgnored private let trackMemory = ExternalTrackMemory()
+    /// The external sources that played badly here (an error, no sound, a stall): tried last.
+    @ObservationIgnored private let sourceMemory = ExternalSourceMemory()
+    /// The attempts of this opening that played without sound.
+    @ObservationIgnored private var silentAttempts: Set<Int> = []
+    /// The attempt kept on screen although silent (nothing better played).
+    @ObservationIgnored private var acceptedSilent: Int?
+    @ObservationIgnored private var audioCheck: Task<Void, Never>?
+    @ObservationIgnored private var stallWatch: Task<Void, Never>?
+    /// Reopenings after a stall on this channel (bounded, so a dead stream does not loop).
+    @ObservationIgnored private var stallRecoveries = 0
     @ObservationIgnored private let preferences = PlayerPreferences()
 
     /// «Качество» of our own channels: the film player's choice (saved, shared with it).
@@ -128,6 +149,11 @@ final class LivePlayerModel {
     @ObservationIgnored private var externalCaps: [Int: Int] = [:]
     /// How long an external source may take to start before the next one is tried.
     private static let externalStartTimeout: Duration = .seconds(20)
+    /// How long a started stream may wait for data before it is treated as stuck.
+    static let stallTimeout: Duration = .seconds(8)
+    /// How long after the first frame the audio tracks are looked at.
+    private static let audioCheckDelay: Duration = .seconds(3)
+    private static let maxStallRecoveries = 2
 
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Antresol", category: "live")
 
@@ -204,6 +230,8 @@ final class LivePlayerModel {
         hideTask?.cancel()
         swapTask?.cancel()
         externalWatch?.cancel()
+        audioCheck?.cancel()
+        stallWatch?.cancel()
         teardown(0)
         teardown(1)
         nowPlaying.end()
@@ -223,15 +251,18 @@ final class LivePlayerModel {
         tune(to: next)
     }
 
-    /// Switches to `target` (a mini-guide pick); the current channel just closes the guide.
+    /// Switches to `target` (a channel list pick); the current channel just closes the list.
     func tune(to target: Channel) {
         showsGuide = false
+        showsCategories = false
         showsControls = false
         openMenu = nil
         guard !isStopped, target.id != channel.id else {
             showInfo()
             return
         }
+        previousChannel = channel
+        stallRecoveries = 0
         channel = channels.first { $0.id == target.id } ?? target
         pausedAt = nil
         isBehindLive = false
@@ -246,6 +277,26 @@ final class LivePlayerModel {
     func showInfo() {
         showsInfo = true
         scheduleHide()
+    }
+
+    /// «Предыдущий канал»: back to the channel watched before (and from there back again).
+    func tunePrevious() {
+        guard let previous = previousChannel else {
+            showInfo()
+            return
+        }
+        tune(to: channels.first { $0.id == previous.id } ?? previous)
+    }
+
+    /// Back with nothing open: the banner first (when it is up on a playing channel), then leave.
+    /// true when Back was used up here.
+    func handleBack() -> Bool {
+        if showsInfo, state == .playing, !isPaused {
+            hideTask?.cancel()
+            showsInfo = false
+            return true
+        }
+        return false
     }
 
     /// A typed channel number: that channel (an adult one only from the adult category, as
@@ -270,14 +321,40 @@ final class LivePlayerModel {
         scheduleHide()
     }
 
-    /// Opens the mini-guide; the banner makes room for it.
+    /// Opens the channel list at the channel on screen; the banner makes room for it. The
+    /// channel keeps playing underneath.
     func showGuide() {
         guard !isStopped else { return }
         hideTask?.cancel()
         showsInfo = false
         showsControls = false
         openMenu = nil
+        showsCategories = false
         showsGuide = true
+        listOpenings += 1
+    }
+
+    /// Left in the channel list: the category column beside it.
+    func showCategories() {
+        guard showsGuide, filterOptions.count > 1 else { return }
+        showsCategories = true
+    }
+
+    /// Right in the category column: back to the channels.
+    func hideCategories() {
+        showsCategories = false
+    }
+
+    /// A category picked in the column: the list (and channel up / down) is now that one.
+    func selectCategory(_ next: ChannelFilter) {
+        filter = next
+        showsCategories = false
+        listOpenings += 1
+    }
+
+    /// The column's entries: Favourites, All, the categories (an exclusive one last).
+    var filterOptions: [ChannelFilterOption] {
+        ChannelFilter.options(for: channels, server: categories.isEmpty ? nil : categories).filter { $0.count > 0 || $0.filter == filter }
     }
 
     /// Select on the picture: the banner with the options row, focus on it.
@@ -518,6 +595,8 @@ final class LivePlayerModel {
 
     func hideGuide() {
         showsGuide = false
+        showsCategories = false
+        scheduleHide()
     }
 
     /// Play/Pause (allowed on live, every platform). Playing again goes on from where it
@@ -586,6 +665,8 @@ final class LivePlayerModel {
         guard !isStopped else { return }
         startTask?.cancel()
         swapTask?.cancel()
+        audioCheck?.cancel()
+        cancelStallWatch()
         teardown(0)
         teardown(1)
         isHoldingFrame = false
@@ -620,6 +701,10 @@ final class LivePlayerModel {
         showInfo()
         nowPlaying.update(channel: channel, program: onAir(at: Date()).now)
         externalWatch?.cancel()
+        audioCheck?.cancel()
+        cancelStallWatch()
+        audioNote = nil
+        playbackPath = channel.external ? nil : LivePlaybackPath(route: .antresol, format: "HLS")
         let id = channel.id
         if channel.external {
             openExternal()
@@ -635,8 +720,11 @@ final class LivePlayerModel {
     /// The sources this platform plays, from the primary; the channel becomes the last one.
     private func openExternal() {
         let id = channel.id
-        externalSources = channel.stream?.playable(on: ChannelStream.tvOSTags) ?? []
+        // the sources that played badly here lately go last
+        externalSources = sourceMemory.ordered(channel.stream?.playable(on: ChannelStream.tvOSTags) ?? [], channel: id)
         externalAttempt = 0
+        silentAttempts = []
+        acceptedSilent = nil
         if let service { Task { await service.setLastChannel(id) } }
         guard !externalSources.isEmpty else {
             failExternal(channel.stream == nil
@@ -666,6 +754,7 @@ final class LivePlayerModel {
             }
             // never the URL: a provider's may carry credentials
             Self.log.info("live: external source \(attempt + 1) of \(self.externalSources.count), headers \(source.headers.keys.sorted(), privacy: .public)")
+            self.playbackPath = LivePlaybackPath.external(source, attempt: attempt, count: self.externalSources.count)
             self.renditions[slot] = LiveRenditions()
             self.externalVariants[slot] = StreamVariants()
             self.load(url, headers: source.headers, into: slot)
@@ -675,6 +764,13 @@ final class LivePlayerModel {
                !Task.isCancelled, self.channel.id == id, self.externalAttempt == attempt, !self.isStopped {
                 self.renditions[slot] = LiveRenditions(master: master)
                 self.externalVariants[slot] = StreamVariants(master: master)
+                let codecs = StreamCodecs(master: master)
+                if var path = self.playbackPath {
+                    path.format = path.format ?? "HLS"
+                    path.video = path.video ?? codecs.video
+                    path.audio = path.audio ?? codecs.audio
+                    self.playbackPath = path
+                }
                 self.applyCap(slot)
                 self.applyTracks(force: true)
             }
@@ -704,21 +800,78 @@ final class LivePlayerModel {
         return data
     }
 
-    /// The source failed (an error, no start in time, an end right away): the next
-    /// fallback, else the message, once.
+    /// The source failed (an error, no start in time, an end right away, a long stall): it
+    /// is remembered as bad here, then the next fallback; with none left, a source that played
+    /// without sound (with the note) rather than nothing; else the message, once.
     private func externalFailed() {
         guard !isStopped, channel.external else { return }
         externalWatch?.cancel()
-        if externalAttempt + 1 < externalSources.count {
-            externalAttempt += 1
-            swapTask?.cancel()
+        audioCheck?.cancel()
+        cancelStallWatch()
+        if externalSources.indices.contains(externalAttempt) {
+            sourceMemory.markBad(externalSources[externalAttempt], channel: channel.id)
+        }
+        // the silent source kept as the last resort failed too: nothing more to try
+        let step: ExternalFallback.Step = acceptedSilent != nil ? .giveUp
+            : ExternalFallback.afterFailure(attempt: externalAttempt, count: externalSources.count, silent: silentAttempts)
+        switch step {
+        case .tryNext(let next):
+            externalAttempt = next
+            restartExternal(keepingPicture: false)
+        case .acceptSilent(let silent):
+            externalAttempt = silent
+            acceptedSilent = silent
+            restartExternal(keepingPicture: false)
+        case .giveUp:
+            failExternal(String(localized: "This channel won’t open right now", bundle: .localized))
+        }
+    }
+
+    /// The source on screen plays without a sound this device decodes (MP2, DTS, no audio
+    /// track): the next source while the picture holds, else this one with the note.
+    private func externalSilent() {
+        guard !isStopped, channel.external else { return }
+        let attempt = externalAttempt
+        Self.log.error("live: external source \(attempt + 1) has no playable audio")
+        if acceptedSilent == attempt {
+            showAudioNote()
+            return
+        }
+        silentAttempts.insert(attempt)
+        if externalSources.indices.contains(attempt) {
+            sourceMemory.markBad(externalSources[attempt], channel: channel.id)
+        }
+        switch ExternalFallback.afterSilence(attempt: attempt, count: externalSources.count) {
+        case .tryNext(let next):
+            externalAttempt = next
+            restartExternal(keepingPicture: true)
+        case .acceptSilent(let silent):
+            acceptedSilent = silent
+            showAudioNote()
+        case .giveUp:
+            break
+        }
+    }
+
+    private func showAudioNote() {
+        audioNote = String(localized: "This channel has no supported audio", bundle: .localized)
+        showInfo()
+    }
+
+    /// Loads source `externalAttempt`: the picture on screen held (paused, dimmed) until the
+    /// new one is ready, or dropped.
+    private func restartExternal(keepingPicture: Bool) {
+        swapTask?.cancel()
+        if keepingPicture, state == .playing, player.currentItem != nil, layers[front].isReadyForDisplay {
+            teardown(back)
+            player.pause()
+            isHoldingFrame = true
+        } else {
             teardown(0)
             teardown(1)
             isHoldingFrame = false
-            tryExternal()
-        } else {
-            failExternal(String(localized: "This channel won’t open right now", bundle: .localized))
         }
+        tryExternal()
     }
 
     private func failExternal(_ message: String) {
@@ -828,9 +981,12 @@ final class LivePlayerModel {
                 }
             },
             player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
-                let paused = player.timeControlStatus == .paused
+                let status = player.timeControlStatus
+                let paused = status == .paused
                 Task { @MainActor in
-                    guard let self, self.front == slot, !self.isHoldingFrame, self.isPaused != paused else { return }
+                    guard let self, self.front == slot, self.isItem(itemID, in: slot) else { return }
+                    self.watchStall(status)
+                    guard !self.isHoldingFrame, self.isPaused != paused else { return }
                     self.isPaused = paused
                 }
             },
@@ -890,8 +1046,110 @@ final class LivePlayerModel {
             externalPlayingSince = Date()
         }
         if let item = players[slot].currentItem { select(in: item, slot: slot) }
+        inspectTracks(slot: slot)
         nowPlaying.update(channel: channel, program: onAir(at: Date()).now, isPlaying: true)
         scheduleHide()
+    }
+
+    // MARK: - Sound and stalls
+
+    /// The stream on screen a moment after its first frame: its codecs for the banner, and for
+    /// an external channel whether it has a sound this device plays (none: the next source).
+    private func inspectTracks(slot: Int) {
+        audioCheck?.cancel()
+        let id = channel.id, attempt = externalAttempt, external = channel.external
+        audioCheck = Task { [weak self] in
+            try? await Task.sleep(for: Self.audioCheckDelay)
+            guard !Task.isCancelled, let self, self.channel.id == id, self.front == slot, self.state == .playing,
+                  let item = self.players[slot].currentItem else { return }
+            let info = await Self.trackInfo(item)
+            guard !Task.isCancelled, self.channel.id == id, self.front == slot, self.isItem(ObjectIdentifier(item), in: slot) else { return }
+            if var path = self.playbackPath {
+                path.video = info.video ?? path.video
+                path.audio = info.audio ?? path.audio
+                self.playbackPath = path
+            }
+            Self.log.info("live: tracks video \(info.video ?? "?", privacy: .public) audio \(info.audio ?? "?", privacy: .public) silent \(info.silent)")
+            guard external, self.externalAttempt == attempt else { return }
+            if info.silent {
+                self.externalSilent()
+            } else if info.known, self.externalSources.indices.contains(attempt) {
+                self.sourceMemory.markGood(self.externalSources[attempt], channel: id)
+            }
+        }
+    }
+
+    struct TrackInfo: Equatable {
+        var video: String?
+        var audio: String?
+        /// The item has tracks to tell by.
+        var known = false
+        /// A picture but no enabled audio track this device decodes.
+        var silent = false
+    }
+
+    /// The item's tracks: the first video and audio codec, and whether a sound plays.
+    static func trackInfo(_ item: AVPlayerItem) async -> TrackInfo {
+        var info = TrackInfo()
+        var hasVideo = false, playableAudio = false
+        for track in item.tracks {
+            guard let asset = track.assetTrack else { continue }
+            let descriptions = (try? await asset.load(.formatDescriptions)) ?? []
+            let name = descriptions.first.flatMap { MediaCodecName.name(fourCC: Self.fourCC(CMFormatDescriptionGetMediaSubType($0))) }
+            switch asset.mediaType {
+            case .video:
+                hasVideo = true
+                info.video = info.video ?? name
+            case .audio:
+                info.audio = info.audio ?? name
+                let playable = (try? await asset.load(.isPlayable)) ?? true
+                if track.isEnabled, playable, name.map(MediaCodecName.isPlayableAudio) ?? true { playableAudio = true }
+            default:
+                break
+            }
+        }
+        info.known = hasVideo
+        info.silent = hasVideo && !playableAudio
+        return info
+    }
+
+    nonisolated static func fourCC(_ code: FourCharCode) -> String {
+        let bytes = [24, 16, 8, 0].map { UInt8((code >> UInt32($0)) & 0xff) }
+        return String(bytes: bytes, encoding: .ascii) ?? ""
+    }
+
+    /// A started stream waiting for data: after `stallTimeout` it is stuck.
+    private func watchStall(_ status: AVPlayer.TimeControlStatus) {
+        guard status == .waitingToPlayAtSpecifiedRate else {
+            cancelStallWatch()
+            return
+        }
+        guard state == .playing, pausedAt == nil, stallWatch == nil else { return }
+        let id = channel.id
+        stallWatch = Task { [weak self] in
+            try? await Task.sleep(for: Self.stallTimeout)
+            guard !Task.isCancelled, let self, self.channel.id == id, self.state == .playing,
+                  self.player.timeControlStatus == .waitingToPlayAtSpecifiedRate else { return }
+            self.stallWatch = nil
+            self.stalled()
+        }
+    }
+
+    private func cancelStallWatch() {
+        stallWatch?.cancel()
+        stallWatch = nil
+    }
+
+    /// Stuck for `stallTimeout`: an external channel's next source; else the stream again at the
+    /// live edge, a couple of times per channel.
+    private func stalled() {
+        Self.log.error("live: stalled for \(Self.stallTimeout.components.seconds) s")
+        if channel.external, acceptedSilent == nil, externalAttempt + 1 < externalSources.count {
+            externalFailed()
+        } else if stallRecoveries < Self.maxStallRecoveries {
+            stallRecoveries += 1
+            open()
+        }
     }
 
     private func seekToLiveEdge() {

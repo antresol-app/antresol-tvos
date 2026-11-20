@@ -61,8 +61,8 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-12-zap-banner")
         XCTAssertTrue(hints.waitForNonExistence(timeout: 30), "channel 3 did not start playing")
 
-        // Select: the options row, focus on Audio (the stream has three voices).
-        remote.press(.select)
+        // Right: the options row, focus on Audio (the stream has three voices).
+        remote.press(.right)
         let audio = app.buttons["live.audio"]
         XCTAssertTrue(audio.waitForExistence(timeout: 5), "no Audio control")
         XCTAssertTrue(waitForFocus(audio), "the options row did not take focus on Audio: \(focusedLabel)")
@@ -223,7 +223,7 @@ final class RuntimeTests: XCTestCase {
 
         // In the player: the options row's number pad; 1 and the pause → channel 1.
         sleep(3)
-        remote.press(.select)
+        remote.press(.right)
         let number = app.buttons["live.number"]
         XCTAssertTrue(number.waitForExistence(timeout: 5), "no Channel Number control")
         XCTAssertTrue(moveFocus(.right, to: number, limit: 6), "no focus on Channel Number: \(focusedLabel)")

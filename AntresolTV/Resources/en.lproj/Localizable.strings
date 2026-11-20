@@ -376,3 +376,12 @@
 "No channel %@" = "No channel %@";
 "Erase" = "Erase";
 "OK" = "OK";
+
+/* Live player, TiviMate remote and the playback path */
+"Channel Up" = "Channel Up";
+"Channel Down" = "Channel Down";
+"Direct" = "Direct";
+"Direct · %@" = "Direct · %@";
+"Via Antresol" = "Via Antresol";
+"Source %lld of %lld" = "Source %1$lld of %2$lld";
+"This channel has no supported audio" = "This channel has no supported audio";

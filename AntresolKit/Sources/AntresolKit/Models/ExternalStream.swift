@@ -12,15 +12,22 @@ public struct StreamSource: Decodable, Hashable, Sendable {
     public var referrer: String
     /// The platforms that cannot play it as given ("web", or an app's platform tag).
     public var unsupported: [String]
+    /// What the stream is, by the server: "hls", "ts" (a raw MPEG-TS stream) or "" (unknown).
+    public var format: String
+    /// The web's same-origin relay of the stream (a path); the apps keep `url` and only show
+    /// that it exists.
+    public var relay: String
 
-    public init(url: String, userAgent: String = "", referrer: String = "", unsupported: [String] = []) {
+    public init(url: String, userAgent: String = "", referrer: String = "", unsupported: [String] = [], format: String = "", relay: String = "") {
         self.url = url
         self.userAgent = userAgent
         self.referrer = referrer
         self.unsupported = unsupported
+        self.format = format
+        self.relay = relay
     }
 
-    enum CodingKeys: String, CodingKey { case url, userAgent, referrer, unsupported }
+    enum CodingKeys: String, CodingKey { case url, userAgent, referrer, unsupported, format, relay }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -28,6 +35,8 @@ public struct StreamSource: Decodable, Hashable, Sendable {
         userAgent = c.value(.userAgent, default: "")
         referrer = c.value(.referrer, default: "")
         unsupported = c.value(.unsupported, default: [String]())
+        format = c.value(.format, default: "")
+        relay = c.value(.relay, default: "")
     }
 
     /// The server's own redirect (a path): it needs the app's media key like every other
