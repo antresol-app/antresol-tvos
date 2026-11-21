@@ -36,6 +36,10 @@ carries the device's `deviceHistory`. The second port's profile picker has a thi
 adult profile («Family») to switch it with; while it is on, Home's Continue Watching is another
 one (the device's own), and `/mock/reset` puts it back.
 
+With `--addons` both ports also serve the addons' `x/app` protocol (two neutral addons, `alpha`
+and `beta`; kids get 403) and the core's input player, for the screens that offer an addon's
+ways. The second port records those requests with their bodies, as it does the others.
+
 Its play answers carry skip segments: the film (file 12) an intro at 0:18–0:30 and credits
 running to its end from 0:44, the episode (file 2, a 60 s file there) credits from 0:18;
 `PUT /api/me/playback-prefs/auto-skip` is kept (the event has its `body`) and the playback
@@ -329,7 +333,7 @@ def subtitles():
 # the screenshot gallery the mock adds them to the featured items, so the Home hero shows
 # its full layout (metadata line, description, page dots).
 HERO_EXTRAS = {
-    19: {"genres": ["Animation", "Comedy"], "rating": "PG",
+    19: {"genres": ["Animation", "Comedy"], "rating": "PG", "tmdbId": 603,
          "overview": "A gentle giant rabbit takes on three bullies in a sunny meadow."},
     2: {"genres": ["Drama", "Mystery"], "rating": "12+", "tmdbId": 1399,
         "overview": "A small test crew follows a signal nobody else can hear."},
@@ -405,6 +409,169 @@ def trailer_play(key):
     if key in TRAILER_FAILS:
         return 502, {}, {"error": "Couldn't get the trailer from the video site. Try again later."}
     return 200, {}, {"url": f"/api/trailers/{key}.mp4?mk=mock-media-key", "durationMs": 60000}
+
+
+# The addons' `x/app` protocol, with `--addons`: `alpha` watches (any title, its episodes too) and
+# searches; `beta` watches what the library lacks, keeps a copy of anything (a state ring while it
+# runs) and searches. Wording is the mock's own: the app shows whatever the server says.
+ADDON_APP = {
+    "alpha": {"v": 1, "ways": [
+        {"id": "go", "label": "Watch here", "icon": "globe", "role": "watch", "kinds": ["movie", "series"],
+         "scope": "any", "episodes": True}], "search": {"label": "Find and watch"}},
+    "beta": {"v": 1, "ways": [
+        {"id": "view", "label": "Watch now", "icon": "play", "role": "watch", "kinds": ["movie", "series"],
+         "scope": "outside", "episodes": True},
+        {"id": "fetch", "label": "Add to server", "icon": "download", "role": "keep", "kinds": ["movie", "series"],
+         "scope": "any", "episodes": False}], "search": {"label": "Find and add"}},
+}
+ADDON_TITLES = {
+    "alpha": [{"kind": "movie", "tmdbId": 603, "title": "Sample Film", "year": 1999,
+               "poster": "/api/images/local/100/poster", "overview": "A sample film.", "inLibrary": False},
+              {"kind": "series", "tmdbId": 1399, "title": "Test Show", "year": 2011,
+               "poster": "/api/images/local/2/poster", "inLibrary": True, "libraryItemId": 2}],
+    "beta": [{"kind": "series", "tmdbId": 5555, "title": "Far Show", "year": 2020,
+              "poster": "/api/images/local/101/poster", "overview": "A show the library lacks.", "inLibrary": False}],
+}
+ADDON_TITLE_INFO = {
+    ("movie", 603): {"tmdbId": 603, "extId": "", "kind": "movie", "title": "Sample Film", "subtitle": "", "year": 1999,
+                     "poster": "/api/images/local/100/poster", "overview": "A sample film.", "inLibrary": False,
+                     "libraryItemId": None, "backdrop": "/api/images/local/2/backdrop", "genres": ["Drama"],
+                     "runtime": 95, "rating": "12+", "cast": [], "seasons": []},
+    ("series", 5555): {"tmdbId": 5555, "extId": "", "kind": "series", "title": "Far Show", "subtitle": "", "year": 2020,
+                       "poster": "/api/images/local/101/poster", "overview": "A show the library lacks.",
+                       "inLibrary": False, "libraryItemId": None, "backdrop": "/api/images/local/2/backdrop",
+                       "genres": ["Mystery"], "rating": "16+", "cast": [],
+                       "seasons": [{"number": 1, "episodes": 2}, {"number": 2, "episodes": 1}]},
+}
+ADDON_INPUT = "0f1e2d3c4b5a69788796a5b4c3d2e1f0"
+
+
+def new_addon_state():
+    """What the addons remember for a run: alpha's last choice, beta's copy and how often the
+    input player was asked."""
+    return {"chosen": False, "fetch": None, "input_asks": 0, "sessions": 0}
+
+
+def addon_step(addon, body):
+    way, ref = body.get("way"), body.get("ref")
+    if addon == "alpha" and way == "go":
+        if ref is None:
+            return {"title": "Source", "note": "Pick where to watch from", "rows": [
+                {"ref": "mirror-1", "label": "Mirror one", "detail": "Fast, steady", "badges": ["HD"], "current": True, "final": False},
+                {"ref": "mirror-2", "label": "Mirror two", "final": False}]}
+        if ref.startswith("mirror-"):
+            return {"title": "Quality", "rows": [
+                {"ref": ref + ":720", "label": "720p", "final": True},
+                {"ref": ref + ":1080", "label": "1080p", "badges": ["HDR"], "current": True, "final": True}]}
+    if addon == "beta" and way == "fetch":
+        if ref is None:
+            return {"title": "Quality", "rows": [
+                {"ref": "q:any", "label": "Any", "final": False},
+                {"ref": "q:1080", "label": "1080p", "final": False}]}
+        if ref.startswith("q:"):
+            return {"title": "Releases", "note": "Best first", "rows": [
+                {"ref": "rel-1", "label": "Release A · 8.1 GB", "detail": "12 sources", "badges": ["1080p"], "final": True},
+                {"ref": "rel-2", "label": "Release B · 3.4 GB", "detail": "4 sources", "final": True}]}
+    if addon == "beta" and way == "view":
+        return {"title": "Releases", "rows": []} if ref == "none" else {"title": "Releases", "rows": [
+            {"ref": "rel-1", "label": "Release A · 8.1 GB", "final": True}], "empty": "Nothing found"}
+    return None
+
+
+def addon_play(session):
+    return {"mode": "alpha", "kind": "mp4", "url": f"/api/addons/alpha/x/media/{session}/clip.mp4", "startSec": 0,
+            "durationMs": 0, "audio": [], "audioIndex": -1,
+            "subtitles": [{"index": 0, "codec": "webvtt", "lang": "en", "title": "English", "label": "English",
+                           "external": True, "url": f"/api/addons/alpha/x/media/{session}/subs/0.vtt"}],
+            "quality": {"options": ["720", "1080"], "current": "1080"},
+            "session": session, "progress": {"path": "x/app/progress", "every": 10}}
+
+
+def addon_request(server, method, path, query, body):
+    """(status, payload) for the addons' and the input player's routes; None for any other path. A
+    payload that is a Path is a file to stream, bytes a subtitle."""
+    state = server.addon_state
+    if method == "GET" and path == "/api/addons/web":
+        return 200, [{"id": name, "entry": f"/api/addons/{name}/x/web.js"} for name in ADDON_APP]
+    match = re.fullmatch(r"/api/addons/(alpha|beta)/x/(.+)", path)
+    if match:
+        addon, rest = match.groups()
+        data = json.loads(body) if body else {}
+        if method == "GET" and rest == "app":
+            return 200, ADDON_APP[addon]
+        if method == "GET" and rest == "app/search":
+            return 200, {"titles": ADDON_TITLES[addon]}
+        if method == "POST" and rest == "app/step":
+            step = addon_step(addon, data)
+            return (200, step) if step else (404, {"error": "That way is gone"})
+        if method == "POST" and rest == "app/run":
+            if addon == "alpha":
+                if data.get("ref") is None and data.get("quick") and not state["chosen"]:
+                    return 200, {"pick": True}
+                if data.get("ref"):
+                    state["chosen"] = True
+                state["sessions"] += 1
+                return 200, {"play": addon_play(f"s{state['sessions']}")}
+            if data.get("way") == "view":
+                return 200, {"input": ADDON_INPUT}
+            if data.get("way") == "fetch" and data.get("ref"):
+                state["fetch"] = 0
+                return 200, {"done": "Copy started"}
+            return 400, {"error": "Choose a release first"}
+        if method == "GET" and rest == "app/state":
+            ways = {}
+            if addon == "beta" and state["fetch"] is not None:
+                state["fetch"] += 1
+                # About a minute at the app's 5 s: long enough for a test to look at the ring and cancel.
+                fraction = min(1.0, state["fetch"] * 0.08)
+                if fraction >= 1.0:
+                    state["fetch"] = None
+                else:
+                    ways["fetch"] = {"active": True, "fraction": fraction, "text": f"Fetched {int(fraction * 100)}%", "cancel": True}
+            return 200, {"ways": ways}
+        if method == "POST" and rest == "app/cancel":
+            state["fetch"] = None
+            return 200, {"done": "Copy cancelled"}
+        if method == "PUT" and rest == "app/progress":
+            return 204, None
+        if method == "DELETE" and rest.startswith("app/play/"):
+            return 204, None
+        if method == "GET" and re.fullmatch(r"media/s\d+/clip\.mp4", rest):
+            return 200, VIDEO
+        if method == "GET" and re.fullmatch(r"media/s\d+/subs/\d+\.vtt", rest):
+            return 200, subtitles()
+        return 404, {"error": "Not found"}
+    match = re.fullmatch(r"/api/title/(movie|series)/(\d+)", path)
+    if match and method == "GET":
+        info = ADDON_TITLE_INFO.get((match.group(1), int(match.group(2))))
+        return (200, info) if info else (404, {"error": "Unknown movie or show"})
+    if method == "GET" and path == "/api/tracking/series/5555/episodes":
+        data = tracking_episodes()
+        data["title"].update({"tmdbId": 5555, "name": "Far Show", "itemId": None})
+        for episode in data["episodes"]:
+            episode["sources"] = []
+        return 200, data
+    match = re.fullmatch(r"/api/play/input/([0-9a-f]+)(/.*)?", path)
+    if match and match.group(1) == ADDON_INPUT:
+        rest = match.group(2) or ""
+        if method == "GET" and rest == "":
+            return 200, {"id": ADDON_INPUT, "addonId": "beta", "name": "Sample Film", "itemId": 0, "slow": False, "startSec": 0}
+        if method == "POST" and rest == "":
+            state["input_asks"] += 1
+            if state["input_asks"] % 3 != 0:
+                return 202, {"pending": True}
+            answer = play_response(19)
+            answer.update({"url": f"/api/play/input/{ADDON_INPUT}/direct", "durationMs": 60000, "audioIndex": -1, "audio": [],
+                           "subtitles": [{"index": 0, "codec": "webvtt", "lang": "en", "title": "English", "external": True,
+                                          "url": f"/api/play/input/{ADDON_INPUT}/subs/0.vtt"}]})
+            return 200, answer
+        if method == "GET" and rest == "/direct":
+            return 200, VIDEO
+        if method == "GET" and rest == "/subs/0.vtt":
+            return 200, subtitles()
+        if method == "PUT" and rest == "/progress":
+            return 204, None
+    return None
 
 
 def movie_grid(query):
@@ -622,6 +789,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, json.dumps(pairing_code(self.server.server_port)).encode(), "application/json")
             if path == "/api/auth/pair/poll":
                 return self.send(200, json.dumps({"status": "pending"}).encode(), "application/json")
+        if getattr(self.server, "addons", False) and (path.startswith("/api/addons/") or path.startswith("/api/title/")
+                                                       or path.startswith("/api/play/input/") or path == "/api/tracking/series/5555/episodes"):
+            if KID_TOKEN in authorization and path.startswith("/api/addons/"):
+                return self.send(403, json.dumps({"error": "Not available in a kid's profile"}).encode(), "application/json")
+            answer = addon_request(self.server, method, path, query, body)
+            if answer is not None:
+                status, payload = answer
+                if isinstance(payload, Path):
+                    return self.send_file(payload, "video/mp4")
+                if isinstance(payload, bytes):
+                    return self.send(status, payload, "text/vtt; charset=utf-8")
+                return self.send(status, json.dumps(payload).encode() if payload is not None else b"", "application/json")
         handled = LIBRARY.handle(method, path, json.loads(body or b"{}") if method in ("POST", "PATCH") else {})
         if handled:
             status, payload = handled
@@ -773,6 +952,7 @@ class Handler(BaseHTTPRequestHandler):
                     server.auto_skip.clear()
                     server.history = new_history_state()
                     server.channels = new_channel_state()
+                    server.addon_state = new_addon_state()
                     payload = b"{}"
                 elif method == "POST" and match:
                     server.fail_progress.add(int(match.group(1)))
@@ -793,6 +973,8 @@ class Handler(BaseHTTPRequestHandler):
         if method == "PUT" and path.startswith("/api/progress/"):
             self.event["positionMs"] = self.progress_write
         if method == "PUT" and path in ("/api/me/playback-prefs/auto-skip", "/api/me/devices/current/history"):
+            self.event["body"] = self.request_body.decode("utf-8", "replace")
+        if method in ("POST", "PUT") and ("/x/app/" in path or path.startswith("/api/play/input/")):
             self.event["body"] = self.request_body.decode("utf-8", "replace")
         match = re.fullmatch(r"/api/progress/(\d+)", path)
         with server.hooks_lock:
@@ -884,6 +1066,7 @@ def with_channel_state(data, state):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8421)
+    parser.add_argument("--addons", action="store_true", help="serve the addons' x/app protocol and the input player")
     args = parser.parse_args()
     pairing = ThreadingHTTPServer(("127.0.0.1", args.port + 1), Handler)
     pairing.pairing = True
@@ -891,9 +1074,11 @@ def main():
     pairing.auto_skip = {}
     pairing.history = new_history_state()
     pairing.channels = new_channel_state()
+    pairing.addons, pairing.addon_state = args.addons, new_addon_state()
     threading.Thread(target=pairing.serve_forever, daemon=True).start()
     main_server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     main_server.auto_skip = {}
+    main_server.addons, main_server.addon_state = args.addons, new_addon_state()
     main_server.history = new_history_state()
     main_server.serve_forever()
 

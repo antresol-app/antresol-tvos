@@ -743,6 +743,179 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-history-06-new-on")
     }
 
+    /// An addon's ways on a movie page (the mock started with `--addons`, and `ANTRESOL_MOCK_ADDONS`
+    /// set): the way that watches and the round button that keeps a copy, with the server's own
+    /// wording. The first run has no remembered choice, so the chooser opens (a step, Menu back a
+    /// step, the quality); the stream plays and reports; the second run goes straight to the player.
+    /// A copy begins with its state ring, and its long-press menu cancels it.
+    func testAddonWays() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_ADDONS"] != nil,
+                          "needs scripts/mock-server.py --addons and ANTRESOL_MOCK_ADDONS")
+        // The third profile (Family) is an adult; the second is the kid.
+        signInToMovie(profilesToTheRight: 2)
+        let watch = app.buttons["Watch here"]
+        let keep = app.buttons["Add to server"]
+        XCTAssertTrue(watch.waitForExistence(timeout: 40), "no way button on the movie page: \(focusedLabel)")
+        XCTAssertTrue(keep.exists, "no round button for the way that keeps a copy")
+        XCTAssertFalse(app.buttons["Watch now"].exists, "a way for what the library lacks shows on a title it has")
+        sleep(2)
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        snapshot("rt-60-movie-ways")
+
+        // First run: nothing remembered, so the chooser opens on the first step.
+        XCTAssertTrue(focusWayPill(), "focus: \(focusedLabel)")
+        remote.press(.select)
+        let mirror = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Mirror one")).firstMatch
+        XCTAssertTrue(app.staticTexts["Source"].waitForExistence(timeout: 20), "the chooser did not open")
+        XCTAssertTrue(waitForFocus(mirror, seconds: 10), "focus did not start on the last choice: \(focusedLabel)")
+        snapshot("rt-61-chooser-first-step")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Quality"].waitForExistence(timeout: 20), "no second step")
+        let best = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "1080p")).firstMatch
+        XCTAssertTrue(waitForFocus(best, seconds: 10), "focus: \(focusedLabel)")
+        snapshot("rt-62-chooser-second-step")
+        // Menu goes back a step, not out of the chooser.
+        remote.press(.menu)
+        XCTAssertTrue(app.staticTexts["Source"].waitForExistence(timeout: 10), "Menu did not go back a step")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Quality"].waitForExistence(timeout: 20))
+        XCTAssertTrue(waitForFocus(best, seconds: 10), "focus: \(focusedLabel)")
+        remote.press(.select)
+
+        // The stream plays, reports and is released.
+        XCTAssertTrue(waitForEvent(timeout: 40) { $0["path"] as? String == "/api/addons/alpha/x/media/s1/clip.mp4" },
+                      "the addon's stream was not requested")
+        snapshot("rt-63-way-playing")
+        XCTAssertTrue(waitForEvent(timeout: 30) { $0["method"] as? String == "PUT" && $0["path"] as? String == "/api/addons/alpha/x/app/progress" },
+                      "no progress written to the addon")
+        XCTAssertTrue(closeWayPlayer(session: "s1"), "Menu did not close the player and release the addon's session")
+        XCTAssertTrue(watch.waitForExistence(timeout: 10), "not back on the movie page")
+        let runs = mockEvents().filter { $0["path"] as? String == "/api/addons/alpha/x/app/run" }
+        XCTAssertEqual(runs.count, 2, "the quick run and the one with the choice: \(runs)")
+        XCTAssertTrue((runs.first?["body"] as? String)?.contains("\"quick\":true") == true, "the first run was not a quick one: \(String(describing: runs.first))")
+        XCTAssertTrue((runs.last?["body"] as? String)?.contains("\"ref\":\"mirror-1:1080\"") == true, "the second run did not carry the choice: \(String(describing: runs.last))")
+
+        // Second run: remembered, so the player opens at once.
+        sleep(2)
+        XCTAssertTrue(focusWayPill(), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(waitForEvent(timeout: 40) { $0["path"] as? String == "/api/addons/alpha/x/media/s2/clip.mp4" },
+                      "the remembered choice did not play at once")
+        XCTAssertFalse(app.staticTexts["Source"].exists, "the chooser opened for a remembered choice")
+        XCTAssertTrue(closeWayPlayer(session: "s2"), "Menu did not close the player and release the addon's session")
+        XCTAssertTrue(watch.waitForExistence(timeout: 10), "not back on the movie page")
+
+        // A copy: the chooser (quality, then releases), a notice, and the ring.
+        sleep(2)
+        XCTAssertTrue(focusRound("Add to server"), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Quality"].waitForExistence(timeout: 20), "no chooser for the copy")
+        snapshot("rt-64-copy-quality")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Releases"].waitForExistence(timeout: 20), "no releases step")
+        snapshot("rt-65-copy-releases")
+        remote.press(.select)
+        XCTAssertTrue(keep.waitForExistence(timeout: 20), "back on the movie page")
+        XCTAssertTrue(app.staticTexts["Copy started"].waitForExistence(timeout: 10), "no notice of the copy")
+        snapshot("rt-66-copy-started")
+        sleep(3)
+        XCTAssertTrue(focusRound("Add to server"), "focus: \(focusedLabel)")
+        // Asked every 5 s while it is active.
+        sleep(12)
+        let states = mockEvents().filter { ($0["path"] as? String)?.hasSuffix("/beta/x/app/state") == true }
+        XCTAssertGreaterThanOrEqual(states.count, 3, "the state was not polled: \(states.count)")
+        snapshot("rt-67-copy-ring")
+        remote.press(.select, forDuration: 1.5)
+        // The menu's entries are not all buttons to the test: any element labelled so.
+        let cancel = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Cancel")).firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 10), "no Cancel in the long-press menu")
+        snapshot("rt-68-copy-menu")
+        remote.press(.select)
+        XCTAssertTrue(waitForEvent(timeout: 10) { $0["method"] as? String == "POST" && $0["path"] as? String == "/api/addons/beta/x/app/cancel" },
+                      "the copy was not cancelled")
+    }
+
+    /// A kid's profile is offered no ways, and the app does not even ask the addons for them.
+    func testNoAddonWaysForAKid() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_ADDONS"] != nil,
+                          "needs scripts/mock-server.py --addons and ANTRESOL_MOCK_ADDONS")
+        mock("POST", "/mock/reset")
+        signInToMovie(profilesToTheRight: 1)
+        XCTAssertTrue(app.buttons["Mark as Watched"].waitForExistence(timeout: 40), "no movie page: \(focusedLabel)")
+        sleep(3)
+        XCTAssertFalse(app.buttons["Watch here"].exists, "a kid's page offers a way")
+        XCTAssertFalse(app.buttons["Add to server"].exists, "a kid's page offers a way that keeps a copy")
+        snapshot("rt-69-movie-without-ways-for-a-kid")
+        let asked = mockEvents().filter { ($0["path"] as? String)?.hasPrefix("/api/addons") == true }
+        XCTAssertTrue(asked.isEmpty, "the addons were asked for a kid: \(asked)")
+    }
+
+    /// Fresh session on the mock's second port, the profile `profilesToTheRight` places after the
+    /// first one, and the movie's page (a link, so it opens as soon as the profile is in).
+    private func signInToMovie(profilesToTheRight: Int) {
+        app.launchArguments += ["-AntresolOpenURL", "antresol://item/19"]
+        launch(server: pairingServer)
+        XCTAssertTrue(app.staticTexts["Sign in with your phone"].waitForExistence(timeout: 30), "no QR sign-in screen")
+        XCTAssertTrue(waitForFocus(app.buttons["Sign In with the Remote"]), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
+        sleep(2)
+        for _ in 0..<profilesToTheRight { remote.press(.right) }
+        remote.press(.select)
+    }
+
+    /// Puts focus on the way's pill, the third of the movie page's row (Resume, Restart, the way). The
+    /// pill has a long-press menu, and a focused one is not reported as focused to the test: it is
+    /// reached by its place, from Resume.
+    private func focusWayPill() -> Bool {
+        let resume = app.buttons["Resume"]
+        for _ in 0..<8 where !(resume.exists && resume.hasFocus) {
+            remote.press(.left)
+            sleep(1)
+            if focusedLabel == "none" || focusedLabel.contains("Home") { remote.press(.right); sleep(1) }
+        }
+        guard resume.exists && resume.hasFocus else { return false }
+        remote.press(.right)
+        sleep(1)
+        remote.press(.right)
+        sleep(1)
+        return true
+    }
+
+    /// Puts focus on a round button of the row by its label, whichever way from the pill it is.
+    private func focusRound(_ label: String) -> Bool {
+        func focused() -> Bool { app.buttons.allElementsBoundByIndex.contains { $0.label == label && $0.hasFocus } }
+        for direction in [XCUIRemote.Button.right, .left, .right] {
+            for _ in 0..<6 {
+                if focused() { return true }
+                remote.press(direction)
+                sleep(1)
+            }
+        }
+        return focused()
+    }
+
+    /// Menu until the addon's session is released (the player closed): the session's `DELETE`.
+    private func closeWayPlayer(session: String) -> Bool {
+        for _ in 0..<4 {
+            remote.press(.menu)
+            if waitForEvent(timeout: 6, { $0["method"] as? String == "DELETE" && $0["path"] as? String == "/api/addons/alpha/x/app/play/\(session)" }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Polls the mock's record until an event satisfies `match`.
+    private func waitForEvent(timeout: Int, _ match: ([String: Any]) -> Bool) -> Bool {
+        let started = Date()
+        while Date().timeIntervalSince(started) < Double(timeout) {
+            if mockEvents().contains(where: match) { return true }
+            sleep(1)
+        }
+        return false
+    }
+
     /// Fresh session on the mock's second port (QR sign-in, the mock's test hooks), then
     /// the passwordless second profile through the profile picker.
     private func signInOnSecondPort() {
