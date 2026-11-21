@@ -3,13 +3,16 @@ import SwiftUI
 import UIKit
 
 /// The TV tab: the server's live channels («ТВ») as a television has them (TiviMate is the
-/// reference). Channels: the category column on the left (Favourites, All, the server's
-/// categories, the adult one last), the numbered channel list in the middle, what the
-/// focused channel has on now and next on the right; moving through the categories
-/// narrows the list at once, without reordering it. Guide: the programme guide, narrowed by
-/// the category button. Focus starts on the channel the profile watched last. Select tunes
-/// in, a long press offers the star; digits (a remote or keyboard that has them, or the
-/// number pad of the header's «123») tune to a channel by its number.
+/// reference). The header holds the title, the view switch («Channels | Guide»), the category
+/// button and the number pad. Channels: the numbered channel list on a panel (the left ~46%,
+/// the page's full height), beside a card of what the focused channel has on now: its still
+/// across the card, the title, episode, time and progress, overview and what is next. A few
+/// channels make tall rows with the programme's still, many make compact rows. Guide: the
+/// programme guide. The category button (Favourites, All, the server's categories, the adult
+/// one last) opens the list of them and narrows both views. Focus starts on the channel the
+/// profile watched last. Select tunes in, a long press offers the star; digits (a remote or
+/// keyboard that has them, or the number pad of the header's «123») tune to a channel by its
+/// number.
 struct TVView: View {
     /// How often the list (what is on now and next) is fetched again.
     static let refreshInterval: Duration = .seconds(30)
@@ -159,13 +162,9 @@ struct TVView: View {
             } else {
                 switch model.mode {
                 case .channels:
-                    HStack(alignment: .top, spacing: 0) {
-                        CategoryColumn(model: model) {
-                            focusPlaceAtRequest = FocusPlace.current()
-                            focusRequest = initialRow
-                        }
-                        ChannelListView(model: model, focused: $focusedRow, initial: initialRow, focusRequest: focusRequest, watch: watch)
-                    }
+                    ChannelListView(model: model, focused: $focusedRow, initial: initialRow, focusRequest: focusRequest, watch: watch)
+                        .padding(.horizontal, Theme.Layout.margin)
+                        .padding(.bottom, 24)
                 case .guide:
                     GuideView(model: model, open: { details = $0 }, watch: watch)
                 }
@@ -241,9 +240,9 @@ struct ProgramDetails: Hashable {
 
 // MARK: - Header
 
-/// The page title with the category button and the view switch («Каналы | Телегид»).
-/// A playlist can bring dozens of categories: a button that opens the list, not a row of
-/// pills.
+/// The page title, the view switch («Каналы | Телегид»), the category button and the number
+/// pad, together on the left. A playlist can bring dozens of categories: a button that opens
+/// the list, not a row of pills.
 private struct TVHeader: View {
     let model: TVModel
     let openCategories: () -> Void
@@ -255,21 +254,8 @@ private struct TVHeader: View {
                 .font(Theme.Typography.pageTitle)
                 .foregroundStyle(Theme.Colors.label)
                 .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 24)
+                .padding(.trailing, 8)
             // (no «Back to …» pill: the list opens on the last channel, tinted)
-            if model.mode == .guide {
-                // the channel list has its category column; the guide narrows by this button
-                CategoryButton(
-                    title: model.activeFilter.title(in: model.list.categories ?? []),
-                    count: model.channels.count,
-                    action: openCategories
-                )
-            }
-            Button(action: openNumberPad) {
-                Label("Channel Number", systemImage: "number")
-            }
-            .buttonStyle(CircleButtonStyle(diameter: 72))
-            .accessibilityIdentifier("tv.numberpad")
             SegmentedPill(
                 options: [
                     .init(value: TVModel.Mode.channels, title: String(localized: "Channels", bundle: .localized)),
@@ -277,6 +263,17 @@ private struct TVHeader: View {
                 ],
                 selection: Binding(get: { model.mode }, set: { model.mode = $0 })
             )
+            CategoryButton(
+                title: model.activeFilter.title(in: model.list.categories ?? []),
+                count: model.channels.count,
+                action: openCategories
+            )
+            Button(action: openNumberPad) {
+                Label("Channel Number", systemImage: "number")
+            }
+            .buttonStyle(CircleButtonStyle(diameter: 72))
+            .accessibilityIdentifier("tv.numberpad")
+            Spacer(minLength: 0)
         }
         .focusSection()
         .padding(.top, 24)
@@ -473,141 +470,11 @@ extension ChannelFilterOption {
     }
 }
 
-/// The channel list's category column (TiviMate's left panel): Favourites, All, the
-/// server's categories with their counts, an exclusive one (adult) last. Moving through it narrows the
-/// list beside it at once (a moment after focus settles, so a fast scroll does not redraw
-/// the list on every row); Select or Right goes to the channels. Coming into the column,
-/// focus lands on the current category.
-private struct CategoryColumn: View {
-    let model: TVModel
-    /// Select on a category: its channels take focus.
-    let choose: () -> Void
-
-    @FocusState private var focused: ChannelFilter?
-    @State private var pending: Task<Void, Never>?
-
-    static let width: CGFloat = 400
-
-    var body: some View {
-        let current = model.activeFilter
-        let categories = model.list.categories ?? []
-        ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(CategoryEntry.entries(model.filterOptions)) { entry in
-                        switch entry {
-                        case .heading(let title):
-                            Text(verbatim: title)
-                                .font(Theme.Typography.cardMeta.weight(.semibold))
-                                .foregroundStyle(Theme.Colors.label3)
-                                .textCase(.uppercase)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 18)
-                                .padding(.bottom, 2)
-                        case .option(let option):
-                            row(option, title: option.title(in: categories), isOn: option.filter == current)
-                                .id(option.filter.storageKey)
-                        }
-                    }
-                }
-                .padding(.vertical, 20)
-                .padding(.leading, Theme.Layout.margin - 20)
-                .padding(.trailing, 16)
-            }
-            .mask {
-                LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.05), .init(color: .black, location: 0.95), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
-            }
-            .onAppear { proxy.scrollTo(current.storageKey, anchor: .center) }
-        }
-        .frame(width: Self.width)
-        .focusSection()
-        .defaultFocus($focused, current)
-        .onChange(of: focused) { old, filter in
-            // Coming in from the list (Left), focus lands on the row beside it: it goes to
-            // the current category, as a TV's menu opens on where it is.
-            if old == nil, let filter, filter != current {
-                focused = current
-                return
-            }
-            guard let filter, filter != model.filter else { return }
-            pending?.cancel()
-            pending = Task {
-                try? await Task.sleep(for: .milliseconds(220))
-                guard !Task.isCancelled, focused == filter else { return }
-                model.filter = filter
-            }
-        }
-    }
-
-    private func row(_ option: ChannelFilterOption, title: String, isOn: Bool) -> some View {
-        Button {
-            // the list beside it takes focus (Select as Right)
-            pending?.cancel()
-            model.filter = option.filter
-            choose()
-        } label: {
-            HStack(spacing: 14) {
-                Text(verbatim: title)
-                    .font(.system(size: 26, weight: isOn ? .bold : .semibold))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer(minLength: 10)
-                Text(verbatim: String(option.count))
-                    .font(Theme.Typography.cardMeta)
-                    .monospacedDigit()
-                    .opacity(0.6)
-            }
-        }
-        .buttonStyle(CategoryRowButtonStyle(isOn: isOn))
-        .focused($focused, equals: option.filter)
-        .accessibilityAddTraits(isOn ? .isSelected : [])
-        .accessibilityIdentifier("tv.category.\(option.filter.storageKey)")
-    }
-}
-
-/// A category row: white with black text when focused; the current one has a quiet fill and
-/// a bar on its leading edge.
-private struct CategoryRowButtonStyle: ButtonStyle {
-    let isOn: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        CategoryRowBody(configuration: configuration, isOn: isOn)
-    }
-}
-
-private struct CategoryRowBody: View {
-    let configuration: ButtonStyleConfiguration
-    let isOn: Bool
-    @Environment(\.isFocused) private var isFocused
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-        configuration.label
-            .foregroundStyle(isFocused ? Theme.Colors.labelInverse : (isOn ? Theme.Colors.label : Theme.Colors.label2))
-            .padding(.horizontal, 20)
-            .frame(minHeight: 62)
-            .background {
-                if isFocused {
-                    Color.clear.glassSurface(in: shape, highlighted: true)
-                } else if isOn {
-                    shape.fill(Theme.Colors.fillSecondary)
-                }
-            }
-            .overlay(alignment: .leading) {
-                if isOn, !isFocused {
-                    Capsule().fill(Theme.Colors.label).frame(width: 4, height: 30).padding(.leading, 6)
-                }
-            }
-            .scaleEffect(configuration.isPressed ? 0.98 : (isFocused ? 1.03 : 1))
-            .shadow(color: .black.opacity(isFocused ? 0.45 : 0), radius: 16, y: 8)
-            .animation(Theme.Motion.easeOut, value: isFocused)
-    }
-}
-
 // MARK: - Channel list
 
-/// The one list, in the server's order: a row per channel with what is on now and next. Select tunes
-/// in; long-press offers the star.
+/// The one list, in the server's order, on a panel beside the card of the focused programme.
+/// A row per channel with what is on now; select tunes in, a long press offers the star. With
+/// few channels the rows are tall and carry the programme's still, with many they are compact.
 private struct ChannelListView: View {
     let model: TVModel
     var focused: FocusState<Int?>.Binding
@@ -615,6 +482,29 @@ private struct ChannelListView: View {
     /// The row to put focus on once it exists (see `TVView.focusRequest`).
     let focusRequest: Int?
     let watch: (Channel) -> Void
+
+    /// The channel last focused: the card keeps showing it while focus is elsewhere (the header, a long press's menu).
+    @State private var shownId: Int?
+
+    /// The panel's share of the width left after the gap; the card has the rest.
+    static let listShare: CGFloat = 0.46
+    static let gap: CGFloat = 48
+    /// The panel's and the card's corner radius.
+    static let panelRadius: CGFloat = 36
+    /// The panel's inner margin and the rows' spacing.
+    static let panelPadding: CGFloat = 24
+    static let rowSpacing: CGFloat = 6
+    /// A compact row; a tall row (at most `tallRow`) grows with the panel's room and gets the still from `stillRow` up.
+    static let compactRow: CGFloat = 124
+    static let tallRow: CGFloat = 208
+    static let stillRow: CGFloat = 168
+
+    /// The rows' height for `count` channels on a panel `height` tall: they fill it when they are few.
+    static func rowHeight(panelHeight height: CGFloat, count: Int) -> CGFloat {
+        let n = CGFloat(max(count, 1))
+        let room = (height - panelPadding * 2 - rowSpacing * (n - 1)) / n
+        return min(max(room, compactRow), tallRow).rounded(.down)
+    }
 
     var body: some View {
         let channels = model.channels
@@ -628,97 +518,96 @@ private struct ChannelListView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            HStack(alignment: .top, spacing: 40) {
-                list(channels)
-                    .frame(width: Self.listWidth)
-                // What the focused row is showing, at full size (the list keeps to a line).
-                if let shown = channels.first(where: { $0.id == focused.wrappedValue }) ?? channels.first(where: { $0.id == initial }) {
-                    ChannelPreview(channel: shown)
-                        .padding(.trailing, Theme.Layout.margin)
-                        .padding(.top, 20)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+            GeometryReader { proxy in
+                let rowHeight = Self.rowHeight(panelHeight: proxy.size.height, count: channels.count)
+                HStack(alignment: .top, spacing: Self.gap) {
+                    list(channels, rowHeight: rowHeight)
+                        .frame(width: ((proxy.size.width - Self.gap) * Self.listShare).rounded(), height: proxy.size.height)
+                        .background(Theme.Colors.fillSecondary, in: RoundedRectangle(cornerRadius: Self.panelRadius, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: Self.panelRadius, style: .continuous))
+                    // What the focused row is showing, at full size (the list keeps to a few lines).
+                    if let shown = channels.first(where: { $0.id == (focused.wrappedValue ?? shownId) }) ?? channels.first(where: { $0.id == initial }) {
+                        ProgrammeCard(channel: shown)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: proxy.size.height)
+                            .clipShape(RoundedRectangle(cornerRadius: Self.panelRadius, style: .continuous))
+                    }
                 }
+            }
+            .onChange(of: focused.wrappedValue) { _, id in
+                if let id { shownId = id }
             }
         }
     }
 
-    /// The rows' column, between the category column and the preview.
-    static let listWidth: CGFloat = 860
-
-    private func list(_ channels: [Channel]) -> some View {
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 6) {
-                        ForEach(channels) { channel in
+    private func list(_ channels: [Channel], rowHeight: CGFloat) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: Self.rowSpacing) {
+                    ForEach(channels) { channel in
+                        Button {
+                            watch(channel)
+                        } label: {
+                            ChannelRow(channel: channel, height: rowHeight, showsStill: rowHeight >= Self.stillRow)
+                        }
+                        .buttonStyle(ChannelRowButtonStyle())
+                        .focused(focused, equals: channel.id)
+                        .id(channel.id)
+                        // A long press: the star first, as a TV's channel list has it.
+                        .contextMenu {
+                            Button {
+                                Task { await model.toggleFavorite(channel.id) }
+                            } label: {
+                                if channel.favorite {
+                                    Label("Remove from Favourites", systemImage: "star.slash")
+                                } else {
+                                    Label("Add to Favourites", systemImage: "star")
+                                }
+                            }
                             Button {
                                 watch(channel)
                             } label: {
-                                ChannelRow(channel: channel)
-                            }
-                            .buttonStyle(ChannelRowButtonStyle())
-                            .focused(focused, equals: channel.id)
-                            .id(channel.id)
-                            // A long press: the star first, as a TV's channel list has it.
-                            .contextMenu {
-                                Button {
-                                    Task { await model.toggleFavorite(channel.id) }
-                                } label: {
-                                    if channel.favorite {
-                                        Label("Remove from Favourites", systemImage: "star.slash")
-                                    } else {
-                                        Label("Add to Favourites", systemImage: "star")
-                                    }
-                                }
-                                Button {
-                                    watch(channel)
-                                } label: {
-                                    Label("Watch", systemImage: "play.fill")
-                                }
-                            }
-                            .onPlayPauseCommand { watch(channel) }
-                            .onAppear {
-                                // The requested row came into being (the list scrolled to it).
-                                if focusRequest == channel.id { focused.wrappedValue = channel.id }
+                                Label("Watch", systemImage: "play.fill")
                             }
                         }
+                        .onPlayPauseCommand { watch(channel) }
+                        .onAppear {
+                            // The requested row came into being (the list scrolled to it).
+                            if focusRequest == channel.id { focused.wrappedValue = channel.id }
+                        }
                     }
-                    // Room for the focused row's plate and lift.
-                    .padding(.leading, 36)
-                    .padding(.trailing, 36)
-                    .padding(.vertical, 20)
                 }
-                // Rows scroll under the header's edge (softly), not over it.
-                .mask {
-                    LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.06), .init(color: .black, location: 1)], startPoint: .top, endPoint: .bottom)
-                        .padding(.horizontal, -Theme.Layout.margin)
-                        .padding(.bottom, -120)
-                }
-                .focusSection()
-                .onAppear {
-                    if let initial { proxy.scrollTo(initial, anchor: .center) }
-                }
-                // Another category: its list from the last channel (else its first).
-                .onChange(of: model.activeFilter) {
-                    if let target = initial ?? channels.first?.id { proxy.scrollTo(target, anchor: .center) }
-                }
-                .onChange(of: focusRequest, initial: true) { _, target in
-                    // Scroll first: a row far down the lazy stack exists only after it.
-                    // A row that is already there takes focus now, the others in `onAppear`.
-                    guard let target else { return }
-                    proxy.scrollTo(target, anchor: .center)
-                    focused.wrappedValue = target
-                }
+                // Room for the focused row's plate and lift.
+                .padding(.horizontal, Self.panelPadding + Theme.Layout.listRowInset - 8)
+                .padding(.vertical, Self.panelPadding)
             }
+            .focusSection()
+            .onAppear {
+                if let initial { proxy.scrollTo(initial, anchor: .center) }
+            }
+            // Another category: its list from the last channel (else its first).
+            .onChange(of: model.activeFilter) {
+                if let target = initial ?? channels.first?.id { proxy.scrollTo(target, anchor: .center) }
+            }
+            .onChange(of: focusRequest, initial: true) { _, target in
+                // Scroll first: a row far down the lazy stack exists only after it.
+                // A row that is already there takes focus now, the others in `onAppear`.
+                guard let target else { return }
+                proxy.scrollTo(target, anchor: .center)
+                focused.wrappedValue = target
+            }
+        }
     }
 }
 
 /// A channel row, as a television's channel list (TiviMate's, the web's): the number in
 /// tabular digits, the logo (or the guide's icon, or the generated tile), the channel's name
-/// and what is on in one line with a thin progress bar. Compact, so a long list scrolls
-/// fast; the programme's still, times and what is next are in the preview beside the list.
-/// Focus lifts the row on a light plate.
+/// and what is on with a thin progress bar; a tall row (few channels) has the programme's
+/// still at its end. Focus lifts the row on a light plate.
 struct ChannelRow: View {
     let channel: Channel
+    var height: CGFloat = 124
+    var showsStill = false
 
     @Environment(\.isCardFocused) private var isFocused
 
@@ -751,15 +640,19 @@ struct ChannelRow: View {
                     Text(verbatim: program?.fullTitle ?? String(localized: "Nothing on now", bundle: .localized))
                         .font(.system(size: 24, weight: .regular))
                         .foregroundStyle(primary.opacity(0.8))
-                        .lineLimit(1)
+                        .lineLimit(showsStill ? 2 : 1)
                         .truncationMode(.tail)
                     LiveProgressBar(value: program.map { $0.isOnAir(at: context.date) ? $0.progress(at: context.date) : 0 } ?? 0, onLight: isFocused, height: 4)
                         .opacity(program?.isOnAir(at: context.date) == true ? 1 : 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // The programme's picture only when it has one: no empty box.
+                if showsStill, let program, !program.still.isEmpty {
+                    ProgrammeStill(program: program, maxPixelSize: 500, cornerRadius: 10)
+                        .frame(width: 228, height: 128)
+                }
             }
-            .frame(minHeight: 76)
-            .padding(.vertical, 10)
+            .frame(height: height)
         }
         .accessibilityElement(children: .combine)
     }
@@ -773,9 +666,10 @@ struct ChannelRow: View {
     }
 }
 
-/// The focused channel beside the list: the programme's still, the channel, what is on
-/// with its time and progress, what is next, and the overview.
-private struct ChannelPreview: View {
+/// The focused channel's programme as a card: its still across the whole card, «N · name» and
+/// LIVE on top, and over a scrim on the lower part the facts, title, episode, time and
+/// progress, overview, what is next and the keys.
+private struct ProgrammeCard: View {
     let channel: Channel
 
     @Environment(\.locale) private var locale
@@ -783,58 +677,125 @@ private struct ChannelPreview: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
             let program = channel.program(at: context.date)
-            VStack(alignment: .leading, spacing: 18) {
-                // About 745 points wide beside the list.
-                ProgrammeStill(program: program, maxPixelSize: 1500)
-                    .aspectRatio(16 / 9, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                HStack(spacing: 16) {
-                    ChannelLogo(channel, height: 40)
-                    Text(verbatim: channel.label)
-                        .font(Theme.Typography.meta)
-                        .foregroundStyle(Theme.Colors.label2)
-                        .lineLimit(1)
-                    if program?.isOnAir(at: context.date) == true { LiveBadge() }
-                }
-                .padding(.top, 8)
-                if let program {
-                    Text(verbatim: program.fullTitle)
-                        .font(Theme.Typography.sectionTitle)
-                        .foregroundStyle(Theme.Colors.label)
-                        .lineLimit(2)
-                    HStack(spacing: 18) {
-                        Text(verbatim: program.timeRange(locale))
-                            .monospacedDigit()
-                        if program.isOnAir(at: context.date) {
-                            LiveProgressBar(value: program.progress(at: context.date))
-                                .frame(width: 200)
-                            Text(verbatim: program.untilLine(locale))
-                                .monospacedDigit()
+            ZStack(alignment: .bottomLeading) {
+                Theme.Colors.elevated
+                ProgrammeStill(program: program, maxPixelSize: 1500, cornerRadius: 0)
+                // Clear over the picture's upper part, dark under the text.
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0), location: 0),
+                        .init(color: .black.opacity(0.05), location: 0.3),
+                        .init(color: .black.opacity(0.82), location: 0.62),
+                        .init(color: .black.opacity(0.97), location: 1),
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                )
+                VStack(alignment: .leading, spacing: 12) {
+                    if let program {
+                        if !program.metaLine.isEmpty {
+                            Text(verbatim: program.metaLine)
+                                .font(Theme.Typography.eyebrow)
+                                .tracking(1.5)
+                                .textCase(.uppercase)
+                                .foregroundStyle(Theme.Colors.label2)
+                                .lineLimit(1)
                         }
+                        Text(verbatim: program.title)
+                            .font(Theme.Typography.pageTitle)
+                            .foregroundStyle(Theme.Colors.label)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        if !program.subtitle.isEmpty {
+                            Text(verbatim: program.subtitle)
+                                .font(Theme.Typography.sectionTitle)
+                                .foregroundStyle(Theme.Colors.label2)
+                                .lineLimit(1)
+                        }
+                        HStack(spacing: 24) {
+                            Text(verbatim: program.timeRange(locale))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.Colors.label)
+                            if program.isOnAir(at: context.date) {
+                                LiveProgressBar(value: program.progress(at: context.date))
+                                    .frame(maxWidth: .infinity)
+                                Text(verbatim: program.untilLine(locale))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Theme.Colors.label2)
+                            }
+                        }
+                        .font(Theme.Typography.meta)
+                        .padding(.top, 4)
+                        if !program.overview.isEmpty {
+                            Text(verbatim: program.overview)
+                                .font(Theme.Typography.meta)
+                                .foregroundStyle(Theme.Colors.label2)
+                                .lineLimit(2)
+                        }
+                    } else {
+                        Text("Nothing on now")
+                            .font(Theme.Typography.sectionTitle)
+                            .foregroundStyle(Theme.Colors.label)
                     }
-                    .font(Theme.Typography.meta)
-                    .foregroundStyle(Theme.Colors.label2)
                     if let next = channel.upNext(at: context.date) {
                         Text(verbatim: next.nextLine(locale))
-                            .font(Theme.Typography.meta)
+                            .font(Theme.Typography.cardMeta)
                             .foregroundStyle(Theme.Colors.label3)
                             .lineLimit(1)
                     }
-                    if !program.overview.isEmpty {
-                        Text(verbatim: program.overview)
-                            .font(Theme.Typography.meta)
-                            .foregroundStyle(Theme.Colors.label2)
-                            .lineLimit(3)
-                            .padding(.top, 4)
+                    HStack(spacing: 40) {
+                        KeyHint(key: "Press", label: "Watch")
+                        KeyHint(key: "Hold", label: channel.favorite ? "Remove from Favourites" : "Add to Favourites")
                     }
-                } else {
-                    Text("Nothing on now")
-                        .font(Theme.Typography.sectionTitle)
-                        .foregroundStyle(Theme.Colors.label)
+                    .padding(.top, 8)
                 }
+                .padding(.horizontal, 44)
+                .padding(.vertical, 40)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .overlay(alignment: .topLeading) {
+                HStack(spacing: 20) {
+                    HStack(spacing: 16) {
+                        ChannelLogo(channel, height: 44)
+                        Text(verbatim: channel.label)
+                            .font(Theme.Typography.meta)
+                            .foregroundStyle(Theme.Colors.label)
+                            .lineLimit(1)
+                        if channel.favorite {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(Theme.Colors.label2)
+                        }
+                    }
+                    if program?.isOnAir(at: context.date) == true { LiveBadge() }
+                }
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+                .background(.black.opacity(0.55), in: Capsule())
+                .padding(32)
             }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// «Select  Watch»: a remote key in a small outline, and what it does.
+private struct KeyHint: View {
+    let key: LocalizedStringKey
+    let label: LocalizedStringKey
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Text(key)
+                .font(Theme.Typography.badge)
+                .foregroundStyle(Theme.Colors.label)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.badge * 2, style: .continuous).stroke(Theme.Colors.label3, lineWidth: 2))
+            Text(label)
+                .font(Theme.Typography.cardMeta)
+                .foregroundStyle(Theme.Colors.label2)
+                .lineLimit(1)
+        }
     }
 }
 

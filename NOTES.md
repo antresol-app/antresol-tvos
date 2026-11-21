@@ -1349,3 +1349,26 @@ the app's own strings are only «Watch», «Cancel» and «Nothing Found». The 
   stay two buttons.
 - A run answers `422` with the server's words when a source no longer has the file; it shows as the
   notice of a quick run, or under the chooser's list.
+
+## TV tab: the list on a panel beside the programme's card
+
+The owner chose variant A of the earlier layout study (the Android TV app got the same page).
+
+- Before: three columns (a 400 pt category column, an 860 pt list, a flexible preview), the lower third empty with few
+  channels, and the `Channels | Guide` switch pushed to the far right by a spacer.
+- Now (`TVView.swift`): the header holds the title, `Channels | Guide`, the category button and the number pad, all on the
+  left. Channels: the list is on a panel (46% of the width less a 48 pt gap, the page's full height down to the safe
+  area) and the programme's card has the rest: the still across the card, a scrim, the facts, title, episode, time and
+  progress, overview, what is next, and «Press · Watch / Hold · Add to Favourites» (two new strings, en and ru). Row
+  height = the panel's room / channels between 124 and 208 pt; from 168 pt a row has the programme's still (228×128).
+- The category column is gone, on purpose: variant A has no room for a third column, the Guide already filtered by the
+  category button and its full-screen list (`CategoriesPanel`: current category focused, Menu closes it as it was, a
+  choice hands focus to the channels), and the Android app has always had the button. Both views now have the same
+  header and the same way to narrow them. It costs one more press than moving through a column (the column narrowed the
+  list as focus moved); the live narrowing is not kept.
+- Tests: `RuntimeTests.testChannelListFavouritesFirst` and `testTiviMateRemote` open the category list through the button
+  (`focusCategoryButton`); `scripts/mock-server.py --channels N` gives the main port N channels for screenshots of a
+  short or a long list (`ChannelScreenshotTests/testList`).
+- Not verified on a real Apple TV: the focus engine's choice of the row when Down leaves the header (the simulator
+  was driven with the remote's key presses), and the rows' lift at the panel's edge.
+

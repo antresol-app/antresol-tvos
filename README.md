@@ -67,10 +67,13 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
     artwork, title and artist on the left and large lines on the right, the current one bright.
   - Background audio, with Control Center and remote controls.
 - **TV**: the server's live channels made of the library, as a television has them.
-  - One numbered list: a row per channel with its number, the programme's still, what is on
-    (progress, "until 21:40") and what is next. Focus starts on the last channel; a small pill
-    returns to it. The category button opens the list of All, Favourites and the server's categories
-    (AI topics, sources, playlist groups, with counts); a long press stars a channel.
+  - One numbered list on a panel (the left ~46% of the page, its full height) beside a card of the
+    focused channel's programme: the programme's still across the card, its title, episode, time and
+    progress ("until 21:40"), overview and what is next. A row has the channel's number, logo, name and
+    what is on with its progress; with a few channels the rows are tall and carry the programme's still,
+    with many they are compact. Focus starts on the last channel. The category button next to the
+    Channels | Guide switch opens the list of All, Favourites and the server's categories (AI topics,
+    sources, playlist groups, with counts); a long press stars a channel.
   - The Guide: channels × time with a ruler, the now line and a block per programme; the
     remote moves between blocks keeping the time; a programme opens its details (Watch while
     it is on air, the channel's star).

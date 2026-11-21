@@ -130,12 +130,16 @@ final class RuntimeTests: XCTestCase {
         XCTAssertLessThan(starred.frame.minY, first.frame.minY, "the favourite (3) is not above channel 1")
         snapshot("rt-70-tv-favourites-first")
 
-        // The category column: Favourites, then All, then the categories.
+        // The category button's list: Favourites, then All, then the categories; Menu closes it as it was.
+        XCTAssertTrue(focusCategoryButton(), "no category button: \(focusedLabel)")
+        remote.press(.select)
         let favourites = app.buttons["tv.category.favorites"]
         let all = app.buttons["tv.category.all"]
-        XCTAssertTrue(favourites.waitForExistence(timeout: 10) && all.exists, "no category column")
+        XCTAssertTrue(favourites.waitForExistence(timeout: 10) && all.exists, "no category list")
         XCTAssertLessThan(favourites.frame.minY, all.frame.minY, "Favourites is not first")
         snapshot("rt-71-tv-categories")
+        remote.press(.menu)
+        XCTAssertTrue(wait(10) { !all.exists }, "Menu did not close the category list")
 
         // Settings: «Избранные каналы первыми» off.
         XCTAssertTrue(openSection("Kiddo", prefix: true, showing: app.buttons["Switch Profile"]), "no Settings: \(focusedLabel)")
@@ -164,9 +168,9 @@ final class RuntimeTests: XCTestCase {
     }
 
     /// The TV remote as TiviMate has it (the mock's second port: 24 channels and channel 25
-    /// of the adult category, which the server lists first): the category column beside the
-    /// list, moving through it narrows the list at once; the adult category is last and its
-    /// channel is nowhere else; rows without a logo show their coloured tile; the number pad
+    /// of the adult category, which the server lists first): the category button beside the
+    /// view switch opens the list of categories, choosing one narrows the list; the adult
+    /// category is last and its channel is nowhere else; rows without a logo show their coloured tile; the number pad
     /// tunes to a channel by its number («1_», then 12 at its second digit, 1 after the
     /// pause), channel up zaps, and a number outside the adult category does not reach its
     /// channel.
@@ -177,38 +181,43 @@ final class RuntimeTests: XCTestCase {
         let far = channelRow("Канал 18")
         XCTAssertTrue(waitForFocus(far, seconds: 20), "the list did not open on the last channel: \(focusedLabel)")
         sleep(2)
-        snapshot("rt-80-tv-three-columns")
+        snapshot("rt-80-tv-list-and-card")
 
         let adultRow = channelRow("Ночной канал")
         XCTAssertFalse(adultRow.exists, "the adult channel is in All")
+        XCTAssertTrue(focusCategoryButton(), "no category button: \(focusedLabel)")
+        remote.press(.select)
         let all = app.buttons["tv.category.all"]
         let adult = app.buttons["tv.category.cat:ai:adult"]
-        XCTAssertTrue(all.exists && adult.exists, "no category column")
+        XCTAssertTrue(all.waitForExistence(timeout: 10) && adult.exists, "no category list")
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "tv.category.")).allElementsBoundByIndex
         XCTAssertEqual(rows.map(\.frame.minY).max(), adult.frame.minY, "the adult category is not last")
 
-        // Left: the column, on the current category (All).
-        remote.press(.left)
-        XCTAssertTrue(waitForFocus(all), "Left did not land on All: \(focusedLabel)")
-        // Down through the categories: the list follows.
+        // The list opens on the current category (All); Select on another narrows the list to it.
+        XCTAssertTrue(waitForFocus(all), "the list did not open on All: \(focusedLabel)")
         XCTAssertTrue(moveFocus(.down, to: adult, limit: 14), "no way down to the adult category: \(focusedLabel)")
-        XCTAssertTrue(adultRow.waitForExistence(timeout: 5), "the adult category does not list its channel")
+        remote.press(.select)
+        XCTAssertTrue(adultRow.waitForExistence(timeout: 10), "the adult category does not list its channel")
         XCTAssertFalse(far.exists, "the adult category lists other channels")
         snapshot("rt-81-tv-adult-category")
-        XCTAssertTrue(moveFocus(.up, to: all, limit: 14), "no way back up to All: \(focusedLabel)")
-        XCTAssertTrue(far.waitForExistence(timeout: 5) && !adultRow.exists, "All is not back")
+        // Back to All: its channels take focus, on the last one.
+        XCTAssertTrue(focusCategoryButton(), "no category button: \(focusedLabel)")
         remote.press(.select)
-        XCTAssertTrue(waitForFocus(far), "Select on a category did not move focus to its channels: \(focusedLabel)")
+        XCTAssertTrue(waitForFocus(adult), "the list did not open on the adult category: \(focusedLabel)")
+        XCTAssertTrue(moveFocus(.up, to: all, limit: 14), "no way back up to All: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(far.waitForExistence(timeout: 10) && !adultRow.exists, "All is not back")
+        XCTAssertTrue(waitForFocus(far, seconds: 10), "Select on a category did not move focus to its channels: \(focusedLabel)")
 
         // The number pad: 1, 2 → channel 12 at once (25 is the highest: two digits).
         let pad = app.buttons["tv.numberpad"]
-        // Up to the header (past the rows above), then across to the pad's button.
+        // Up to the header (past the rows above), then across to the pad's button (right of the category button).
         let header = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
         for _ in 0..<30 where !(pad.exists && pad.hasFocus) && !(header.exists && header.frame.minY < 250) {
             remote.press(.up)
             usleep(400_000)
         }
-        XCTAssertTrue(pad.hasFocus || moveFocus(.left, to: pad, limit: 3) || moveFocus(.right, to: pad, limit: 3), "no number pad button: \(focusedLabel)")
+        XCTAssertTrue(pad.hasFocus || moveFocus(.right, to: pad, limit: 3) || moveFocus(.left, to: pad, limit: 6), "no number pad button: \(focusedLabel)")
         remote.press(.select)
         let one = app.buttons["numberpad.1"]
         XCTAssertTrue(waitForFocus(one), "the pad did not open on 1: \(focusedLabel)")
@@ -986,9 +995,22 @@ final class RuntimeTests: XCTestCase {
         return "\(parts[0]):\(port + 1)"
     }
 
-    /// A channel's row in the TV list (not a category of the same name in the column).
+    /// A channel's row in the TV list (not a category of the same name in the category list).
     private func channelRow(_ text: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND NOT (identifier BEGINSWITH %@)", text, "tv.category.")).firstMatch
+    }
+
+    /// Focuses the TV page's category button: up from the list to the header (past the rows
+    /// above), then across to it.
+    private func focusCategoryButton() -> Bool {
+        let button = app.buttons["tv.categories"]
+        guard button.waitForExistence(timeout: 10) else { return false }
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        for _ in 0..<30 where !button.hasFocus && !(focused.exists && focused.frame.minY < 260) {
+            remote.press(.up)
+            usleep(400_000)
+        }
+        return button.hasFocus || moveFocus(.right, to: button, limit: 3) || moveFocus(.left, to: button, limit: 3)
     }
 
     /// The live player's picture, labelled with the channel on screen.

@@ -36,6 +36,9 @@ carries the device's `deviceHistory`. The second port's profile picker has a thi
 adult profile («Family») to switch it with; while it is on, Home's Continue Watching is another
 one (the device's own), and `/mock/reset` puts it back.
 
+`--channels N` gives the main port's channel list N channels (the sample's four, cut short or
+continued with copies), for screenshots of a short or a long list.
+
 With `--addons` both ports also serve the addons' `x/app` protocol (two neutral addons, `alpha`
 and `beta`; kids get 403) and the core's input player, for the screens that offer an addon's
 ways. The second port records those requests with their bodies, as it does the others.
@@ -659,6 +662,19 @@ def many_channels(data):
     data["lastChannel"] = FAR_LAST_CHANNEL
 
 
+def sized_channels(data, count):
+    """The main port's list with `--channels N` channels: the sample's four, cut short or continued
+    with copies of them (the categories keep the sample's counts); the last one watched is the
+    first (on air, with its progress)."""
+    sample = list(data["channels"])
+    data["channels"] = sample[:count]
+    for number in range(len(sample) + 1, count + 1):
+        channel = json.loads(json.dumps(sample[(number - 1) % len(sample)]))
+        channel.update(id=number, number=number, name=f"Канал {number}", favorite=False)
+        data["channels"].append(channel)
+    data["lastChannel"] = data["channels"][0]["id"]
+
+
 GUIDE_ROWS = 12
 # (id and number, name, guide source, programme title, minutes off the half-hour grid)
 EXTERNAL_ROWS = [(100, "Альфа ТВ", 7, "Альфа-новости", 0), (101, "Бета ТВ", 7, "Бета-кино", 0),
@@ -881,6 +897,8 @@ class Handler(BaseHTTPRequestHandler):
                 many_channels(channels)
                 with_channel_state(channels, self.server.channels)
                 channels["favoritesFirst"] = self.server.channels["favoritesFirst"]
+            elif getattr(self.server, "channel_count", None):
+                sized_channels(channels, self.server.channel_count)
             return self.send(200, json.dumps(channels).encode(), "application/json")
         # «Избранные каналы первыми»: the second port only (the main one is an older server).
         if getattr(self.server, "pairing", False) and path == "/api/channels/prefs":
@@ -1067,6 +1085,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8421)
     parser.add_argument("--addons", action="store_true", help="serve the addons' x/app protocol and the input player")
+    parser.add_argument("--channels", type=int, default=0, help="the main port's channel list has this many channels (for screenshots)")
     args = parser.parse_args()
     pairing = ThreadingHTTPServer(("127.0.0.1", args.port + 1), Handler)
     pairing.pairing = True
@@ -1078,6 +1097,7 @@ def main():
     threading.Thread(target=pairing.serve_forever, daemon=True).start()
     main_server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     main_server.auto_skip = {}
+    main_server.channel_count = args.channels
     main_server.addons, main_server.addon_state = args.addons, new_addon_state()
     main_server.history = new_history_state()
     main_server.serve_forever()

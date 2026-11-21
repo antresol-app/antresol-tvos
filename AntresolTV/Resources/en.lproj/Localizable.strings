@@ -390,3 +390,7 @@
 /* Addon ways: the buttons' own words come from the server */
 "Cancel Task" = "Cancel";
 "Nothing Found" = "Nothing Found";
+
+/* The TV tab's programme card: what a press and a long press of the remote's button do */
+"Press" = "Press";
+"Hold" = "Hold";
