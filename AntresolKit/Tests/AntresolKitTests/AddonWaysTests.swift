@@ -266,6 +266,11 @@ final class AddonWaysTests: XCTestCase {
         XCTAssertEqual(json["ref"] as? String, "r2")
         XCTAssertEqual(json["startSec"] as? Double, 42)
         XCTAssertNil(json["quick"])
+        // 0 is a start from the beginning, not "none": the addon would pick up its saved position.
+        let fromStart = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(WayRunRequest(way: "go", target: target, startSec: 0, refresh: true))) as? [String: Any])
+        XCTAssertEqual(fromStart["startSec"] as? Double, 0)
+        let plain = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(WayRunRequest(way: "go", target: target, quick: true))) as? [String: Any])
+        XCTAssertNil(plain["startSec"], "a first run leaves the start to the addon")
     }
 
     func testStateAskedForASeasonOnlyWhenTargetHasOne() async throws {

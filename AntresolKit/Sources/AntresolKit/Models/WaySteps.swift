@@ -255,6 +255,8 @@ public struct WayRunRequest: Encodable, Hashable, Sendable {
     public var season: Int?
     public var episode: Int?
     public var ref: String?
+    /// Where to start, in seconds. Left out, the addon starts where the person left off; `0` means
+    /// from the beginning.
     public var startSec: Double?
     /// The tallest picture this screen shows.
     public var maxHeight: Int?
@@ -273,7 +275,7 @@ public struct WayRunRequest: Encodable, Hashable, Sendable {
         self.season = target.season
         self.episode = target.episode
         self.ref = ref
-        self.startSec = startSec.flatMap { $0 > 0 ? $0 : nil }
+        self.startSec = startSec.map { max($0, 0) }
         self.maxHeight = maxHeight
         self.quick = quick ? true : nil
         self.refresh = refresh ? true : nil

@@ -199,7 +199,8 @@ final class WayPlayerModel {
         var run = request.run
         run.refresh = true
         run.quick = request.run.ref == nil ? true : nil
-        run.startSec = position > 0 ? position : nil
+        // Always where the player is, 0 included: left out, the addon would start at its own saved position.
+        run.startSec = max(position, 0)
         guard case .play(let play) = try await client.wayRun(addon: launch.way.addonId, run) else {
             throw PlayerError.playbackFailed
         }

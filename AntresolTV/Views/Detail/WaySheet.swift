@@ -223,7 +223,8 @@ struct WaySheetView: View {
     private func rows(_ step: WayStep) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 8) {
+                // A plain stack: a step has a few dozen rows at most, and the last choice must exist to take focus.
+                VStack(alignment: .leading, spacing: 8) {
                     ForEach(step.rows) { row in
                         Button {
                             model.choose(row, appState: appState, addons: addons, playback: playback)
@@ -243,6 +244,10 @@ struct WaySheetView: View {
             // A new step starts with its own focus: the last choice, else the first row.
             .id(step)
             .defaultFocus($focused, model.currentRef)
+            .task(id: step) {
+                await Task.yield()
+                focused = model.currentRef
+            }
             .disabled(model.isRunning)
             .overlay {
                 if model.isRunning {

@@ -95,7 +95,8 @@ struct WayButton: View {
             }
         }
         .buttonStyle(PillButtonStyle(kind: kind))
-        .disabled(running)
+        // Not `.disabled(running)`: a button that goes disabled and enabled again under the focus
+        // engine stops reporting its focus. `AddonWays.start` ignores a second press meanwhile.
         .contextMenu {
             Button {
                 start(choose: true)

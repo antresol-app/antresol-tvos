@@ -74,15 +74,16 @@ final class AddonWays {
             catalog = AddonCatalog(client: client)
             catalogClient = client
             snapshot = .empty
-            lastLoad = nil
+            lastLoad = Date()
         } else if refresh {
+            // A look that began a moment ago (the shell's own, at launch) is as good.
             if let lastLoad, Date().timeIntervalSince(lastLoad) < Self.refreshGap { return }
+            lastLoad = Date()
             await catalog?.invalidate()
         }
         guard let catalog else { return }
         let found = await catalog.snapshot()
         guard catalogClient === client, !Task.isCancelled else { return }
-        lastLoad = Date()
         if found != snapshot { snapshot = found }
     }
 
