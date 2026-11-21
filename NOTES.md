@@ -1283,3 +1283,69 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
   guide is reloaded.
 - The CI workflow was not run; its commands were run by hand on the Mac.
 
+
+## Addon ways (the neutral `x/app` protocol)
+
+The server's addons offer the apps ways to watch a title or keep a copy of it. The app knows no
+addon's id or wording: labels, step titles and rows come from the server in the profile's language;
+the app's own strings are only «Watch», «Cancel» and «Nothing Found». The protocol is in
+`docs/API.md` §14.
+
+### What exists
+
+- `AntresolKit`: `AddonWays.swift` and `WaySteps.swift` (models), `APIClient+Ways.swift` and
+  `APIClient+InputPlay.swift` (calls), `AddonCatalog` (discovery, cached per sign-in).
+  `VideoPlaybackSession` can take a requester instead of a library file, and
+  `PlaybackProgressReporter` another sender, so an addon's stream reuses the keepalive, the
+  seek-by-session and the periodic progress of the library player.
+- Pages: `WayButtons.swift` (the ways that watch, the round keep buttons with the state ring, an
+  episode's menu entries), `WaySheet.swift` (the step-by-step chooser), `TitleDetailView.swift` (a
+  title the library lacks: `/api/title`, a show's episodes from the tracking list). Search adds one
+  section per addon that searches, after the library's groups.
+- `WayPlayerModel` / `WayPlayerView`: the player of what a way started. `input` goes through the core's
+  input player (202 polled every 1.5 s up to 90 s, then the `/api/play` answer, progress on the input);
+  `play` is the addon's own stream with its session and progress. A stale link (the media answers
+  410, or any failure once per 30 s) asks `x/app/run` again with `refresh`.
+
+### Decisions
+
+- A way that watches runs `quick` (the remembered or best choice) on Select and opens the chooser only
+  when the addon answers `pick`; a long press offers the chooser. A way that keeps a copy always opens
+  the chooser (the quality and the release are the person's choice).
+- One watching way next to Play is its own button; several are behind «Watch» (each also once more as
+  «label…» for the chooser). Without a Play button the first watching way is the primary button.
+- `outside` and `inside` are judged per episode in the guide: an episode the library lacks is
+  «outside», one it has is «inside». An episode still to air has no ways. Select on a missing episode
+  runs the first watching way.
+- Discovery is silent: a kid's profile, a server without addons, `403`/`404`, an unreadable answer
+  or another protocol version offer nothing. A busy server or a dropped connection is asked again
+  after a minute; a definite refusal is kept for the sign-in. The catalog is looked at again when the
+  Home tab comes up (tvOS has no pull-to-refresh), at most every 30 s.
+- Subtitles of an addon stream are fetched with the Bearer token like every other subtitle (the media
+  key is accepted on some of their paths only).
+- `session` and `progress` of a `{play}` answer are read from inside `play` first, then beside it
+  (the real addons put them inside).
+- A run that restarts a stream after a stale link sends the player's position as `startSec`, `0`
+  included: left out, the addon would start at its own saved position.
+- Trailers: the web lists a title's trailers (the best three) whether or not the server plays them
+  (`play`): with `play` in its own sheet, without it in the video site's embedded player. An Apple TV has
+  no embedded web player, so the button was already the same: it shows for any trailer, plays in the app's
+  own player with `play`, and otherwise in the YouTube app or behind a QR code. The chooser now lists the
+  best three too, as the web's menu does.
+
+### Known gaps
+
+- A quick run that is slow (an addon getting a stream ready) shows only the button's spinner; there is no
+  way to give it up.
+- The way player has no audio or quality menu: the choices are made in the chooser, and an addon's
+  stream lists no tracks of its own.
+- An episode's page (not the show's) has no ways, and neither has a season's own page.
+- The screens were driven only against `scripts/mock-server.py --addons` (`testAddonWays`). The real
+  addons' answers (their `x/app` description, a search, steps of both kinds, the state, a title page)
+  were decoded with the models by hand, and a watch run's stream was fetched with its media key,
+  its progress written and its session closed; none of that is kept as a fixture. A `ref` can be
+  2 KB long: it is stored and sent as it came.
+- Both addons use the way id `watch`; a way is told apart by its addon too, so two ways with one id
+  stay two buttons.
+- A run answers `422` with the server's words when a source no longer has the file; it shows as the
+  notice of a quick run, or under the chooser's list.

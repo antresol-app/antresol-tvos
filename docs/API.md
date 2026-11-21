@@ -37,6 +37,7 @@ Conventions:
 11. [Client implementation notes](#11-client-implementation-notes)
 12. [Live channels («ТВ»)](#12-live-channels)
 13. [Episode guide (server 0.5.0+)](#13-episode-guide)
+14. [Addon ways (`x/app`)](#14-addon-ways)
 
 ---
 
@@ -1227,3 +1228,47 @@ The TV app's series page shows this list when the server answers (and it has epi
 episode marked downloaded, not downloaded (dimmed; selecting it says it is not in the library)
 or upcoming (`airDate` after today or not known yet, greyed with the date). Library episodes
 the answer does not name keep their place. Sample: `tracking-episodes.json`.
+
+---
+
+## 14. Addon ways
+
+Addons can offer the apps ways to watch a title or keep a copy of it on the server, through a
+small neutral protocol under the core's addon proxy, `/api/addons/{id}/x/app…` (Bearer token as
+everywhere; a kid's profile gets `403`; an addon without the protocol answers `404`). The app knows
+no addon's id or wording: every label, step title and row comes from the server in the profile's
+language. Samples: `addon-*.json`.
+
+**Discovery.** `GET /api/addons/web` lists the addons open to the profile (`[{id, entry, style?}]`;
+only the ids are used). Each id's `GET /api/addons/{id}/x/app` says what it offers:
+`{v: 1, ways: [{id, label, icon: play|download|globe|list, role: watch|keep, kinds: [movie|series],
+scope: any|outside|inside, episodes: bool}], search?: {label}}`. Any other answer (`404`, `403`, a
+server error, an unreadable body) or another `v` means the addon offers nothing. The app keeps the result for the sign-in
+and looks again when the Home tab comes up. Ways of all addons are shown in the order of the addon ids.
+
+**Where a way shows.** `kinds` must hold the title's kind; `outside` ways only for what the library
+lacks, `inside` only for what it has; for one episode only a way with `episodes: true`.
+`watch` ways play (behind «Watch», or first when the page has no Play); `keep` ways are round buttons
+with a state ring.
+
+**Calls.** `GET x/app/search?q=` → `{titles: [{kind, tmdbId, title, year?, poster?, overview?, inLibrary,
+libraryItemId?}]}`. `POST x/app/step {way, kind, tmdbId, season?, episode?, ref?}` →
+`{title, rows: [{ref, label, detail?, badges?, current?, final}], note?, empty?}` (a step can take
+half a minute; `404`: the way is gone). `POST x/app/run {way, kind, tmdbId, season?, episode?, ref?,
+startSec?, maxHeight?, quick?, refresh?}` → exactly one of `{input: id}`, `{play: PlayResponse + session,
+progress: {path, every}}`, `{done: text}`, `{pick: true}`. `GET x/app/state?kind=&tmdbId=[&season=]` →
+`{ways: {id: {active, fraction?, text?, cancel?}}}` (asked every 5 s while a way is active);
+`POST x/app/cancel {way, kind, tmdbId, season?}`. Errors are `{error}`, shown as sent.
+
+**Playing.** `{input}` plays through the core's input player: `GET /api/play/input/{id}`, then
+`POST /api/play/input/{id}` with the `/api/play` body (`202 {pending: true}` while the server gets it
+ready: asked again every 1.5 s for up to 90 s), the answer being `/api/play`'s; progress is
+`PUT /api/play/input/{id}/progress {positionMs, durationMs, keepalive}`. `{play}` plays the addon's own
+stream: `url` with `?mk=` (§2.5); progress `PUT x/app/progress {session, way, kind, tmdbId, season?, episode?,
+positionMs, durationMs, finished?}` every `every` seconds, on pause and on close; `DELETE
+x/app/play/{session}` on close; on a `410` from the media the same `run` is sent again with `refresh: true`.
+
+**Title off the library.** `GET /api/title/{movie|series}/{tmdbId}` → the title's page data (`title`, `year`,
+`poster`, `backdrop`, `overview`, `genres`, `runtime?`, `rating?`, `cast`, `seasons: [{number, episodes}]`,
+`inLibrary`, `libraryItemId?`); sample `title-info.json`.
+

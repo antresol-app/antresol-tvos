@@ -80,7 +80,16 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
     channel row); a swipe down opens the channel row.
   - TV is TV: a channel leaves no progress, history, resume point or watched mark; only the
     favourites and the last channel are saved on the server.
-- **Search**: across movies, shows and music, with browse tiles.
+- **Search**: across movies, shows and music, with browse tiles. Each server addon that searches
+  adds its own section, under its own heading, after the library's results; a title the library
+  has opens its page, any other opens a page of its own.
+- **Addon ways**: what the server's addons offer a title (docs/API.md §14), in the server's own
+  words. A movie or show page shows the ways that watch (behind a «Watch» choice next to Play, or
+  as the first button when there is no Play; Select runs the remembered or best choice, a long
+  press opens the step-by-step chooser) and the ways that keep a copy on the server (round
+  buttons with a progress ring; a long press cancels). An episode's long-press menu lists its ways,
+  also for episodes the library lacks. The streams play in the app's own player. Nothing shows
+  without addons or in a kid's profile.
 - **Settings** (the profile tab):
   - Switch profile, or sign out (which revokes the device token on the server).
   - Default video quality, audio and subtitle languages, and autoplay of the next episode.
@@ -249,6 +258,9 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   is the debug probe `player.skip`) and its test hooks (`/mock/events`,
   `/mock/reset`, `/mock/fail-progress/<id>`; see the script's header), none of which the
   main port has, so the screenshot tests keep seeing what they saw.
+- `testAddonWays` needs the mock with `--addons` (two neutral addons: ways that watch and keep,
+  a chooser, an input player that answers `202` first) and `TEST_RUNNER_ANTRESOL_MOCK_ADDONS=1`;
+  it skips itself otherwise.
 - Without an Apple TV simulator yet: `xcrun simctl create "Apple TV 4K (3rd generation)"
   com.apple.CoreSimulator.SimDeviceType.Apple-TV-4K-3rd-generation-4K <a tvOS runtime of
   "xcrun simctl list runtimes">`, and boot it before the run (`xcrun simctl bootstatus <udid> -b`).
