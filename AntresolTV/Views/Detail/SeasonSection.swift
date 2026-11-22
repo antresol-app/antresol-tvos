@@ -4,7 +4,8 @@ import SwiftUI
 /// Seasons of a series: the season pill and a row of episode cards. Clicking a downloaded
 /// episode opens its page; the long-press menu plays it or toggles its watched state.
 /// When the server has the series' full episode list, episodes not in the library show
-/// dimmed and marked (clicking one says so), and those still to air greyed with their date.
+/// marked and dimmed (clicking one says so) unless an addon's way plays them (then clicking
+/// plays, and they are as bright as library ones), and those still to air greyed with their date.
 struct SeasonSection: View {
     let model: VideoDetailModel
 
@@ -80,7 +81,7 @@ struct SeasonSection: View {
                     appState.showNotice(String(localized: "Not in the library", bundle: .localized))
                 }
             } label: {
-                EpisodeCardView(guide: episode)
+                EpisodeCardView(guide: episode, playable: wayTarget(for: episode, inLibrary: false).map { addons.menu(for: $0) != nil } ?? false)
                     .wayBusy(wayTarget(for: episode, inLibrary: false).map { addons.isRunning(for: $0) } ?? false)
             }
             .buttonStyle(CardButtonStyle())
@@ -148,7 +149,8 @@ struct SeasonSection: View {
 
 /// A 16:9 episode card: its own still with progress, or dimmed with the watched eye, then "E2 · 20 min",
 /// the title and two lines of overview. On a full episode list the meta line carries
-/// "Downloaded", "Not downloaded" or "Airs 1 Dec", and the last two are dimmed.
+/// "Downloaded", "Not downloaded" or "Airs 1 Dec", and the last two are dimmed (a not downloaded
+/// episode an addon's way plays is not: it has a Play like a library one).
 struct EpisodeCardView: View {
     let title: String
     let artwork: [String]
@@ -163,6 +165,8 @@ struct EpisodeCardView: View {
     let state: GuideEpisode.State?
     /// The air date of an upcoming episode.
     let airDay: Date?
+    /// An addon's way plays this episode (it is not in the library): it is not dimmed.
+    let playable: Bool
     var width: CGFloat = Theme.Layout.episodeWidth
 
     @Environment(\.isCardFocused) private var isFocused
@@ -181,11 +185,12 @@ struct EpisodeCardView: View {
         self.isNew = isNew
         self.state = state
         airDay = nil
+        playable = false
         self.width = width
     }
 
-    /// An episode not in the library.
-    init(guide episode: GuideEpisode, width: CGFloat = Theme.Layout.episodeWidth) {
+    /// An episode not in the library; `playable`: an addon's way plays it.
+    init(guide episode: GuideEpisode, playable: Bool = false, width: CGFloat = Theme.Layout.episodeWidth) {
         title = episode.name.isEmpty ? String(localized: "E\(episode.number)", bundle: .localized) : episode.name
         artwork = []
         episodeNo = episode.number
@@ -196,6 +201,7 @@ struct EpisodeCardView: View {
         isNew = episode.isNew
         state = episode.state
         airDay = episode.airDay()
+        self.playable = playable
         self.width = width
     }
 
@@ -255,14 +261,10 @@ struct EpisodeCardView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Not downloaded is dimmer than downloaded; still to air is greyed further. Focus
-    /// lifts both a little so the focused card stays readable.
+    /// Not downloaded is dimmer than downloaded (unless a way plays it); still to air is
+    /// greyed further. Focus lifts both a little so the focused card stays readable.
     private var dimming: Double {
-        switch state {
-        case .missing: return isFocused ? 0.8 : 0.55
-        case .upcoming: return isFocused ? 0.6 : 0.35
-        default: return 1
-        }
+        state?.opacity(isFocused: isFocused, playable: playable) ?? 1
     }
 
     /// "Downloaded", "Not downloaded", "Airs 1 Dec".

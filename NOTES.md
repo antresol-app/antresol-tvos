@@ -1366,7 +1366,9 @@ The owner found three problems on the iPhone; the same fixes are here (the iPhon
   «label — hint», the default ticked (a `Toggle`: a menu draws it as a tick); choosing one remembers it and runs
   it; «Audio & quality…» (after a divider) opens the chooser of the ticked way. An episode's long-press menu is
   «Play», a divider, the same rows, then the keep ways. «Choose Manually» and the old «Watch» dialog are gone.
-  A way that keeps a copy stays a round button.
+  A way that keeps a copy stays a round button. An episode card not in the library that a way plays (the card's Select
+  runs it) is as bright as a library one; a card nothing plays stays dimmed, one still to air greyed
+  (`GuideEpisode.State.opacity(isFocused:playable:)`).
 - **Hints** come from the way's glyph, not from an addon or its words (the protocol has no hint): a globe is
   «Starts right away», a play triangle «Plays while downloading», a download or list glyph none (`AddonWay.hint`,
   worded in the app's strings). That is a guess at what the real addons mean by their glyphs; a `hint` field of

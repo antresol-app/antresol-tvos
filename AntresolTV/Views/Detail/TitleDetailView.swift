@@ -278,7 +278,7 @@ private struct TitleSeasonSection: View {
                 addons.start(WayLaunch(way: way, target: target, card: wayCard(for: episode)), choose: false, appState: appState, playback: playback)
             }
         } label: {
-            EpisodeCardView(guide: episode)
+            EpisodeCardView(guide: episode, playable: target.map { addons.menu(for: $0) != nil } ?? false)
                 .wayBusy(target.map { addons.isRunning(for: $0) } ?? false)
         }
         .buttonStyle(CardButtonStyle())

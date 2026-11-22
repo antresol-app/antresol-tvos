@@ -164,6 +164,25 @@ final class EpisodeGuideTests: XCTestCase {
         XCTAssertNil(GuideEpisode(tracking: TrackingEpisode(season: 1, number: 1), card: nil, today: "x").airDay())
     }
 
+    func testAMissingEpisodeAWayPlaysIsNotDimmed() {
+        // A library episode is never dimmed; a way changes nothing for it.
+        for focused in [false, true] {
+            XCTAssertEqual(GuideEpisode.State.downloaded.opacity(isFocused: focused, playable: false), 1)
+            XCTAssertEqual(GuideEpisode.State.downloaded.opacity(isFocused: focused, playable: true), 1)
+        }
+        // Missing and nothing plays it: dimmed, focus lifts the dimming.
+        XCTAssertEqual(GuideEpisode.State.missing.opacity(isFocused: false, playable: false), 0.55)
+        XCTAssertEqual(GuideEpisode.State.missing.opacity(isFocused: true, playable: false), 0.8)
+        // Missing but a way plays it: as bright as a library episode, focused or not.
+        XCTAssertEqual(GuideEpisode.State.missing.opacity(isFocused: false, playable: true), 1)
+        XCTAssertEqual(GuideEpisode.State.missing.opacity(isFocused: true, playable: true), 1)
+        // Still to air: greyed with or without a way (the page offers none for it anyway).
+        for playable in [false, true] {
+            XCTAssertEqual(GuideEpisode.State.upcoming.opacity(isFocused: false, playable: playable), 0.35)
+            XCTAssertEqual(GuideEpisode.State.upcoming.opacity(isFocused: true, playable: playable), 0.6)
+        }
+    }
+
     func testClientRequestAndFallbackStatuses() async throws {
         let sample = try Samples.data("tracking-episodes.json")
         let transport = MockTransport { request in

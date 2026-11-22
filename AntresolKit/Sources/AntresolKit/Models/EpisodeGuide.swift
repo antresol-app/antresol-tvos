@@ -314,3 +314,17 @@ public struct GuideEpisode: Hashable, Identifiable, Sendable {
         return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
     }
 }
+
+extension GuideEpisode.State {
+    /// How strongly an episode's card draws. A missing episode is dimmer than a library one,
+    /// unless an addon's way plays it (`playable`: it has a Play like a library episode, so
+    /// nothing marks it as unavailable); one still to air is greyed further whatever a way
+    /// offers. Focus lifts the dimming a little so the focused card stays readable.
+    public func opacity(isFocused: Bool, playable: Bool) -> Double {
+        switch self {
+        case .downloaded: return 1
+        case .missing: return playable ? 1 : (isFocused ? 0.8 : 0.55)
+        case .upcoming: return isFocused ? 0.6 : 0.35
+        }
+    }
+}
