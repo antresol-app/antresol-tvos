@@ -146,6 +146,8 @@ final class AddonWaysTests: XCTestCase {
         XCTAssertFalse(play.response.mode.isHLS, "the addon's own stream is not one of the core's HLS sessions")
         XCTAssertEqual(play.session, "s1")
         XCTAssertEqual(play.progress, WayProgressSpec(path: "x/app/progress", every: 10))
+        XCTAssertEqual(play.quality, StreamQuality(options: ["720", "1080"], current: "1080"))
+        XCTAssertNil(play.qualityChoice, "the sample gives no ref to play another quality with")
     }
 
     func testPlayKeepsSessionAndProgressBesideItToo() throws {

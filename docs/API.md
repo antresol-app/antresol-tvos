@@ -1255,8 +1255,8 @@ with a state ring.
 libraryItemId?}]}`. `POST x/app/step {way, kind, tmdbId, season?, episode?, ref?}` →
 `{title, rows: [{ref, label, detail?, badges?, current?, final}], note?, empty?}` (a step can take
 half a minute; `404`: the way is gone). `POST x/app/run {way, kind, tmdbId, season?, episode?, ref?,
-startSec?, maxHeight?, quick?, refresh?}` → exactly one of `{input: id}`, `{play: PlayResponse + session,
-progress: {path, every}}`, `{done: text}`, `{pick: true}`. `GET x/app/state?kind=&tmdbId=[&season=]` →
+startSec?, maxHeight?, quick?, refresh?, quality?}` → exactly one of `{input: id}`, `{play: PlayResponse + session,
+progress: {path, every}, quality?: {options, current}, ref?}`, `{done: text}`, `{pick: true}`. `GET x/app/state?kind=&tmdbId=[&season=]` →
 `{ways: {id: {active, fraction?, text?, cancel?}}}` (asked every 5 s while a way is active);
 `POST x/app/cancel {way, kind, tmdbId, season?}`. Errors are `{error}`, shown as sent.
 
@@ -1267,6 +1267,10 @@ ready: asked again every 1.5 s for up to 90 s), the answer being `/api/play`'s; 
 stream: `url` with `?mk=` (§2.5); progress `PUT x/app/progress {session, way, kind, tmdbId, season?, episode?,
 positionMs, durationMs, finished?}` every `every` seconds, on pause and on close; `DELETE
 x/app/play/{session}` on close; on a `410` from the media the same `run` is sent again with `refresh: true`.
+A `{play}` answer may list the stream's qualities, `quality: {options: [name], current: name}` (the names are the
+addon's own), and carry `ref`, which plays this very stream again. With two or more options and a `ref` the player
+offers a Quality menu: choosing a name sends `run` with `ref` (the answer's), `quality: name`, `refresh: true` and
+`startSec` at the position the player is at. An answer without a `ref` offers no choice.
 
 **Title off the library.** `GET /api/title/{movie|series}/{tmdbId}` → the title's page data (`title`, `year`,
 `poster`, `backdrop`, `overview`, `genres`, `runtime?`, `rating?`, `cast`, `seasons: [{number, episodes}]`,

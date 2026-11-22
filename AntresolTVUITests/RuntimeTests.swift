@@ -771,6 +771,23 @@ final class RuntimeTests: XCTestCase {
         XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
         snapshot("rt-60-movie-ways")
 
+        // The chevron beside the pill opens the menu of the ways: the one «Play» runs ticked, with its
+        // hint, then «Audio & quality…».
+        XCTAssertTrue(focusWayPill(), "focus: \(focusedLabel)")
+        remote.press(.right)
+        sleep(1)
+        remote.press(.select)
+        func element(_ predicate: String, _ value: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(NSPredicate(format: predicate, value)).firstMatch
+        }
+        XCTAssertTrue(element("label CONTAINS %@", "Watch here — Starts right away").waitForExistence(timeout: 10),
+                      "the menu beside the pill did not open: \(focusedLabel)")
+        XCTAssertTrue(element("label == %@", "Audio & quality…").exists, "no «Audio & quality…» in the menu")
+        snapshot("rt-60b-way-menu")
+        remote.press(.menu)
+        XCTAssertTrue(watch.waitForExistence(timeout: 10), "the menu did not close")
+        sleep(1)
+
         // First run: nothing remembered, so the chooser opens on the first step.
         XCTAssertTrue(focusWayPill(), "focus: \(focusedLabel)")
         remote.press(.select)

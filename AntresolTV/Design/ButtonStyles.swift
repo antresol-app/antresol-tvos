@@ -13,12 +13,23 @@ struct PillButtonStyle: ButtonStyle {
         case glass
     }
 
+    /// Which part of a pill that is split in two (a button and its menu button, side by side):
+    /// the corners that face the other part are tight, the outer ones round.
+    enum Segment {
+        case whole
+        /// The button; the menu button follows it.
+        case leading
+        /// The menu button after the button: a narrower pill that holds a glyph.
+        case trailing
+    }
+
     var kind: Kind = .glass
     /// A countdown filling the pill from the left (0…1), e.g. «Следующая серия».
     var fill: Double?
+    var segment: Segment = .whole
 
     func makeBody(configuration: Configuration) -> some View {
-        PillButtonBody(configuration: configuration, kind: kind, fill: fill)
+        PillButtonBody(configuration: configuration, kind: kind, fill: fill, segment: segment)
     }
 }
 
@@ -26,6 +37,7 @@ private struct PillButtonBody: View {
     let configuration: ButtonStyleConfiguration
     let kind: PillButtonStyle.Kind
     let fill: Double?
+    let segment: PillButtonStyle.Segment
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
 
@@ -35,7 +47,7 @@ private struct PillButtonBody: View {
             .labelStyle(PillLabelStyle())
             .lineLimit(1)
             .foregroundStyle(foreground)
-            .padding(.horizontal, 44)
+            .padding(.horizontal, segment == .trailing ? 30 : 44)
             .frame(minHeight: 76)
             // Inside the glass (its content), so the system material does not cover it.
             .background(alignment: .leading) {
@@ -49,7 +61,7 @@ private struct PillButtonBody: View {
                     .allowsHitTesting(false)
                 }
             }
-            .glassSurface(in: Capsule(), highlighted: isFocused, prominent: kind == .primary)
+            .modifier(PillSurface(segment: segment, highlighted: isFocused, prominent: kind == .primary))
             .scaleEffect(scale)
             .shadow(color: .black.opacity(isFocused ? 0.55 : 0), radius: 22, y: 12)
             .opacity(isEnabled ? 1 : 0.45)
@@ -68,6 +80,31 @@ private struct PillButtonBody: View {
     private var scale: CGFloat {
         if configuration.isPressed { return 0.97 }
         return isFocused ? Theme.Motion.focusScale : 1
+    }
+}
+
+/// The glass behind a pill: a capsule, or for a part of a split pill the capsule with its facing corners tight.
+private struct PillSurface: ViewModifier {
+    let segment: PillButtonStyle.Segment
+    let highlighted: Bool
+    let prominent: Bool
+
+    func body(content: Content) -> some View {
+        switch segment {
+        case .whole:
+            content.glassSurface(in: Capsule(), highlighted: highlighted, prominent: prominent)
+        case .leading:
+            content.glassSurface(in: shape(leading: 38, trailing: 12), highlighted: highlighted, prominent: prominent)
+        case .trailing:
+            content.glassSurface(in: shape(leading: 12, trailing: 38), highlighted: highlighted, prominent: prominent)
+        }
+    }
+
+    private func shape(leading: CGFloat, trailing: CGFloat) -> UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            cornerRadii: RectangleCornerRadii(topLeading: leading, bottomLeading: leading, bottomTrailing: trailing, topTrailing: trailing),
+            style: .continuous
+        )
     }
 }
 

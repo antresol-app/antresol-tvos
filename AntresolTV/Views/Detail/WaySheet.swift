@@ -16,6 +16,9 @@ final class WaySheetModel {
     }
 
     let launch: WayLaunch
+    /// The stream the chooser opened over («Audio & source…» in the player): what is chosen replaces
+    /// it, from where it is. nil: the chooser of a page.
+    let player: WayPlayerModel?
     private(set) var phase: Phase = .loading
     /// A final row was chosen and the way is running.
     private(set) var isRunning = false
@@ -28,8 +31,9 @@ final class WaySheetModel {
     @ObservationIgnored private var asking: String??
     @ObservationIgnored private var task: Task<Void, Never>?
 
-    init(launch: WayLaunch) {
+    init(launch: WayLaunch, player: WayPlayerModel? = nil) {
         self.launch = launch
+        self.player = player
     }
 
     /// The row of the current step the person chose last: it starts focused.
@@ -108,10 +112,21 @@ final class WaySheetModel {
     private func run(_ row: WayRow, appState: AppState, addons: AddonWays, playback: PlaybackCoordinator) {
         isRunning = true
         task?.cancel()
-        task = Task { [launch] in
+        task = Task { [launch, player] in
             do {
-                let (result, request) = try await addons.perform(launch, ref: row.ref, quick: false, appState: appState)
+                // Over a stream, the run starts where that stream is.
+                let (result, request) = try await addons.perform(
+                    launch, ref: row.ref, quick: false, startSec: player?.position, appState: appState
+                )
                 guard !Task.isCancelled else { return }
+                if let player {
+                    // The old stream stays paused while the chooser goes, then the new one takes its place.
+                    player.beginReplacing()
+                    player.chooser = nil
+                    try? await Task.sleep(for: .milliseconds(600))
+                    player.apply(result, run: request, launch: launch, addons: addons)
+                    return
+                }
                 // The chooser goes first: a player cannot come up over a sheet still on screen.
                 addons.sheet = nil
                 try? await Task.sleep(for: .milliseconds(600))
@@ -132,6 +147,8 @@ final class WaySheetModel {
 /// check on the last choice, a chevron where another step follows).
 struct WaySheetView: View {
     let launch: WayLaunch
+    /// The playing stream the chooser opened over, if any.
+    var player: WayPlayerModel?
 
     @Environment(AppState.self) private var appState
     @Environment(AddonWays.self) private var addons
@@ -140,9 +157,10 @@ struct WaySheetView: View {
     @State private var model: WaySheetModel
     @FocusState private var focused: String?
 
-    init(launch: WayLaunch) {
+    init(launch: WayLaunch, player: WayPlayerModel? = nil) {
         self.launch = launch
-        _model = State(initialValue: WaySheetModel(launch: launch))
+        self.player = player
+        _model = State(initialValue: WaySheetModel(launch: launch, player: player))
     }
 
     var body: some View {
@@ -322,6 +340,7 @@ struct WayPresentations: ViewModifier {
                     .fullScreenCover(item: Binding(get: { playback.presentedWay }, set: { playback.presentedWay = $0 })) { request in
                         WayPlayerView(request: request)
                             .environment(appState)
+                            .environment(addons)
                             .environment(playback)
                     }
             }

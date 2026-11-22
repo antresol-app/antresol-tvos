@@ -1310,10 +1310,10 @@ the app's own strings are only «Watch», «Cancel» and «Nothing Found». The 
 ### Decisions
 
 - A way that watches runs `quick` (the remembered or best choice) on Select and opens the chooser only
-  when the addon answers `pick`; a long press offers the chooser. A way that keeps a copy always opens
-  the chooser (the quality and the release are the person's choice).
-- One watching way next to Play is its own button; several are behind «Watch» (each also once more as
-  «label…» for the chooser). Without a Play button the first watching way is the primary button.
+  when the addon answers `pick`; «Audio & quality…» in the menu beside it opens the chooser. A way that keeps
+  a copy always opens the chooser (the quality and the release are the person's choice).
+- Watching ways are one pill and a chevron button (the next section). *(Was: one way as its own button,
+  several behind «Watch», each once more as «label…».)*
 - `outside` and `inside` are judged per episode in the guide: an episode the library lacks is
   «outside», one it has is «inside». An episode still to air has no ways. Select on a missing episode
   runs the first watching way.
@@ -1337,8 +1337,7 @@ the app's own strings are only «Watch», «Cancel» and «Nothing Found». The 
 
 - A quick run that is slow (an addon getting a stream ready) shows only the button's spinner; there is no
   way to give it up.
-- The way player has no audio or quality menu: the choices are made in the chooser, and an addon's
-  stream lists no tracks of its own.
+- The way player's menus are the next section's: the stream's subtitles, its qualities and «Audio & source…».
 - An episode's page (not the show's) has no ways, and neither has a season's own page.
 - The screens were driven only against `scripts/mock-server.py --addons` (`testAddonWays`). The real
   addons' answers (their `x/app` description, a search, steps of both kinds, the state, a title page)
@@ -1349,6 +1348,43 @@ the app's own strings are only «Watch», «Cancel» and «Nothing Found». The 
   stay two buttons.
 - A run answers `422` with the server's words when a source no longer has the file; it shows as the
   notice of a quick run, or under the chooser's list.
+
+### Play button, busy state, player menu (fix/ways-play)
+
+The owner found three problems on the iPhone; the same fixes are here (the iPhone app got them first).
+
+- **Busy state**: a run was keyed by the way id alone, so starting one episode's way showed the busy state on
+  that way on every episode and on the page's main button. `WayRunKey` (way + kind, TMDB id, season, episode;
+  the library flag left out) and `WayRunGate` (AntresolKit) keep the one run in flight; only the button of that
+  way on that subject spins (`AddonWays.isRunning(_:for:)`). One run at a time stays: a second press anywhere is
+  ignored (the buttons are not `.disabled`: that loses the focus). An episode's card, which had no feedback
+  at all, shows a spinner over itself while its own run is under way (`wayBusy`).
+- **Play and the menu**: the pill is «Play» (play glyph) on a page with no Play of its own; on a page that has one
+  it carries the way's own label, as a second, glass pill. It runs `WayMenu.defaultWay`: the way chosen for the
+  title (`WayDefaults`, UserDefaults, per profile, per title: an episode uses its show's) while the addons still
+  offer it, else the first. The chevron (`Menu`, the pill's second `Segment`) lists the watching ways, each as
+  «label — hint», the default ticked (a `Toggle`: a menu draws it as a tick); choosing one remembers it and runs
+  it; «Audio & quality…» (after a divider) opens the chooser of the ticked way. An episode's long-press menu is
+  «Play», a divider, the same rows, then the keep ways. «Choose Manually» and the old «Watch» dialog are gone.
+  A way that keeps a copy stays a round button.
+- **Hints** come from the way's glyph, not from an addon or its words (the protocol has no hint): a globe is
+  «Starts right away», a play triangle «Plays while downloading», a download or list glyph none (`AddonWay.hint`,
+  worded in the app's strings). That is a guess at what the real addons mean by their glyphs; a `hint` field of
+  the protocol would replace it.
+- **Player**: `WayPlayerModel.current` is what plays (the request the player opened with stays the
+  presentation's identity). The bar has Subtitles when the answer lists any, Quality when it has
+  `quality: {options, current}` with two or more options and a `ref` to play another with (`WayPlay.qualityChoice`),
+  and «Audio & source…» (a way's stream always; a stream that is not ready has no bar). A quality switch is
+  `x/app/run` again with `refresh`, the answer's `ref` (it plays the same stream, in the quality it plays in),
+  the chosen `quality` and `startSec` at the player's position; an answer without a `ref` runs the call as it was
+  and offers no quality. «Audio & source…» pauses the stream and opens the way's chooser in a sheet of the
+  player (the shell's cannot show under the full-screen cover); a run chosen there starts at the position the
+  stream is at, the old stream's position is saved and its session let go (`switchStream`), and a `done` answer
+  is a notice. The stream's own audio and subtitle renditions (`AVMediaSelection`) are the system panel's: it
+  lists them by itself, so an answer that lists none still has them.
+- Not verified against the real addons: the `quality` and `ref` fields of a play answer and `x/app/run`'s `quality`
+  are the iPhone app's protocol additions, which the addon side was getting at the same time; an addon that does
+  not send them behaves as before (no Quality menu).
 
 ## TV tab: the list on a panel beside the programme's card
 

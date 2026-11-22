@@ -61,6 +61,7 @@ struct SeasonSection: View {
         if let card = episode.card {
             NavigationLink(value: Route.item(card.card)) {
                 EpisodeCardView(episode: card, state: marked ? .downloaded : nil, isNew: episode.isNew)
+                    .wayBusy(wayTarget(for: episode, inLibrary: true).map { addons.isRunning(for: $0) } ?? false)
             }
             .buttonStyle(CardButtonStyle())
             .playsOnPlayPause(card.card)
@@ -70,16 +71,17 @@ struct SeasonSection: View {
             }
         } else {
             // Not in the library: focusable, so the row scrolls to it. An addon's way plays it
-            // (the first one, as Play would); without one nothing plays.
+            // (the one chosen for the show, else the first, as Play would); without one nothing plays.
             Button {
                 if let target = wayTarget(for: episode, inLibrary: false),
-                   let way = addons.ways(for: target, role: .watch).first {
+                   let way = addons.menu(for: target)?.defaultWay {
                     addons.start(WayLaunch(way: way, target: target, card: wayCard(for: episode)), choose: false, appState: appState, playback: playback)
                 } else if episode.state == .missing {
                     appState.showNotice(String(localized: "Not in the library", bundle: .localized))
                 }
             } label: {
                 EpisodeCardView(guide: episode)
+                    .wayBusy(wayTarget(for: episode, inLibrary: false).map { addons.isRunning(for: $0) } ?? false)
             }
             .buttonStyle(CardButtonStyle())
             .contextMenu { wayItems(for: episode, inLibrary: false) }

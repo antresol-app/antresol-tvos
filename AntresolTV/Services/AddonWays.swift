@@ -44,11 +44,17 @@ final class AddonWays {
     private(set) var snapshot = AddonCatalogSnapshot.empty
     /// The chooser on screen, if any.
     var sheet: WayLaunch?
-    /// Ways whose run is in flight, by `AddonWay.id`: their buttons wait.
-    private(set) var running: Set<String> = []
+    /// The run in flight: one at a time, and only the way's button on the title or episode it was
+    /// started for shows it (`isRunning`); every other press waits.
+    private(set) var runs = WayRunGate()
     /// Goes up when a way did something whose state the pages show (a copy begun, cancelled).
     private(set) var revision = 0
 
+    /// Goes up when the way «Play» runs for a title changes, so the buttons that name it redraw.
+    private(set) var defaultsRevision = 0
+
+    @ObservationIgnored private var defaults = WayDefaults()
+    @ObservationIgnored private var defaultsScope = ""
     @ObservationIgnored private var catalog: AddonCatalog?
     @ObservationIgnored private weak var catalogClient: APIClient?
     @ObservationIgnored private var lastLoad: Date?
@@ -61,9 +67,37 @@ final class AddonWays {
         snapshot.ways(for: target, role: role)
     }
 
+    /// The ways that watch `target`, as «Play» and its menu show them: the way remembered for the
+    /// title (else the first) is the default. nil when no way watches it.
+    func menu(for target: WayTarget) -> WayMenu? {
+        _ = defaultsRevision
+        return defaults.menu(for: snapshot.ways(for: target, role: .watch), target: target)
+    }
+
+    /// `way` is what «Play» runs for the title of `target` from now on.
+    func remember(_ way: AddonWay, for target: WayTarget) {
+        defaults.remember(way.id, for: target)
+        defaultsRevision += 1
+    }
+
+    /// `way`'s run for `target` itself is under way: its button shows the spinner, no other does.
+    func isRunning(_ way: AddonWay, for target: WayTarget) -> Bool {
+        runs.isRunning(way.id, for: target)
+    }
+
+    /// Some way's run for `target` itself is under way (an episode's card shows it).
+    func isRunning(for target: WayTarget) -> Bool {
+        runs.isRunning(for: target)
+    }
+
     /// Finds what the addons offer (from the session's cache when it has it). `refresh` looks
     /// again: Home's counterpart of pull-to-refresh, which tvOS has no gesture for.
     func load(using appState: AppState, refresh: Bool = false) async {
+        if let user = appState.currentUser, defaultsScope != String(user.id) {
+            defaultsScope = String(user.id)
+            defaults = WayDefaults(scope: defaultsScope)
+            defaultsRevision += 1
+        }
         guard let client = appState.client, let user = appState.currentUser, !user.isKid else {
             catalog = nil
             catalogClient = nil
@@ -91,16 +125,16 @@ final class AddonWays {
 
     /// A way's button was pressed. A way that watches runs at once with the remembered or best
     /// choice (and opens the chooser only if the addon has none); one that keeps a copy, or one
-    /// asked to `choose`, opens the chooser.
+    /// asked to `choose`, opens the chooser. A second press while a run is under way does nothing.
     func start(_ launch: WayLaunch, choose: Bool, appState: AppState, playback: PlaybackCoordinator) {
         if choose || launch.way.role == .keep {
             sheet = launch
             return
         }
-        guard !running.contains(launch.way.id) else { return }
-        running.insert(launch.way.id)
+        let key = WayRunKey(wayId: launch.way.id, target: launch.target)
+        guard runs.begin(key) else { return }
         Task {
-            defer { running.remove(launch.way.id) }
+            defer { runs.end(key) }
             do {
                 let (result, request) = try await perform(launch, ref: nil, quick: true, appState: appState)
                 finish(result, request: request, launch: launch, appState: appState, playback: playback)
@@ -111,10 +145,14 @@ final class AddonWays {
     }
 
     /// `POST x/app/run` for `launch` (the choice `ref` made in the chooser, or the quick run).
-    func perform(_ launch: WayLaunch, ref: String?, quick: Bool, refresh: Bool = false, appState: AppState) async throws -> (WayRunResult, WayRunRequest) {
+    /// `startSec`: where a stream starts (the chooser opened over a playing stream continues from
+    /// there); left out, the addon starts where the person left off.
+    func perform(
+        _ launch: WayLaunch, ref: String?, quick: Bool, refresh: Bool = false, startSec: Double? = nil, appState: AppState
+    ) async throws -> (WayRunResult, WayRunRequest) {
         guard let client = appState.client else { throw CancellationError() }
         let request = WayRunRequest(
-            way: launch.way.way.id, target: launch.target, ref: ref,
+            way: launch.way.way.id, target: launch.target, ref: ref, startSec: startSec,
             maxHeight: PlayerDevice.maxHeight, quick: quick, refresh: refresh
         )
         return (try await client.wayRun(addon: launch.way.addonId, request), request)
