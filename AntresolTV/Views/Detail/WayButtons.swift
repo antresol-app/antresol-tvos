@@ -21,9 +21,28 @@ struct WayPollKey: Hashable {
     let revision: Int
 }
 
-/// The ways of a page that watch, in its action row. With a Play button of its own they come after
-/// it: one way as its own button, several behind «Watch». Without one (a title the library lacks)
-/// the first way is the first, primary button.
+/// The words of the menu's rows: the way's own label, and the app's line for how its glyph plays.
+extension WayHint {
+    var text: String {
+        switch self {
+        case .startsRightAway: return String(localized: "Starts right away", bundle: .localized)
+        case .playsWhileDownloading: return String(localized: "Plays while downloading", bundle: .localized)
+        }
+    }
+}
+
+extension WayMenuRow {
+    /// «Online — starts right away»: the way's label, then the hint when its glyph gives one.
+    var title: String {
+        guard let hint else { return way.label }
+        return way.label + " — " + hint.text
+    }
+}
+
+/// The ways of a page that watch, in its action row: one pill that runs the way chosen for the title
+/// (else the first) at once, and a chevron button beside it that opens the menu of the ways. A page
+/// without a Play button of its own (a title the library lacks) shows «Play» as that pill; with one, the
+/// pill carries the way's own label, after the page's Play.
 struct WayWatchButtons: View {
     let target: WayTarget
     /// The title's card, for the chooser and the player.
@@ -31,82 +50,110 @@ struct WayWatchButtons: View {
     /// The page has its own Play button.
     let hasPlay: Bool
 
-    @Environment(AppState.self) private var appState
     @Environment(AddonWays.self) private var addons
-    @Environment(PlaybackCoordinator.self) private var playback
-    @State private var choosing = false
 
     var body: some View {
-        let ways = addons.ways(for: target, role: .watch)
-        if hasPlay, ways.count > 1 {
-            Button {
-                choosing = true
-            } label: {
-                Label("Watch", systemImage: "play.rectangle.on.rectangle")
-            }
-            .buttonStyle(PillButtonStyle(kind: .glass))
-            .confirmationDialog("Watch", isPresented: $choosing, titleVisibility: .visible) {
-                ForEach(ways) { way in
-                    Button(way.label) { start(way, choose: false) }
-                }
-                // Each way again, to pick the source by hand instead of the remembered one.
-                ForEach(ways) { way in
-                    Button(way.label + "…") { start(way, choose: true) }
-                }
-                Button("Cancel", role: .cancel) {}
-            }
-        } else {
-            ForEach(Array(ways.enumerated()), id: \.element.id) { index, way in
-                WayButton(way: way, target: target, card: card, kind: !hasPlay && index == 0 ? .primary : .glass)
-            }
+        if let menu = addons.menu(for: target) {
+            WayPlayButtons(menu: menu, target: target, card: card, isPlay: !hasPlay)
         }
-    }
-
-    private func start(_ way: AddonWay, choose: Bool) {
-        addons.start(WayLaunch(way: way, target: target, card: card), choose: choose, appState: appState, playback: playback)
     }
 }
 
-/// One way that watches: a pill with the server's label. Select runs it at once with the remembered
-/// or best choice; a long press offers the chooser.
-struct WayButton: View {
-    let way: AddonWay
+/// The pill and its menu button. They sit close, as the two parts of one control.
+private struct WayPlayButtons: View {
+    let menu: WayMenu
     let target: WayTarget
     let card: Card
-    var kind: PillButtonStyle.Kind = .glass
+    /// The pill is the page's Play («Play», the primary pill); else the way's own label on a glass pill.
+    let isPlay: Bool
 
     @Environment(AppState.self) private var appState
     @Environment(AddonWays.self) private var addons
     @Environment(PlaybackCoordinator.self) private var playback
 
     var body: some View {
-        let running = addons.running.contains(way.id)
-        Button {
-            start(choose: false)
-        } label: {
-            Label {
-                Text(verbatim: way.label)
-            } icon: {
-                if running {
-                    ProgressView()
-                } else {
-                    Image(systemName: way.icon.symbolName)
+        let way = menu.defaultWay
+        let kind: PillButtonStyle.Kind = isPlay ? .primary : .glass
+        HStack(spacing: 10) {
+            Button {
+                addons.start(WayLaunch(way: way, target: target, card: card), choose: false, appState: appState, playback: playback)
+            } label: {
+                Label {
+                    if isPlay {
+                        Text("Play")
+                    } else {
+                        Text(verbatim: way.label)
+                    }
+                } icon: {
+                    if addons.isRunning(way, for: target) {
+                        ProgressView()
+                    } else {
+                        Image(systemName: isPlay ? "play.fill" : way.icon.symbolName)
+                    }
                 }
             }
-        }
-        .buttonStyle(PillButtonStyle(kind: kind))
-        // Not `.disabled(running)`: a button that goes disabled and enabled again under the focus
-        // engine stops reporting its focus. `AddonWays.start` ignores a second press meanwhile.
-        .contextMenu {
-            Button {
-                start(choose: true)
+            .buttonStyle(PillButtonStyle(kind: kind, segment: .leading))
+            // Not `.disabled` while it runs: a button that goes disabled and enabled again under the focus
+            // engine stops reporting its focus. `AddonWays.start` ignores a second press meanwhile.
+            .accessibilityIdentifier("way-play")
+
+            Menu {
+                WayMenuItems(menu: menu, target: target, card: card)
             } label: {
-                Label(way.label + "…", systemImage: WayIcon.list.symbolName)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 30, weight: .semibold))
             }
+            .buttonStyle(PillButtonStyle(kind: kind, segment: .trailing))
+            .accessibilityLabel(Text("Ways to Watch"))
+            .accessibilityIdentifier("way-menu")
+        }
+        // The pills keep their own width: a stack in the action row's scroll view would squeeze the label.
+        .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
+/// The rows of a way menu: one per way that watches (the one «Play» runs ticked; choosing another makes
+/// it the title's way and runs it), then «Audio & quality…», the step-by-step choice of the ticked way.
+/// An episode's long-press menu starts with «Play» too.
+struct WayMenuItems: View {
+    let menu: WayMenu
+    let target: WayTarget
+    let card: Card
+    var includesPlay = false
+
+    @Environment(AppState.self) private var appState
+    @Environment(AddonWays.self) private var addons
+    @Environment(PlaybackCoordinator.self) private var playback
+
+    var body: some View {
+        if includesPlay {
+            Button {
+                start(menu.defaultWay, choose: false)
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+            Divider()
+        }
+        ForEach(menu.rows) { row in
+            Toggle(isOn: Binding(get: { row.isDefault }, set: { _ in pick(row.way) })) {
+                Text(verbatim: row.title)
+            }
+        }
+        Divider()
+        Button {
+            start(menu.defaultWay, choose: true)
+        } label: {
+            Label("Audio & quality…", systemImage: WayIcon.list.symbolName)
         }
     }
 
-    private func start(choose: Bool) {
+    /// Makes `way` the title's way and runs it.
+    private func pick(_ way: AddonWay) {
+        addons.remember(way, for: target)
+        start(way, choose: false)
+    }
+
+    private func start(_ way: AddonWay, choose: Bool) {
         addons.start(WayLaunch(way: way, target: target, card: card), choose: choose, appState: appState, playback: playback)
     }
 }
@@ -197,8 +244,8 @@ private struct WayRing: View {
     }
 }
 
-/// The ways offered for one episode, as entries of its long-press menu: each runs at once with
-/// the remembered or best choice; a way that watches also has its chooser.
+/// The ways offered for one episode, as its long-press menu: «Play» (the way chosen for the show), the
+/// same rows as the menu beside a page's Play, and the ways that keep a copy.
 struct EpisodeWayMenu: View {
     let target: WayTarget
     let card: Card
@@ -208,23 +255,28 @@ struct EpisodeWayMenu: View {
     @Environment(PlaybackCoordinator.self) private var playback
 
     var body: some View {
-        ForEach(addons.ways(for: target)) { way in
+        if let menu = addons.menu(for: target) {
+            WayMenuItems(menu: menu, target: target, card: card, includesPlay: true)
+        }
+        ForEach(addons.ways(for: target, role: .keep)) { way in
             Button {
-                start(way, choose: false)
+                addons.start(WayLaunch(way: way, target: target, card: card), choose: true, appState: appState, playback: playback)
             } label: {
                 Label(way.label, systemImage: way.icon.symbolName)
             }
-            if way.role == .watch {
-                Button {
-                    start(way, choose: true)
-                } label: {
-                    Label(way.label + "…", systemImage: WayIcon.list.symbolName)
-                }
-            }
         }
     }
+}
 
-    private func start(_ way: AddonWay, choose: Bool) {
-        addons.start(WayLaunch(way: way, target: target, card: card), choose: choose, appState: appState, playback: playback)
+extension View {
+    /// A spinner over an episode's card while a run for that very episode is under way.
+    func wayBusy(_ isBusy: Bool) -> some View {
+        overlay {
+            if isBusy {
+                ProgressView()
+                    .padding(32)
+                    .glassSurface(in: Circle(), highlighted: false, interactive: false)
+            }
+        }
     }
 }

@@ -29,11 +29,16 @@ final class WayPlayerModel {
     private(set) var subtitleIndex: Int?
     private(set) var subtitleText: String?
     private(set) var isPaused = false
-    /// A short message about subtitles that did not load.
+    /// A short message about subtitles that did not load, or what a way did (a `done` answer).
     private(set) var notice: String?
+    /// The way's own step-by-step choice, over the stream («Audio & source…»); nil: not open.
+    var chooser: WayLaunch?
 
     let player = AVPlayer()
+    /// What the player was opened with. It stays the presentation's identity; `current` is what plays
+    /// now (it changes when another source is chosen from the player).
     let request: PlaybackCoordinator.WayRequest
+    private(set) var current: PlaybackCoordinator.WayRequest
 
     private weak var appState: AppState?
     private weak var coordinator: PlaybackCoordinator?
@@ -54,6 +59,10 @@ final class WayPlayerModel {
     private var pendingSeek: (item: ObjectIdentifier, playerTime: Double)?
     private var isStopped = false
     private var isRecovering = false
+    /// The stream was playing when the choice opened over it.
+    private var resumeAfterChooser = false
+    /// A stream chosen over this one is about to take its place.
+    private var replacing = false
     private var lastRecovery: Date?
 
     private var timeObserver: Any?
@@ -63,9 +72,19 @@ final class WayPlayerModel {
 
     init(request: PlaybackCoordinator.WayRequest) {
         self.request = request
+        current = request
     }
 
-    private var launch: WayLaunch { request.launch }
+    private var launch: WayLaunch { current.launch }
+
+    /// The qualities of the addon's stream, when it offers a choice and the way to play another.
+    var qualityChoice: StreamQuality? { stream?.qualityChoice }
+
+    /// «Audio & source…»: every way's stream can offer the way's own choice again.
+    var canChooseSource: Bool { state == .playing }
+
+    /// The player's position in the file, seconds.
+    var position: Double? { currentFilePosition }
 
     // MARK: - Lifecycle
 
@@ -104,6 +123,73 @@ final class WayPlayerModel {
         }
     }
 
+    /// Another of the stream's qualities, played from where this one is.
+    func selectQuality(_ name: String) {
+        guard let choice = qualityChoice, choice.current != name, choice.offers(name) else { return }
+        Task { await restart(reason: nil, quality: name) }
+    }
+
+    /// «Audio & source…»: the way's step-by-step choice opens over the stream, which waits.
+    func chooseSource() {
+        guard state == .playing, !isStopped, chooser == nil else { return }
+        resumeAfterChooser = player.timeControlStatus != .paused
+        player.pause()
+        chooser = launch
+    }
+
+    /// The choice closed. A stream that was playing goes on, unless the choice replaces it.
+    func chooserDismissed() {
+        defer { replacing = false }
+        guard !replacing else { return }
+        resumeIfItWasPlaying()
+    }
+
+    private func resumeIfItWasPlaying() {
+        guard !isStopped, state == .playing, resumeAfterChooser else { return }
+        player.play()
+    }
+
+    /// The choice made a run whose stream takes this one's place: the old one must not start again.
+    func beginReplacing() {
+        replacing = true
+    }
+
+    /// What a run chosen over the stream came to: another stream plays from this one's position, in
+    /// its place; a `done` answer is told as a notice and this stream goes on.
+    func apply(_ result: WayRunResult, run: WayRunRequest, launch: WayLaunch, addons: AddonWays) {
+        let source: PlaybackCoordinator.WayRequest.Source
+        switch result {
+        case .input(let id): source = .input(id)
+        case .play(let play): source = .stream(play)
+        case .done(let text):
+            show(notice: text)
+            addons.changed()
+            replacing = false
+            resumeIfItWasPlaying()
+            return
+        case .pick:
+            replacing = false
+            resumeIfItWasPlaying()
+            return
+        }
+        // A task of its own: the chooser's sheet closing cancels the task that made the run, and a
+        // stream that is opened from a cancelled task never starts.
+        Task {
+            replacing = false
+            await switchStream(to: PlaybackCoordinator.WayRequest(launch: launch, source: source, run: run))
+        }
+    }
+
+    /// A short message over the picture, gone after a few seconds.
+    private func show(notice text: String) {
+        guard !text.isEmpty else { return }
+        notice = text
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if notice == text { notice = nil }
+        }
+    }
+
     /// Picks a subtitle track (`nil`: off) and remembers its language.
     func selectSubtitle(_ index: Int?) {
         guard index != subtitleIndex else { return }
@@ -120,7 +206,7 @@ final class WayPlayerModel {
         guard let client, let coordinator else { return }
         state = .preparing
         do {
-            switch request.source {
+            switch current.source {
             case .input(let id):
                 try await openInput(id, at: position, client: client, coordinator: coordinator)
             case .stream(let first):
@@ -133,6 +219,23 @@ final class WayPlayerModel {
         } catch {
             fail(error)
         }
+    }
+
+    /// Another stream of the same title in place of this one, from where this one is: its position is
+    /// saved and what it held on the server is let go, then the new one opens at that position.
+    private func switchStream(to new: PlaybackCoordinator.WayRequest) async {
+        guard !isStopped else { return }
+        let position = currentFilePosition ?? requestedPosition
+        player.pause()
+        await saveFinalPosition(atEnd: false)
+        teardownPlayerItem()
+        await release()
+        guard !isStopped else { return }
+        stream = nil
+        source = nil
+        durationSec = 0
+        current = new
+        await open(at: position, fresh: false)
     }
 
     private func openInput(_ id: String, at position: Double?, client: APIClient, coordinator: PlaybackCoordinator) async throws {
@@ -194,13 +297,19 @@ final class WayPlayerModel {
     }
 
     /// `POST x/app/run` again for the same choice with `refresh`: a new link for a stream whose old
-    /// one went stale (the media answered 410). The old session is closed.
-    private func freshStream(at position: Double, client: APIClient) async throws -> WayPlay {
-        var run = request.run
+    /// one went stale (the media answered 410), or the same stream in another `quality`. The old
+    /// session is closed.
+    private func freshStream(at position: Double, quality: String? = nil, client: APIClient) async throws -> WayPlay {
+        var run = current.run
         run.refresh = true
-        run.quick = request.run.ref == nil ? true : nil
+        // The ref the answer gave plays this very stream again, in the quality it plays in; an addon that
+        // gave none is asked the call as it was.
+        if let ref = stream?.ref { run.ref = ref }
+        run.quick = run.ref == nil ? true : nil
         // Always where the player is, 0 included: left out, the addon would start at its own saved position.
         run.startSec = max(position, 0)
+        // Another of the qualities the answer offered.
+        run.quality = quality
         guard case .play(let play) = try await client.wayRun(addon: launch.way.addonId, run) else {
             throw PlayerError.playbackFailed
         }
@@ -226,9 +335,9 @@ final class WayPlayerModel {
     }
 
     /// Takes the stream again at the player's position: after the server's session expired, the
-    /// player failed (a stale link, a dropped connection) or the app came back. A second failure
-    /// within 30 s is shown as an error instead.
-    private func restart(reason: Error?, autoplay: Bool? = nil) async {
+    /// player failed (a stale link, a dropped connection), the app came back or another `quality` was
+    /// chosen. A second failure within 30 s is shown as an error instead.
+    private func restart(reason: Error?, autoplay: Bool? = nil, quality: String? = nil) async {
         guard !isStopped, !isRecovering, state == .playing, let client, let coordinator else { return }
         if let reason {
             if let lastRecovery, Date().timeIntervalSince(lastRecovery) < 30 {
@@ -246,7 +355,7 @@ final class WayPlayerModel {
             isSwitching = false
         }
         do {
-            switch request.source {
+            switch current.source {
             case .input:
                 guard let session else { return }
                 let fresh = try await session.start(at: position)
@@ -254,7 +363,7 @@ final class WayPlayerModel {
                 self.source = fresh
                 load(fresh, autoplay: play)
             case .stream:
-                let renewed = try await freshStream(at: position, client: client)
+                let renewed = try await freshStream(at: position, quality: quality, client: client)
                 guard !isStopped, state == .playing else { return }
                 try await openStream(renewed, at: position, client: client, coordinator: coordinator)
             }
@@ -282,7 +391,7 @@ final class WayPlayerModel {
             } catch {
                 guard !Task.isCancelled, let self else { return }
                 self.subtitleIndex = nil
-                self.notice = String(localized: "Subtitles could not be loaded.", bundle: .localized)
+                self.show(notice: String(localized: "Subtitles could not be loaded.", bundle: .localized))
             }
         }
     }

@@ -10,6 +10,7 @@ struct WayPlayerView: View {
     let request: PlaybackCoordinator.WayRequest
 
     @Environment(AppState.self) private var appState
+    @Environment(AddonWays.self) private var addons
     @Environment(PlaybackCoordinator.self) private var coordinator
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -27,7 +28,10 @@ struct WayPlayerView: View {
             case .preparing:
                 PreparingView(card: request.launch.card)
             case .playing:
-                WayPlayerController(model: model, subtitle: model.subtitleText, subtitleRaised: model.isPaused, tracks: model.subtitles, selected: model.subtitleIndex)
+                WayPlayerController(
+                    model: model, subtitle: model.subtitleText, subtitleRaised: model.isPaused, tracks: model.subtitles,
+                    selected: model.subtitleIndex, quality: model.qualityChoice, canChooseSource: model.canChooseSource
+                )
                     .ignoresSafeArea()
                     .overlay {
                         if model.isSwitching {
@@ -52,6 +56,13 @@ struct WayPlayerView: View {
                 }
             }
         }
+        // «Audio & source…»: the way's own choice over the stream (the shell's sheet is under this cover).
+        .sheet(item: $model.chooser, onDismiss: { model.chooserDismissed() }) { launch in
+            WaySheetView(launch: launch, player: model)
+                .environment(appState)
+                .environment(addons)
+                .environment(coordinator)
+        }
         .task { await model.start(appState: appState, coordinator: coordinator) }
         .onChange(of: model.didFinish) { _, finished in
             if finished { dismiss() }
@@ -69,13 +80,18 @@ struct WayPlayerView: View {
 }
 
 /// `AVPlayerViewController` with the system transport bar and info panel, the stream's subtitles over
-/// the video and, when it has any, a Subtitles menu in the bar.
+/// the video and, in the bar, what the addon's answer gives: a Subtitles menu when it lists any, a Quality
+/// menu when it offers several (and the ref to play another), and «Audio & source…» (the way's own choice).
+/// The stream's own audio and subtitle renditions (`AVMediaSelection`) are the system panel's: it lists
+/// them by itself, so the answer needs to list none.
 private struct WayPlayerController: UIViewControllerRepresentable {
     let model: WayPlayerModel
     let subtitle: String?
     let subtitleRaised: Bool
     let tracks: [SubtitleTrack]
     let selected: Int?
+    let quality: StreamQuality?
+    let canChooseSource: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -100,11 +116,42 @@ private struct WayPlayerController: UIViewControllerRepresentable {
         }
         context.coordinator.subtitleView?.text = subtitle
         context.coordinator.subtitleView?.raised = subtitleRaised
-        let menu = Coordinator.MenuState(tracks: tracks, selected: selected)
+        let menu = Coordinator.MenuState(tracks: tracks, selected: selected, quality: quality, canChooseSource: canChooseSource)
         if context.coordinator.menu != menu {
             context.coordinator.menu = menu
-            controller.transportBarCustomMenuItems = tracks.isEmpty ? [] : [subtitleMenu()]
+            controller.transportBarCustomMenuItems = menuItems()
         }
+    }
+
+    /// Only what has something to choose: no empty menu, and none missing when there is a choice.
+    private func menuItems() -> [UIMenuElement] {
+        var items: [UIMenuElement] = []
+        if !tracks.isEmpty { items.append(subtitleMenu()) }
+        if let quality { items.append(qualityMenu(quality)) }
+        if canChooseSource {
+            items.append(UIAction(
+                title: String(localized: "Audio & source…", bundle: .localized), image: UIImage(systemName: "list.bullet")
+            ) { [weak model] _ in
+                MainActor.assumeIsolated { model?.chooseSource() }
+            })
+        }
+        return items
+    }
+
+    /// The qualities the addon offers, by its own names, the playing one ticked; another restarts the
+    /// stream at the position it is at.
+    private func qualityMenu(_ quality: StreamQuality) -> UIMenu {
+        let actions = quality.options.map { name in
+            UIAction(title: name, state: name == quality.current ? .on : .off) { [weak model] _ in
+                MainActor.assumeIsolated { model?.selectQuality(name) }
+            }
+        }
+        return UIMenu(
+            title: String(localized: "Quality", bundle: .localized),
+            image: UIImage(systemName: "slider.horizontal.3"),
+            options: .singleSelection,
+            children: actions
+        )
     }
 
     private func subtitleMenu() -> UIMenu {
@@ -130,6 +177,8 @@ private struct WayPlayerController: UIViewControllerRepresentable {
         struct MenuState: Equatable {
             var tracks: [SubtitleTrack]
             var selected: Int?
+            var quality: StreamQuality?
+            var canChooseSource: Bool
         }
 
         var subtitleView: SubtitleOverlayView?

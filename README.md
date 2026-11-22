@@ -87,12 +87,18 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   adds its own section, under its own heading, after the library's results; a title the library
   has opens its page, any other opens a page of its own.
 - **Addon ways**: what the server's addons offer a title (docs/API.md §14), in the server's own
-  words. A movie or show page shows the ways that watch (behind a «Watch» choice next to Play, or
-  as the first button when there is no Play; Select runs the remembered or best choice, a long
-  press opens the step-by-step chooser) and the ways that keep a copy on the server (round
-  buttons with a progress ring; a long press cancels). An episode's long-press menu lists its ways,
-  also for episodes the library lacks. The streams play in the app's own player. Nothing shows
-  without addons or in a kid's profile.
+  words. A movie or show page shows the ways that watch as one pill with a chevron button beside
+  it: with no Play of its own (a title the library lacks) the pill is «Play», else it carries the
+  way's own label after Play. Select runs the way chosen for the title (else the first) with its
+  remembered or best choice; the chevron opens a short menu: a row per way with a line on how it
+  plays, the chosen one ticked (choosing another makes it the title's way and runs it), and «Audio
+  & quality…», the step-by-step chooser. The ways that keep a copy on the server are round buttons
+  with a progress ring (a long press cancels). An episode's Select runs the show's way, and its
+  long-press menu has «Play», the same rows and the keep ways, also for episodes the library
+  lacks; only the episode a run was started for shows its spinner. The streams play in the app's
+  own player, whose bar has the stream's Subtitles and Quality (when the addon offers several; a
+  switch restarts at the same position) and «Audio & source…», the way's chooser over the stream,
+  which goes on from the position it is at. Nothing shows without addons or in a kid's profile.
 - **Settings** (the profile tab):
   - Switch profile, or sign out (which revokes the device token on the server).
   - Default video quality, audio and subtitle languages, and autoplay of the next episode.
@@ -262,7 +268,7 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   `/mock/reset`, `/mock/fail-progress/<id>`; see the script's header), none of which the
   main port has, so the screenshot tests keep seeing what they saw.
 - `testAddonWays` needs the mock with `--addons` (two neutral addons: ways that watch and keep,
-  a chooser, an input player that answers `202` first) and `TEST_RUNNER_ANTRESOL_MOCK_ADDONS=1`;
+  a chooser, the chevron's menu of the ways, an input player that answers `202` first) and `TEST_RUNNER_ANTRESOL_MOCK_ADDONS=1`;
   it skips itself otherwise.
 - Without an Apple TV simulator yet: `xcrun simctl create "Apple TV 4K (3rd generation)"
   com.apple.CoreSimulator.SimDeviceType.Apple-TV-4K-3rd-generation-4K <a tvOS runtime of

@@ -62,8 +62,9 @@ final class TitleDetailModel {
 }
 
 /// The page of a movie or show the library does not have: the artwork-tinted header with what the
-/// server knows of it and the addons' ways (the first is the primary button; a way that keeps a copy
-/// has its ring), then a show's seasons with a long-press menu of ways on each episode, and the cast.
+/// server knows of it and the addons' ways («Play» runs the way chosen for the title, a chevron beside
+/// it opens the menu of the ways; a way that keeps a copy has its ring), then a show's seasons with a
+/// long-press menu of ways on each episode, and the cast.
 struct TitleDetailView: View {
     let ref: TitleRef
 
@@ -218,8 +219,8 @@ struct TitleDetailView: View {
 }
 
 /// A show's seasons: the season pill and a row of episode cards. Select plays an episode with the
-/// first way that watches, as Play would; a long press lists every way offered for it. An episode
-/// still to air has none.
+/// way chosen for the show (else the first that watches), as Play would; a long press opens the
+/// menu of the ways offered for it. An episode still to air has none.
 private struct TitleSeasonSection: View {
     let model: TitleDetailModel
     let card: Card
@@ -273,11 +274,12 @@ private struct TitleSeasonSection: View {
     private func cell(for episode: GuideEpisode) -> some View {
         let target = wayTarget(for: episode)
         return Button {
-            if let target, let way = addons.ways(for: target, role: .watch).first {
+            if let target, let way = addons.menu(for: target)?.defaultWay {
                 addons.start(WayLaunch(way: way, target: target, card: wayCard(for: episode)), choose: false, appState: appState, playback: playback)
             }
         } label: {
             EpisodeCardView(guide: episode)
+                .wayBusy(target.map { addons.isRunning(for: $0) } ?? false)
         }
         .buttonStyle(CardButtonStyle())
         .contextMenu {

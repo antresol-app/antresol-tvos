@@ -390,6 +390,11 @@
 /* Addon ways: the buttons' own words come from the server */
 "Cancel Task" = "Cancel";
 "Nothing Found" = "Nothing Found";
+"Starts right away" = "Starts right away";
+"Plays while downloading" = "Plays while downloading";
+"Ways to Watch" = "Ways to Watch";
+"Audio & quality…" = "Audio & quality…";
+"Audio & source…" = "Audio & source…";
 
 /* The TV tab's programme card: what a press and a long press of the remote's button do */
 "Press" = "Press";

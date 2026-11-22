@@ -119,18 +119,76 @@ public struct WayProgressSpec: Hashable, Sendable {
     }
 }
 
+/// The qualities an addon's own stream offers (`play.quality`): the names it gives them, as it
+/// names them, and the one that plays. Another one plays by running the way again with that name
+/// (`WayRunRequest.quality`) from the stream's own `ref`.
+public struct StreamQuality: Hashable, Sendable {
+    public var options: [String]
+    public var current: String
+
+    public init(options: [String], current: String) {
+        self.options = options
+        self.current = current
+    }
+
+    /// Whether `name` is one of the options.
+    public func offers(_ name: String) -> Bool {
+        options.contains(name)
+    }
+
+    /// `quality: {options, current}` of an answer; a missing or unreadable one is none, and
+    /// empty names are dropped.
+    init?(raw: Raw?) {
+        guard let raw else { return nil }
+        let names = raw.options.filter { !$0.isEmpty }
+        guard !names.isEmpty else { return nil }
+        options = names
+        current = raw.current
+    }
+
+    struct Raw: Decodable {
+        var options: [String]
+        var current: String
+
+        enum CodingKeys: String, CodingKey { case options, current }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            options = c.value(.options, default: [])
+            current = c.value(.current, default: "")
+        }
+    }
+}
+
 /// `{"play": PlayResponse}`: play the way's own stream. The answer is the `/api/play` one, with the
-/// addon's `session` and `progress` beside its fields.
+/// addon's `session`, `progress`, `quality` and `ref` beside its fields.
 public struct WayPlay: Hashable, Sendable {
     public var response: PlayResponse
     /// Closed with `DELETE x/app/play/{session}` when the player closes.
     public var session: String?
     public var progress: WayProgressSpec
+    /// The qualities the addon offers for this stream, and the one that plays.
+    public var quality: StreamQuality?
+    /// The ref that plays this very stream again (a stale link, another `quality`); nil: the addon
+    /// does not offer it, and the stream cannot be run again in another quality.
+    public var ref: String?
 
-    public init(response: PlayResponse, session: String? = nil, progress: WayProgressSpec = WayProgressSpec()) {
+    public init(
+        response: PlayResponse, session: String? = nil, progress: WayProgressSpec = WayProgressSpec(),
+        quality: StreamQuality? = nil, ref: String? = nil
+    ) {
         self.response = response
         self.session = session
         self.progress = progress
+        self.quality = quality
+        self.ref = ref
+    }
+
+    /// The qualities as a choice for the player's menu: two or more, and a `ref` to play one of them
+    /// with (an addon that gave none could not play another).
+    public var qualityChoice: StreamQuality? {
+        guard ref != nil, let quality, quality.options.count >= 2 else { return nil }
+        return quality
     }
 }
 
@@ -145,7 +203,7 @@ public enum WayRunResult: Decodable, Hashable, Sendable {
     /// The way has no remembered choice: open the chooser.
     case pick
 
-    enum CodingKeys: String, CodingKey { case input, play, done, pick, session, progress }
+    enum CodingKeys: String, CodingKey { case input, play, done, pick, session, progress, quality, ref }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -157,10 +215,14 @@ public enum WayRunResult: Decodable, Hashable, Sendable {
             let inner = try? nested.container(keyedBy: CodingKeys.self)
             let session: String? = inner?.optional(.session) ?? c.optional(.session)
             let progress: WayProgressSpec.RawProgress? = inner?.optional(.progress) ?? c.optional(.progress)
+            let quality: StreamQuality.Raw? = inner?.optional(.quality) ?? c.optional(.quality)
+            let ref: String? = inner?.optional(.ref) ?? c.optional(.ref)
             self = .play(WayPlay(
                 response: response,
                 session: session.flatMap { $0.isEmpty ? nil : $0 },
-                progress: WayProgressSpec(raw: progress)
+                progress: WayProgressSpec(raw: progress),
+                quality: StreamQuality(raw: quality),
+                ref: ref.flatMap { $0.isEmpty ? nil : $0 }
             ))
         } else if let text: String = c.optional(.done) {
             self = .done(text)
@@ -264,10 +326,12 @@ public struct WayRunRequest: Encodable, Hashable, Sendable {
     public var quick: Bool?
     /// The stream's link went stale: fetch a fresh one for the same choice.
     public var refresh: Bool?
+    /// One of the qualities a `play` answer offered (`WayPlay.quality`): plays the `ref` in it.
+    public var quality: String?
 
     public init(
         way: String, target: WayTarget, ref: String? = nil, startSec: Double? = nil,
-        maxHeight: Int? = nil, quick: Bool = false, refresh: Bool = false
+        maxHeight: Int? = nil, quick: Bool = false, refresh: Bool = false, quality: String? = nil
     ) {
         self.way = way
         self.kind = target.kind
@@ -279,6 +343,7 @@ public struct WayRunRequest: Encodable, Hashable, Sendable {
         self.maxHeight = maxHeight
         self.quick = quick ? true : nil
         self.refresh = refresh ? true : nil
+        self.quality = quality.flatMap { $0.isEmpty ? nil : $0 }
     }
 }
 
