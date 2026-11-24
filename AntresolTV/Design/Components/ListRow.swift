@@ -15,6 +15,7 @@ private struct ListRowBody: View {
     var body: some View {
         configuration.label
             .environment(\.isCardFocused, isFocused)
+            .environment(\.badgesOnLightPlate, isFocused)
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
             .padding(.horizontal, Theme.Layout.listRowInset)
             .frame(minHeight: 84)
@@ -58,6 +59,7 @@ private struct CircleButtonBody: View {
     var body: some View {
         configuration.label
             .labelStyle(.iconOnly)
+            .environment(\.roundGlyphPointSize, diameter * 0.36)
             .font(.system(size: diameter * 0.36, weight: .semibold))
             .foregroundStyle(foreground)
             .frame(width: diameter, height: diameter)

@@ -195,8 +195,8 @@ struct NumberPad: View {
             }
         } label: {
             switch key {
-            case "delete": Label("Erase", systemImage: "delete.left")
-            case "ok": Label("OK", systemImage: "checkmark")
+            case "delete": RoundGlyph("Erase", systemImage: "delete.left")
+            case "ok": RoundGlyph("OK", systemImage: "checkmark")
             default: Label { Text(verbatim: key) } icon: { Text(verbatim: key).monospacedDigit() }
             }
         }

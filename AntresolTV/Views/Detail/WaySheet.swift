@@ -143,8 +143,8 @@ final class WaySheetModel {
     }
 }
 
-/// The chooser's page: the step's title and note, then its rows (label, second line, badges, a
-/// check on the last choice, a chevron where another step follows).
+/// The chooser's page: the step's title, then its rows (label, second line, badges, a
+/// check on the last choice, a chevron where another step follows) and the step's note under them.
 struct WaySheetView: View {
     let launch: WayLaunch
     /// The playing stream the chooser opened over, if any.
@@ -193,12 +193,6 @@ struct WaySheetView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
                 .accessibilityAddTraits(.isHeader)
-            if case .step(let step) = model.phase, let note = step.note {
-                Text(verbatim: note)
-                    .font(Theme.Typography.body)
-                    .foregroundStyle(Theme.Colors.label2)
-                    .lineLimit(3)
-            }
         }
     }
 
@@ -227,11 +221,18 @@ struct WaySheetView: View {
             .frame(maxWidth: .infinity, minHeight: 360)
         case .step(let step):
             if step.rows.isEmpty {
-                Text(verbatim: step.empty ?? String(localized: "Nothing Found", bundle: .localized))
-                    .font(Theme.Typography.headline)
-                    .foregroundStyle(Theme.Colors.label2)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, minHeight: 360)
+                VStack(spacing: 16) {
+                    Text(verbatim: step.empty ?? String(localized: "Nothing Found", bundle: .localized))
+                        .font(Theme.Typography.headline)
+                        .foregroundStyle(Theme.Colors.label2)
+                    if let note = step.note {
+                        Text(verbatim: note)
+                            .font(Theme.Typography.cardMeta)
+                            .foregroundStyle(Theme.Colors.label3)
+                    }
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 360)
             } else {
                 rows(step)
             }
@@ -252,6 +253,14 @@ struct WaySheetView: View {
                         .buttonStyle(ListRowButtonStyle())
                         .focused($focused, equals: row.ref)
                         .accessibilityAddTraits(row.current ? .isSelected : [])
+                    }
+                    // The step's note is the list's footer, like the footnote under a Settings choice.
+                    if let note = step.note {
+                        Text(verbatim: note)
+                            .font(Theme.Typography.cardMeta)
+                            .foregroundStyle(Theme.Colors.label3)
+                            .padding(.horizontal, Theme.Layout.listRowInset)
+                            .padding(.top, 12)
                     }
                 }
                 .padding(.horizontal, Theme.Layout.listRowInset)
@@ -300,7 +309,9 @@ private struct WayRowLabel: View {
             }
             Spacer(minLength: 24)
             if !row.badges.isEmpty {
+                // Whole, never cut to «Subt…»: the label and the second line give way to them.
                 BadgeRow(badges: row.badges)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             if row.current {
                 Image(systemName: "checkmark")

@@ -461,9 +461,13 @@ def addon_step(addon, body):
         if ref is None:
             return {"title": "Source", "note": "Pick where to watch from", "rows": [
                 {"ref": "mirror-1", "label": "Mirror one", "detail": "Fast, steady", "badges": ["HD"], "current": True, "final": False},
-                {"ref": "mirror-2", "label": "Mirror two", "final": False}]}
+                {"ref": "mirror-2", "label": "Mirror two", "final": False},
+                {"ref": "mirror-3", "label": "Mirror three", "detail": "Every voice and subtitle",
+                 "badges": ["1080p", "Audio RU EN", "Subtitles"], "final": False},
+                {"ref": "mirror-4", "label": "Mirror four", "badges": ["4K", "Аудио", "Субтитры"], "final": False}]}
         if ref.startswith("mirror-"):
-            return {"title": "Quality", "rows": [
+            return {"title": "Quality", "note": "Picks the best release in this quality, or the best one in another if there is none.",
+                    "rows": [
                 {"ref": ref + ":720", "label": "720p", "final": True},
                 {"ref": ref + ":1080", "label": "1080p", "badges": ["HDR"], "current": True, "final": True}]}
     if addon == "beta" and way == "fetch":

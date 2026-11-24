@@ -1410,3 +1410,42 @@ The owner chose variant A of the earlier layout study (the Android TV app got th
 - Not verified on a real Apple TV: the focus engine's choice of the row when Down leaves the header (the simulator
   was driven with the remote's key presses), and the rows' lift at the panel's edge.
 
+
+## Owner round, 2026-11-23 (what the iPhone review found, checked on the Apple TV)
+
+The owner's list for the iPhone app, taken against this app in the tvOS 27.2 simulator, English and Russian.
+
+- **Badges** (`BadgeRow`): every chip is `BadgeMetrics.height` (30 pt) tall whatever it holds, so one with an icon is no
+  larger than one without. An audio or subtitles badge with no languages (`Subtitles`, `Субтитры`) keeps the word beside
+  its icon, in the app's language (`BadgeLabel`), instead of showing the icon alone. On a list row lit white (focused) the
+  chips turn dark (`badgesOnLightPlate`, set by `ListRowButtonStyle`): light on the white plate had vanished. In the
+  chooser's rows the chips keep their width (`fixedSize`), the label and its second line give way: «Subtitles» was cut to
+  «Subt…».
+- **Chooser** (`WaySheetView`): a step's note is the footer of its list (in the scrolling content, under the rows, as a
+  Settings choice has its footnote), or under «Nothing found» for a step without rows. It was between the title and the
+  rows.
+- **Settings**: nothing to do. The profile page has been one page, Playback, TV, Separate Histories, Language, About This App
+  last; there is no «Away address» here.
+- **Primary buttons**: nothing to do. A pill is `lineLimit(1)` and the action row scrolls sideways, so «Продолжить» stays on one
+  line (`testChooserLayout` checks the pill's height in both languages).
+- **Pinned header**: nothing to do. Movies and Shows pin the title and the sort pill above the grid and mask the grid under
+  them (rows fade out), so no title is left over scrolled content; `testPosterOpensAndClosesWithFocusBack` attaches the scrolled page.
+- **Zoom from the poster**: tried, not shipped. `matchedTransitionSource` on the poster's artwork and
+  `navigationTransition(.zoom)` on the pushed page compile for tvOS 18 and ran (logged: the page took the zoom branch, the
+  last focused tile was the source), but the tvOS 27.2 simulator shows a plain cross-fade, the page at its final size from the
+  first frame. Not verifiable on a device here; the push stays as it was.
+- **Round buttons' glyphs**: `RoundGlyph` (a `Label` that moves its symbol) and `GlyphOptics.table` move the few symbols whose
+  ink is off-centre in their box, by hundredths of the font size: `chevron.right` left by 0.059 em, the star up, the subtitles
+  bubble down, the speaker, shuffle and erase arrows sideways. The numbers come from `scripts/measure-glyph-centres.swift`
+  (the symbol drawn as a round button draws it; minus the mean of the middle of its ink's box and its centre of mass).
+  Checked on the simulator's screenshots (Home's round buttons, the live player's options row, the number pad): every glyph
+  is within 0.5 pt of its circle's middle. The play triangle needs nothing: its box sits right of the middle and its mass
+  left of it, evenly.
+- **Tests**: `RuntimeTests` gained `testChooserLayout` (mock with `--addons`), `testSettingsOnOnePage`,
+  `testPosterOpensAndClosesWithFocusBack` and `testRoundButtonGlyphs`, and runs in Russian with
+  `TEST_RUNNER_ANTRESOL_TEST_LANGUAGE=ru` (the app's own strings are read from `ru.lproj` for the labels). The mock's
+  chooser has rows with `Audio RU EN`, `Subtitles` and `Субтитры` badges and a note on its second step.
+- **A trap**: the UI tests need a signed build. With `CODE_SIGNING_ALLOWED=NO` the app has no Keychain access, cannot keep
+  the server address `-AntresolServerURL` gives it, lands on the server screen and lists the servers of the network, and a
+  press of Select there connects to a real one. The new tests stop at the first failed step (`continueAfterFailure = false`)
+  for that reason.
