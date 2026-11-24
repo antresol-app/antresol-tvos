@@ -13,6 +13,7 @@
 "That doesn't look like a server address." = "That doesn't look like a server address.";
 "Couldn't reach the server. Check the address and that the server is running." = "Couldn't reach the server. Check the address and that the server is running.";
 "This address doesn't answer like an Antresol server." = "This address doesn't answer like an Antresol server.";
+"This connection isn't encrypted: your password would cross the internet in the clear. Select Connect again to use it anyway." = "This connection isn't encrypted: your password would cross the internet in the clear. Select Connect again to use it anyway.";
 "Change Server" = "Change Server";
 
 /* Profiles and sign-in */

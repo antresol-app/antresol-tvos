@@ -13,6 +13,7 @@
 "That doesn't look like a server address." = "Это не похоже на адрес сервера.";
 "Couldn't reach the server. Check the address and that the server is running." = "Не удалось связаться с сервером. Проверьте адрес и что сервер запущен.";
 "This address doesn't answer like an Antresol server." = "По этому адресу отвечает не сервер Antresol.";
+"This connection isn't encrypted: your password would cross the internet in the clear. Select Connect again to use it anyway." = "Это соединение не зашифровано: пароль пойдёт через интернет открытым текстом. Чтобы всё равно использовать его, нажмите «Подключиться» ещё раз.";
 "Change Server" = "Сменить сервер";
 
 /* Profiles and sign-in */

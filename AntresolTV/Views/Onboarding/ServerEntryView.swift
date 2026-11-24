@@ -19,6 +19,9 @@ struct ServerEntryView: View {
     /// The found server being connected to (its row shows the progress).
     @State private var connectingServerId: String?
     @State private var errorMessage: String?
+    /// The address the viewer was told is not encrypted and chose to use anyway (by
+    /// connecting to it again).
+    @State private var unencryptedAddress: String?
     /// Bonjour has had a few seconds without finding anything.
     @State private var searchSettled = false
     @FocusState private var focus: Field?
@@ -304,7 +307,7 @@ struct ServerEntryView: View {
             errorMessage = String(localized: "That doesn't look like a server address.", bundle: .localized)
             return
         }
-        connect(address: trimmedAddress, serverId: nil)
+        connect(address: trimmedAddress, serverId: nil, allowUnencrypted: unencryptedAddress == trimmedAddress)
     }
 
     /// A found server connects exactly as if its address had been typed.
@@ -313,14 +316,15 @@ struct ServerEntryView: View {
         connect(address: server.baseURL.absoluteString, serverId: server.id)
     }
 
-    private func connect(address: String, serverId: String?) {
+    private func connect(address: String, serverId: String?, allowUnencrypted: Bool = false) {
         isConnecting = true
         connectingServerId = serverId
         errorMessage = nil
         Task {
             do {
-                try await appState.connect(to: address)
+                try await appState.connect(to: address, allowUnencrypted: allowUnencrypted)
             } catch {
+                if error is UnencryptedConnection { unencryptedAddress = address }
                 errorMessage = Self.describe(error)
                 focus = serverId.map(Field.server) ?? (entersAddress ? .address : .enterAddress)
             }
@@ -338,6 +342,9 @@ struct ServerEntryView: View {
     }
 
     private static func describe(_ error: Error) -> String {
+        if error is UnencryptedConnection {
+            return String(localized: "This connection isn't encrypted: your password would cross the internet in the clear. Select Connect again to use it anyway.", bundle: .localized)
+        }
         switch error as? APIError {
         case .transport?:
             return String(localized: "Couldn't reach the server. Check the address and that the server is running.", bundle: .localized)
