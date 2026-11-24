@@ -1200,13 +1200,16 @@ final class LivePlayerModel {
 
     // MARK: - Guide
 
+    /// The guide and the list again, every 30 s; what did not change is not assigned (the
+    /// view reads every one of them, and the list is thousands of channels with an external
+    /// source).
     private func refresh() async {
         await refreshGuide()
         guard let service, let list = try? await service.list() else { return }
         guard !isStopped, !list.channels.isEmpty else { return }
-        channels = list.channels
-        if let fresh = list.categories { categories = fresh }
-        if let fresh = channels.first(where: { $0.id == channel.id }) {
+        if channels != list.channels { channels = list.channels }
+        if let fresh = list.categories, fresh != categories { categories = fresh }
+        if let fresh = channels.first(where: { $0.id == channel.id }), fresh != channel {
             channel = fresh
         }
         applyTracks()
@@ -1216,7 +1219,7 @@ final class LivePlayerModel {
     private func refreshGuide() async {
         let id = channel.id
         guard let service, let fresh = try? await service.guide(channelId: id) else { return }
-        guard !isStopped, channel.id == id else { return }
+        guard !isStopped, channel.id == id, fresh != guide else { return }
         guide = fresh
         applyTracks()
     }

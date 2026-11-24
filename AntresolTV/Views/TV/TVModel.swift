@@ -25,7 +25,11 @@ final class TVModel {
         didSet { derive() }
     }
     private(set) var grid = ChannelGuideGrid() {
-        didSet { deriveGuide() }
+        didSet {
+            deriveGuide()
+            // the programmes alone set it: not a list or filter change
+            guideScale = GuideScale.fitting(typicalLength: ChannelGuideGrid.typicalLength(of: grid.rows))
+        }
     }
     private(set) var guidePhase: Phase = .loading
     /// The guide's requests: one at a time, and none outlives `reloadGuide` (a page on
@@ -100,17 +104,18 @@ final class TVModel {
         grid.applyLogos(from: list.channels)
         // the list's order: a star changed here moves the row as it moves the list's
         guideRows = grid.rows(activeFilter, order: list.channels.map(\.id))
-        guideScale = GuideScale.fitting(typicalLength: ChannelGuideGrid.typicalLength(of: grid.rows))
     }
 
     // MARK: - Loading
 
     /// Fetches the list (now / next, favourites, the last channel); a failed refresh keeps
-    /// what is shown.
+    /// what is shown, and a list that did not change is not assigned (it would derive the
+    /// filter, the rows and the guide again for nothing, on the main actor).
     func refresh() async {
         guard let service else { return }
         do {
-            list = try await service.list()
+            let fresh = try await service.list()
+            if fresh != list { list = fresh }
             phase = .loaded
         } catch {
             guard !Task.isCancelled else { return }

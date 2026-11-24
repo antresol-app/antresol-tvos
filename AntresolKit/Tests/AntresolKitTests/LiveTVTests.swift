@@ -80,6 +80,21 @@ final class LiveTVTests: XCTestCase {
         }
     }
 
+    /// The TV tab and the live player assign a fetched list only when it differs from the
+    /// one they show (`fresh != list`): two answers with the same content are equal, and a
+    /// changed programme or star is not.
+    func testSameListIsEqualAndAChangeIsNot() throws {
+        let first = try Samples.decode(ChannelList.self, "channels.json")
+        let second = try Samples.decode(ChannelList.self, "channels.json")
+        XCTAssertEqual(first, second)
+        var starred = second
+        starred.setFavorite(!starred.channels[0].favorite, channelId: starred.channels[0].id)
+        XCTAssertNotEqual(first, starred)
+        var other = second
+        other.lastChannel = (other.lastChannel ?? 0) + 1
+        XCTAssertNotEqual(first, other)
+    }
+
     // MARK: Links
 
     func testChannelLinks() {
