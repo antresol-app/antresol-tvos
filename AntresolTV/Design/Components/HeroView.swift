@@ -314,7 +314,7 @@ struct HeroBackground: View {
     }
 
     private func loadTint() async {
-        guard let client = appState.client, let url = client.urls.image(tintSource) else {
+        guard let client = appState.client, let url = client.urls.image(tintSource, width: 96) else {
             tint = nil
             return
         }

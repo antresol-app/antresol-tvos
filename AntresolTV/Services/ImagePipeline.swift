@@ -10,8 +10,12 @@ import UIKit
 /// ImageIO and caches it in memory and on disk.
 ///
 /// - Memory: `NSCache` keyed by URL and target size, bounded by decoded byte cost.
-/// - Disk: original bytes in `Caches/Artwork`, reused for 7 days (the server's `max-age`);
-///   a file that turns out not to decode at any size is removed.
+/// - Disk: the server's bytes in `Caches/Artwork` (a copy at the width asked for, see
+///   `ServerURLs.image(_:width:)`), reused for 7 days (the server's `max-age`); a file that
+///   turns out not to decode at any size is removed. Launch removes the files not written
+///   for 30 days, then the oldest over `byteCap`.
+/// - Its own `URLSession` (four connections to a host, no `URLCache`: this cache is the
+///   cache), so a cold grid does not queue the API calls behind its pictures.
 /// - Concurrent requests for the same image share one download, whatever sizes they ask
 ///   for, and one decode per size; a download nobody waits for any more is cancelled.
 /// - A few decodes run at once (`decodeSlots`); the others wait their turn.
@@ -22,6 +26,15 @@ final class ImagePipeline: @unchecked Sendable {
     private static let maxAge: TimeInterval = 7 * 24 * 60 * 60
     /// Files not touched for this long are removed on launch.
     private static let evictAfter: TimeInterval = 30 * 24 * 60 * 60
+    /// The disk cache is trimmed to this many bytes on launch, oldest files first.
+    private static let byteCap = 300 * 1024 * 1024
+
+    private static let imageSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.httpMaximumConnectionsPerHost = 4
+        configuration.urlCache = nil
+        return URLSession(configuration: configuration)
+    }()
 
     private let memory = NSCache<NSString, UIImage>()
     private let session: URLSession
@@ -43,8 +56,8 @@ final class ImagePipeline: @unchecked Sendable {
     /// processor has cores) is left for the rest of the app while a grid scrolls.
     private let decodeSlots = ConcurrencyLimiter(limit: min(4, ProcessInfo.processInfo.activeProcessorCount - 1))
 
-    init(session: URLSession = .shared) {
-        self.session = session
+    init(session: URLSession? = nil) {
+        self.session = session ?? Self.imageSession
         memory.totalCostLimit = 192 * 1024 * 1024
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         directory = caches.appendingPathComponent("Artwork", isDirectory: true)
@@ -146,7 +159,7 @@ final class ImagePipeline: @unchecked Sendable {
         } catch {
             guard !Task.isCancelled else { return nil }
             // Offline: fall back to a stale copy if there is one.
-            return try? Data(contentsOf: file)
+            return try? Data(contentsOf: file, options: .mappedIfSafe)
         }
     }
 
@@ -180,7 +193,7 @@ final class ImagePipeline: @unchecked Sendable {
               let modified = attributes[.modificationDate] as? Date,
               Date().timeIntervalSince(modified) < Self.maxAge
         else { return nil }
-        return try? Data(contentsOf: file)
+        return try? Data(contentsOf: file, options: .mappedIfSafe)
     }
 
     private func fileURL(for url: URL) -> URL {
@@ -189,17 +202,27 @@ final class ImagePipeline: @unchecked Sendable {
         return directory.appendingPathComponent(name)
     }
 
+    /// Removes the files not written for `evictAfter`, then the oldest ones while the rest
+    /// is over `byteCap`.
     private static func evictStaleFiles(in directory: URL) {
         let manager = FileManager.default
-        guard let files = try? manager.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: [.contentModificationDateKey]
-        ) else { return }
+        let keys: [URLResourceKey] = [.contentModificationDateKey, .fileSizeKey]
+        guard let urls = try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: keys) else { return }
         let now = Date()
-        for file in files {
-            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-            if let modified, now.timeIntervalSince(modified) > evictAfter {
+        var kept: [(file: URL, modified: Date, size: Int)] = []
+        for file in urls {
+            let values = try? file.resourceValues(forKeys: Set(keys))
+            let modified = values?.contentModificationDate ?? now
+            if now.timeIntervalSince(modified) > evictAfter {
                 try? manager.removeItem(at: file)
+            } else {
+                kept.append((file, modified, values?.fileSize ?? 0))
             }
+        }
+        var total = kept.reduce(0) { $0 + $1.size }
+        for entry in kept.sorted(by: { $0.modified < $1.modified }) where total > byteCap {
+            try? manager.removeItem(at: entry.file)
+            total -= entry.size
         }
     }
 

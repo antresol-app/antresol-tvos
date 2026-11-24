@@ -19,44 +19,69 @@ struct TopShelfArtwork {
         return base.appendingPathComponent("Library/Caches/TopShelf", isDirectory: true)
     }
 
-    /// Local files for server image paths; paths that fail to download are left out.
-    func files(for paths: [String]) async -> [String: URL] {
+    /// Pixels wide asked of the server for a tile: a 16:9 tile is 1216 wide on a 4K screen,
+    /// a poster 808 (the server's steps, `ServerURLs.imageWidthStep`).
+    static func width(for shape: TopShelfPlan.Shape) -> Int {
+        switch shape {
+        case .wide: return 1280
+        case .poster: return 960
+        }
+    }
+
+    /// Downloads at once: bytes go to disk, but a shelf of thirty-odd pictures asked for
+    /// together would still queue as many connections on a small server.
+    private static let concurrency = 4
+
+    /// Local files for server image paths, each asked for at its width (pixels, as
+    /// `width(for:)` has it); paths that fail to download are left out.
+    func files(for widths: [String: Int]) async -> [String: URL] {
         let directory = directory
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         return await withTaskGroup(of: (String, URL?).self) { group in
-            for path in Set(paths) {
-                group.addTask { (path, await file(for: path, in: directory)) }
+            var pending = widths.makeIterator()
+            func start(_ next: (key: String, value: Int), in group: inout TaskGroup<(String, URL?)>) {
+                group.addTask { (next.key, await file(for: next.key, width: next.value, in: directory)) }
+            }
+            for _ in 0..<Self.concurrency {
+                guard let next = pending.next() else { break }
+                start(next, in: &group)
             }
             var result: [String: URL] = [:]
             for await (path, file) in group {
                 if let file { result[path] = file }
+                if let next = pending.next() { start(next, in: &group) }
             }
             return result
         }
     }
 
-    private func file(for path: String, in directory: URL) async -> URL? {
-        let file = directory.appendingPathComponent(Self.fileName(for: path))
+    private func file(for path: String, width: Int, in directory: URL) async -> URL? {
+        guard let url = client.urls.image(path, width: width) else { return nil }
+        // The name carries the width: the same path may be a poster and a wide tile.
+        let file = directory.appendingPathComponent(Self.fileName(for: url.absoluteString))
         if let modified = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
            Date().timeIntervalSince(modified) < Self.freshness {
             return file
         }
-        guard let url = client.urls.image(path) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 15)
         for (field, value) in client.authorizationHeaders(for: url) {
             request.setValue(value, forHTTPHeaderField: field)
         }
+        // Straight to disk: this extension has a small memory limit, and a picture held as
+        // `Data` is as large as the file.
+        func stale() -> URL? { FileManager.default.fileExists(atPath: file.path) ? file : nil }
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200, !data.isEmpty else {
-                return FileManager.default.fileExists(atPath: file.path) ? file : nil
-            }
-            try data.write(to: file, options: .atomic)
+            let (temporary, response) = try await URLSession.shared.download(for: request)
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            let size = (try? temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+            guard (response as? HTTPURLResponse)?.statusCode == 200, size > 0 else { return stale() }
+            try? FileManager.default.removeItem(at: file)
+            try FileManager.default.moveItem(at: temporary, to: file)
             return file
         } catch {
             // Offline: a stale copy is better than no artwork.
-            return FileManager.default.fileExists(atPath: file.path) ? file : nil
+            return stale()
         }
     }
 
@@ -96,10 +121,10 @@ struct TopShelfArtwork {
         }
     }
 
-    /// A stable file name for a server path (64-bit FNV-1a).
-    private static func fileName(for path: String) -> String {
+    /// A stable file name for an image URL (64-bit FNV-1a).
+    private static func fileName(for key: String) -> String {
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
-        for byte in path.utf8 {
+        for byte in key.utf8 {
             hash ^= UInt64(byte)
             hash = hash &* 0x0000_0100_0000_01b3
         }

@@ -52,9 +52,12 @@ struct RemoteImage: View {
         return ([path] + fallbacks).filter { !$0.isEmpty && seen.insert($0).inserted }
     }
 
+    /// The server's copy at the step for the longest side to decode (a logo has only the
+    /// whole image: the smaller copies are JPEGs).
     private var urls: [URL] {
         guard let client = appState.client else { return [] }
-        return candidates.compactMap { client.urls.image($0) }
+        let width = fit ? nil : Int(pixelSize.rounded(.up))
+        return candidates.compactMap { client.urls.image($0, width: width) }
     }
 
     private var cachedImage: UIImage? {

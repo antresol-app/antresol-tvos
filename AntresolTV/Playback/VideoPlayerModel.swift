@@ -575,7 +575,7 @@ final class VideoPlayerModel {
             var image: UIImage?
             // The next episode's own still first; the series' backdrop or poster otherwise.
             for path in next.card.wideArtwork where !path.isEmpty && image == nil {
-                guard let url = client.urls.image(path) else { continue }
+                guard let url = client.urls.image(path, width: 800) else { continue }
                 image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800)
             }
             guard !Task.isCancelled, let self, self.item?.id == item.id else { return }
@@ -992,7 +992,7 @@ final class VideoPlayerModel {
     /// Adds the poster (or backdrop) to the info panel once it has loaded.
     private func loadArtwork(for item: ItemDetail, client: APIClient) {
         let path = item.poster.isEmpty ? item.backdrop : item.poster
-        guard !path.isEmpty, let url = client.urls.image(path) else { return }
+        guard !path.isEmpty, let url = client.urls.image(path, width: 800) else { return }
         let task = Task { [weak self] in
             guard let image = await ImagePipeline.shared.image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800),
                   let data = image.jpegData(compressionQuality: 0.85),

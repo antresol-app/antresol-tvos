@@ -27,15 +27,26 @@ final class ContentProvider: TVTopShelfContentProvider {
         let strings = stringsBundle(for: stored.session.language)
         let artwork = TopShelfArtwork(client: client)
         artwork.removeExpiredFiles()
-        let paths = plan.sections.flatMap { $0.entries.compactMap(\.imagePath) } + live.entries.map(\.imagePath).filter { !$0.isEmpty }
-        var files = await artwork.files(for: paths)
+        // Each picture at the width of its tile (a path in two shapes at the wider one).
+        var widths: [String: Int] = [:]
+        func want(_ path: String, _ shape: TopShelfPlan.Shape) {
+            widths[path] = max(widths[path] ?? 0, TopShelfArtwork.width(for: shape))
+        }
+        for section in plan.sections {
+            for path in section.entries.compactMap(\.imagePath) { want(path, section.shape) }
+        }
+        for path in live.entries.map(\.imagePath) where !path.isEmpty { want(path, .wide) }
+        var files = await artwork.files(for: widths)
         // A tile whose best picture failed (an episode frame while the server is busy) gets
         // its next one.
-        let fallbacks = plan.sections.flatMap(\.entries).compactMap { entry in
-            entry.imagePaths.first { files[$0] != nil } == nil ? entry.imagePaths.dropFirst().first : nil
+        widths = [:]
+        for section in plan.sections {
+            for entry in section.entries where entry.imagePaths.first(where: { files[$0] != nil }) == nil {
+                if let path = entry.imagePaths.dropFirst().first { want(path, section.shape) }
+            }
         }
-        if !fallbacks.isEmpty {
-            files.merge(await artwork.files(for: fallbacks)) { current, _ in current }
+        if !widths.isEmpty {
+            files.merge(await artwork.files(for: widths)) { current, _ in current }
         }
         let placeholder = live.entries.contains { files[$0.imagePath] == nil } ? artwork.placeholderFile() : nil
 

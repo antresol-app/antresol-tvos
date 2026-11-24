@@ -127,7 +127,7 @@ extension ImagePipeline {
     /// A server image as the system's Now Playing artwork (music and live TV).
     @MainActor
     func nowPlayingArtwork(_ path: String, client: APIClient) async -> MPMediaItemArtwork? {
-        guard let url = client.urls.image(path),
+        guard let url = client.urls.image(path, width: 800),
               let image = await image(for: url, headers: client.authorizationHeaders(for: url), maxPixelSize: 800)
         else { return nil }
         return MPMediaItemArtwork(boundsSize: image.size) { _ in image }

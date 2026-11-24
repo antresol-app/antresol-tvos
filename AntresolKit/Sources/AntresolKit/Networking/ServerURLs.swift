@@ -30,18 +30,36 @@ public struct ServerURLs: Hashable, Sendable {
         return components.url
     }
 
+    /// The widths the server shrinks an image to (`?w=`, its `imageWidths`): the steps are
+    /// shared with the web app and iOS, so their copies are reused.
+    static let imageWidths = [160, 240, 320, 480, 640, 960, 1280, 1920]
+
+    /// The smallest step at least `width` pixels wide; nil when none is.
+    static func imageWidthStep(_ width: Int) -> Int? {
+        imageWidths.first { $0 >= width }
+    }
+
     /// Absolute URL of an image field (`poster`, `backdrop`, `logo`, `cover`). nil for `""`.
-    public func image(_ path: String) -> URL? {
+    ///
+    /// With `width` (pixels) the server's own image is asked for at the smallest step at least
+    /// that wide, so a card does not download the original. Anything else stays as it is:
+    /// another host, a path with a query, a video frame (`/api/images/frame/`, one size), a
+    /// width past the largest step. Logos pass no width: the server writes every smaller copy
+    /// as a JPEG, which would put a transparent logo on a black box.
+    public func image(_ path: String, width: Int? = nil) -> URL? {
         let value = path.trimmingCharacters(in: .whitespaces)
         guard !value.isEmpty else { return nil }
         let lower = value.lowercased()
         if lower.hasPrefix("http:") || lower.hasPrefix("https:") || lower.hasPrefix("data:") {
             return URL(string: value)
         }
-        if value.hasPrefix("/") {
-            return url(path: value)
+        let resolved = value.hasPrefix("/") ? value : "/api/images/" + Self.encode(value)
+        var query: [URLQueryItem] = []
+        if let width, resolved.hasPrefix("/api/images/"), !resolved.contains("?"),
+           !resolved.hasPrefix("/api/images/frame/"), let step = Self.imageWidthStep(width) {
+            query = [URLQueryItem(name: "w", value: String(step))]
         }
-        return url(path: "/api/images/" + Self.encode(value))
+        return url(path: resolved, query: query)
     }
 
     /// The URL to hand to the player for a `/api/play` response. HLS loaded with a media
