@@ -309,8 +309,10 @@ private struct WayRowLabel: View {
             if !row.isFinal {
                 Image(systemName: "chevron.right")
                     .font(Theme.Typography.headline)
+                // Whole, never cut to «Subt…»: the label and the second line give way to them.
                     .opacity(0.6)
             }
+                    .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)

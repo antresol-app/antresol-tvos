@@ -15,6 +15,7 @@ private struct ListRowBody: View {
     var body: some View {
         configuration.label
             .environment(\.isCardFocused, isFocused)
+            .environment(\.badgesOnLightPlate, isFocused)
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
             .padding(.horizontal, Theme.Layout.listRowInset)
             .frame(minHeight: 84)
