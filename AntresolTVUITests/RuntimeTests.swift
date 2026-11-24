@@ -6,6 +6,8 @@ final class RuntimeTests: XCTestCase {
     private let server = ProcessInfo.processInfo.environment["ANTRESOL_MOCK_SERVER"] ?? "127.0.0.1:8421"
     private let remote = XCUIRemote.shared
     private let app = XCUIApplication()
+    /// `en` (the default) or `ru`: the language the app runs in (`TEST_RUNNER_ANTRESOL_TEST_LANGUAGE`).
+    private let language = ProcessInfo.processInfo.environment["ANTRESOL_TEST_LANGUAGE"] ?? "en"
 
     override func setUp() {
         continueAfterFailure = true
@@ -15,7 +17,7 @@ final class RuntimeTests: XCTestCase {
     /// (Change Server) comes back to it, Menu on it leaves the app.
     func testSignInMenu() {
         launch(server: pairingServer)
-        let title = app.staticTexts["Sign in with your phone"]
+        let title = app.staticTexts[tr("Sign in with your phone")]
         XCTAssertTrue(title.waitForExistence(timeout: 30), "no QR sign-in screen")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Code expires in")).firstMatch
             .waitForExistence(timeout: 10), "no sign-in code")
@@ -142,7 +144,7 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(wait(10) { !all.exists }, "Menu did not close the category list")
 
         // Settings: «Избранные каналы первыми» off.
-        XCTAssertTrue(openSection("Kiddo", prefix: true, showing: app.buttons["Switch Profile"]), "no Settings: \(focusedLabel)")
+        XCTAssertTrue(openSection("Kiddo", prefix: true, showing: app.buttons[tr("Switch Profile")]), "no Settings: \(focusedLabel)")
         sleep(2)
         remote.press(.down)
         sleep(1)
@@ -674,15 +676,15 @@ final class RuntimeTests: XCTestCase {
     func testSeparateHistoryOnThisDevice() {
         mock("POST", "/mock/reset")
         launch(server: pairingServer)
-        XCTAssertTrue(app.staticTexts["Sign in with your phone"].waitForExistence(timeout: 30), "no QR sign-in screen")
-        XCTAssertTrue(waitForFocus(app.buttons["Sign In with the Remote"]), "focus: \(focusedLabel)")
+        XCTAssertTrue(app.staticTexts[tr("Sign in with your phone")].waitForExistence(timeout: 30), "no QR sign-in screen")
+        XCTAssertTrue(waitForFocus(app.buttons[tr("Sign In with the Remote")]), "focus: \(focusedLabel)")
         remote.press(.select)
-        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts[tr("Who's watching?")].waitForExistence(timeout: 30))
         sleep(2)
         remote.press(.right)
         remote.press(.right)
         remote.press(.select)
-        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 30))
         sleep(3)
 
         openSeparateHistory()
@@ -696,7 +698,7 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(moveFocus(.down, to: livingRoom, limit: 3), "focus: \(focusedLabel)")
         remote.press(.select)
         // The shell starts again on Home, which loads this history's Continue Watching.
-        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30), "not back on Home")
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 30), "not back on Home")
         sleep(3)
         snapshot("rt-history-03-home")
         let events = mockEvents()
@@ -719,7 +721,7 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-history-04-off")
         XCTAssertTrue(moveFocus(.down, to: app.buttons["Keep Apart"].firstMatch, limit: 3), "focus: \(focusedLabel)")
         remote.press(.select)
-        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30), "not back on Home")
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 30), "not back on Home")
         sleep(3)
         let off = mockEvents().last { ($0["method"] as? String) == "PUT" }
         XCTAssertEqual(json(off?["body"]) as NSDictionary?, ["merge": false, "separate": false] as NSDictionary)
@@ -744,7 +746,7 @@ final class RuntimeTests: XCTestCase {
             moveFocus(.down, to: create, limit: 3)
             remote.press(.select)
         }
-        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30), "not back on Home: \(focusedLabel)")
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 30), "not back on Home: \(focusedLabel)")
         let made = mockEvents()
         XCTAssertTrue(made.contains { ($0["method"] as? String) == "POST" && ($0["path"] as? String) == "/api/me/managed" }, "no history made")
         openSeparateHistory()
@@ -867,7 +869,7 @@ final class RuntimeTests: XCTestCase {
                           "needs scripts/mock-server.py --addons and ANTRESOL_MOCK_ADDONS")
         mock("POST", "/mock/reset")
         signInToMovie(profilesToTheRight: 1)
-        XCTAssertTrue(app.buttons["Mark as Watched"].waitForExistence(timeout: 40), "no movie page: \(focusedLabel)")
+        XCTAssertTrue(app.buttons[tr("Mark as Watched")].waitForExistence(timeout: 40), "no movie page: \(focusedLabel)")
         sleep(3)
         XCTAssertFalse(app.buttons["Watch here"].exists, "a kid's page offers a way")
         XCTAssertFalse(app.buttons["Add to server"].exists, "a kid's page offers a way that keeps a copy")
@@ -876,15 +878,157 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(asked.isEmpty, "the addons were asked for a kid: \(asked)")
     }
 
+    // MARK: What the iPhone review found, as it shows on the Apple TV
+
+    /// The chooser of a way (the mock with `--addons`): every row's badges are one height, a subtitles badge with no
+    /// language shows the word beside its icon, and a step's note is the list's footer, under the rows.
+    func testChooserLayout() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_ADDONS"] != nil,
+                          "needs scripts/mock-server.py --addons and ANTRESOL_MOCK_ADDONS")
+        // A press after a failed step would land on whatever has focus: stop at the first failure.
+        continueAfterFailure = false
+        signInToMovie(profilesToTheRight: 2)
+        XCTAssertTrue(app.buttons["Watch here"].waitForExistence(timeout: 40), "no way button on the movie page: \(focusedLabel)")
+        sleep(2)
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        snapshot("owner-00-movie-actions")
+        // The primary pill's title stays on one line (a wrapped one would make the pill taller than its 76 pt).
+        let primary = app.buttons[tr("Resume")]
+        XCTAssertTrue(primary.exists && primary.frame.height < 100, "the Resume pill is not one line: \(primary.frame)")
+        XCTAssertTrue(focusWayPill(), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Source"].waitForExistence(timeout: 20), "the chooser did not open")
+        sleep(2)
+        snapshot("owner-01-chooser-source")
+        let rows = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Mirror"))
+        XCTAssertEqual(rows.count, 4, "the chooser's rows: \(rows.allElementsBoundByIndex.map(\.label))")
+        remote.press(.down)
+        remote.press(.down)
+        sleep(2)
+        snapshot("owner-02-chooser-badges-focused")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts["Quality"].waitForExistence(timeout: 20), "no second step")
+        sleep(2)
+        snapshot("owner-03-chooser-quality")
+        let note = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Picks the best release")).firstMatch
+        XCTAssertTrue(note.exists, "no note on the step")
+        let lastRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "1080p")).firstMatch
+        XCTAssertGreaterThan(note.frame.minY, lastRow.frame.maxY - 1, "the note is not under the list: \(note.frame) \(lastRow.frame)")
+        let title = app.staticTexts["Quality"]
+        XCTAssertLessThan(lastRow.frame.minY - title.frame.maxY, 200, "a gap between the title and the list: \(title.frame) \(lastRow.frame)")
+    }
+
+    /// Everything of the profile's settings is on one page, About last.
+    func testSettingsOnOnePage() {
+        // A press after a failed step would land on whatever has focus: stop at the first failure.
+        continueAfterFailure = false
+        signInToMovie(profilesToTheRight: 2, openingMovie: false)
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 40), "no Home: \(focusedLabel)")
+        sleep(3)
+        XCTAssertTrue(openSection("Family", prefix: true, showing: app.buttons[tr("Switch Profile")]), "no Settings: \(focusedLabel)")
+        sleep(2)
+        snapshot("owner-10-settings-top")
+        let language = setting(tr("Interface Language"))
+        remote.press(.down)
+        sleep(1)
+        moveFocus(.right, to: setting(tr("Video Quality")), limit: 3)
+        XCTAssertTrue(moveFocus(.down, to: language, limit: 10), "no Interface Language row: \(focusedLabel)")
+        sleep(1)
+        snapshot("owner-11-settings-language")
+        // The section's title is drawn in capitals.
+        let about = app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", tr("About This App"))).firstMatch
+        for _ in 0..<6 { remote.press(.down); usleep(500_000) }
+        sleep(2)
+        XCTAssertTrue(about.exists, "no About section: \(focusedLabel)")
+        snapshot("owner-12-settings-bottom")
+    }
+
+    /// A poster opens its page, Menu closes it, and focus comes back to the poster; then the grid scrolls on.
+    func testPosterOpensAndClosesWithFocusBack() {
+        // A press after a failed step would land on whatever has focus: stop at the first failure.
+        continueAfterFailure = false
+        signInAsKid()
+        XCTAssertTrue(openSection(tr("Movies"), showing: app.buttons[tr("Recently Added")]), "no Movies: \(focusedLabel)")
+        sleep(2)
+        remote.press(.down)
+        sleep(1)
+        let tile = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Big Buck Demo")).firstMatch
+        XCTAssertTrue(moveFocus(.left, to: tile, limit: 6), "focus: \(focusedLabel)")
+        sleep(1)
+        snapshot("owner-20-poster-focused")
+        remote.press(.select)
+        sleep(3)
+        snapshot("owner-21-page")
+        XCTAssertTrue(app.buttons[tr("Play")].exists || app.buttons[tr("Resume")].exists, "the page did not open: \(focusedLabel)")
+        remote.press(.menu)
+        sleep(3)
+        XCTAssertTrue(tile.exists && tile.hasFocus, "focus did not come back to the tile: \(focusedLabel)")
+        snapshot("owner-22-back-on-poster")
+        // Scrolled on: the title and the sort pill stay above the grid, and rows going up fade out under them.
+        for _ in 0..<3 {
+            remote.press(.down)
+            sleep(1)
+        }
+        sleep(1)
+        snapshot("owner-23-library-scrolled")
+    }
+
+    /// The round buttons' glyphs against the circle's middle: the hero's, the live player's options row and its number pad.
+    /// The frames go in an attachment, to measure the screenshots against.
+    func testRoundButtonGlyphs() {
+        // A press after a failed step would land on whatever has focus: stop at the first failure.
+        continueAfterFailure = false
+        signInAsKid()
+        sleep(2)
+        attachFrames("owner-30-hero-frames", ["Watchlist", "Details", "Next"].map { ($0, app.buttons[tr($0)]) })
+        snapshot("owner-30-hero")
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        let row = channelRow("Комедии")
+        XCTAssertTrue(waitForFocus(row), "the list did not open on the last channel: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.staticTexts[tr("Switch Channel")].waitForNonExistence(timeout: 40), "channel 2 did not start playing")
+        remote.press(.right)
+        let audio = app.buttons["live.audio"]
+        XCTAssertTrue(audio.waitForExistence(timeout: 5), "no Audio control")
+        XCTAssertTrue(waitForFocus(audio), "the options row did not take focus on Audio: \(focusedLabel)")
+        sleep(2)
+        attachFrames("owner-31-live-frames", ["audio", "subtitles", "quality", "favorite", "previous", "number", "channels"].map { ($0, app.buttons["live.\($0)"]) })
+        snapshot("owner-31-live-options")
+        let number = app.buttons["live.number"]
+        XCTAssertTrue(moveFocus(.right, to: number, limit: 6), "no focus on Channel Number: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["numberpad.1"].waitForExistence(timeout: 5), "no number pad")
+        sleep(2)
+        attachFrames("owner-32-pad-frames", ["delete", "ok", "1", "5"].map { ($0, app.buttons["numberpad.\($0)"]) })
+        snapshot("owner-32-number-pad")
+    }
+
+    /// The frames (points) of `elements` as a text attachment.
+    private func attachFrames(_ name: String, _ elements: [(String, XCUIElement)]) {
+        let text = elements.map { "\($0.0)\t\($0.1.exists ? "\($0.1.frame)" : "missing")" }.joined(separator: "\n")
+        let attachment = XCTAttachment(string: text)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// The app's own string for `key` in the language the run is in (the key itself in English).
+    private func tr(_ key: String) -> String {
+        guard language != "en" else { return key }
+        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("AntresolTV/Resources/\(language).lproj/Localizable.strings").path
+        return (NSDictionary(contentsOfFile: path) as? [String: String])?[key] ?? key
+    }
+
     /// Fresh session on the mock's second port, the profile `profilesToTheRight` places after the
     /// first one, and the movie's page (a link, so it opens as soon as the profile is in).
-    private func signInToMovie(profilesToTheRight: Int) {
-        app.launchArguments += ["-AntresolOpenURL", "antresol://item/19"]
+    private func signInToMovie(profilesToTheRight: Int, openingMovie: Bool = true) {
+        if openingMovie { app.launchArguments += ["-AntresolOpenURL", "antresol://item/19"] }
         launch(server: pairingServer)
-        XCTAssertTrue(app.staticTexts["Sign in with your phone"].waitForExistence(timeout: 30), "no QR sign-in screen")
-        XCTAssertTrue(waitForFocus(app.buttons["Sign In with the Remote"]), "focus: \(focusedLabel)")
+        XCTAssertTrue(app.staticTexts[tr("Sign in with your phone")].waitForExistence(timeout: 30), "no QR sign-in screen")
+        XCTAssertTrue(waitForFocus(app.buttons[tr("Sign In with the Remote")]), "focus: \(focusedLabel)")
         remote.press(.select)
-        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts[tr("Who's watching?")].waitForExistence(timeout: 30))
         sleep(2)
         for _ in 0..<profilesToTheRight { remote.press(.right) }
         remote.press(.select)
@@ -894,7 +1038,7 @@ final class RuntimeTests: XCTestCase {
     /// pill has a long-press menu, and a focused one is not reported as focused to the test: it is
     /// reached by its place, from Resume.
     private func focusWayPill() -> Bool {
-        let resume = app.buttons["Resume"]
+        let resume = app.buttons[tr("Resume")]
         for _ in 0..<8 where !(resume.exists && resume.hasFocus) {
             remote.press(.left)
             sleep(1)
@@ -946,14 +1090,14 @@ final class RuntimeTests: XCTestCase {
     /// the passwordless second profile through the profile picker.
     private func signInOnSecondPort() {
         launch(server: pairingServer)
-        XCTAssertTrue(app.staticTexts["Sign in with your phone"].waitForExistence(timeout: 30), "no QR sign-in screen")
-        XCTAssertTrue(waitForFocus(app.buttons["Sign In with the Remote"]), "focus: \(focusedLabel)")
+        XCTAssertTrue(app.staticTexts[tr("Sign in with your phone")].waitForExistence(timeout: 30), "no QR sign-in screen")
+        XCTAssertTrue(waitForFocus(app.buttons[tr("Sign In with the Remote")]), "focus: \(focusedLabel)")
         remote.press(.select)
-        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts[tr("Who's watching?")].waitForExistence(timeout: 30))
         sleep(2)
         remote.press(.right)
         remote.press(.select)
-        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 30))
         sleep(3)
     }
 
@@ -1036,7 +1180,7 @@ final class RuntimeTests: XCTestCase {
     }
 
     private func launch(server: String) {
-        app.launchArguments += ["-AntresolResetSession", "YES", "-AntresolServerURL", server, "-AppleLanguages", "(en)"]
+        app.launchArguments += ["-AntresolResetSession", "YES", "-AntresolServerURL", server, "-AppleLanguages", "(\(language))"]
         // the TV tab as a first visit has it (a test that left it on the guide does not leak)
         if !app.launchArguments.contains("-tv.mode") { app.launchArguments += ["-tv.mode", "channels", "-tv.filter", "all"] }
         app.launch()
@@ -1045,17 +1189,17 @@ final class RuntimeTests: XCTestCase {
     /// Fresh session, then the passwordless second profile.
     private func signInAsKid() {
         launch(server: server)
-        XCTAssertTrue(app.staticTexts["Who's watching?"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts[tr("Who's watching?")].waitForExistence(timeout: 30))
         sleep(2)
         remote.press(.right)
         remote.press(.select)
-        XCTAssertTrue(app.buttons["Details"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 30))
         sleep(3)
     }
 
     /// Opens the TV tab from the sidebar and waits for the list.
     private func openTV() -> Bool {
-        openSection("TV", showing: app.buttons["Guide"])
+        openSection(tr("TV"), showing: app.buttons[tr("Guide")])
     }
 
     /// Opens the sidebar entry labelled `title` (the profile's: beginning with it) and waits
@@ -1090,7 +1234,7 @@ final class RuntimeTests: XCTestCase {
 
     /// From the profile column of Settings to the separate-history row, and into its page.
     private func openSeparateHistory() {
-        XCTAssertTrue(openSection("Family", prefix: true, showing: app.buttons["Switch Profile"]), "no Settings: \(focusedLabel)")
+        XCTAssertTrue(openSection("Family", prefix: true, showing: app.buttons[tr("Switch Profile")]), "no Settings: \(focusedLabel)")
         sleep(2)
         remote.press(.down)
         sleep(1)

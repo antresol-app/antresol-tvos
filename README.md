@@ -270,6 +270,10 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
 - `testAddonWays` needs the mock with `--addons` (two neutral addons: ways that watch and keep,
   a chooser, the chevron's menu of the ways, an input player that answers `202` first) and `TEST_RUNNER_ANTRESOL_MOCK_ADDONS=1`;
   it skips itself otherwise.
+- The tests run in Russian with `TEST_RUNNER_ANTRESOL_TEST_LANGUAGE=ru` (the app is launched in Russian, and
+  `RuntimeTests` look labels up in `ru.lproj/Localizable.strings`). Build the tests signed (no
+  `CODE_SIGNING_ALLOWED=NO`): an unsigned app has no Keychain, cannot keep the mock's address and lands on the server
+  screen, where a press of Select would connect to a server of the network.
 - Without an Apple TV simulator yet: `xcrun simctl create "Apple TV 4K (3rd generation)"
   com.apple.CoreSimulator.SimDeviceType.Apple-TV-4K-3rd-generation-4K <a tvOS runtime of
   "xcrun simctl list runtimes">`, and boot it before the run (`xcrun simctl bootstatus <udid> -b`).
