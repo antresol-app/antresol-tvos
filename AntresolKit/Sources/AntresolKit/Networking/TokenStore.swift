@@ -23,22 +23,3 @@ public protocol TokenStore: Sendable {
     func setToken(_ token: String, for key: CredentialKey) throws
     func removeToken(for key: CredentialKey) throws
 }
-
-/// A process-local store, for tests and previews.
-public final class InMemoryTokenStore: TokenStore {
-    private let tokens = Locked<[CredentialKey: String]>([:])
-
-    public init() {}
-
-    public func token(for key: CredentialKey) -> String? {
-        tokens.withLock { $0[key] }
-    }
-
-    public func setToken(_ token: String, for key: CredentialKey) throws {
-        tokens.withLock { $0[key] = token }
-    }
-
-    public func removeToken(for key: CredentialKey) throws {
-        tokens.withLock { $0[key] = nil }
-    }
-}

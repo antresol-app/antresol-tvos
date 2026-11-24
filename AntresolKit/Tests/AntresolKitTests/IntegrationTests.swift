@@ -80,7 +80,6 @@ final class IntegrationTests: XCTestCase {
         let key = try await client.mediaKey()
         XCTAssertTrue(key.key.hasPrefix("v1."))
         XCTAssertGreaterThan(key.expiryDate?.timeIntervalSinceNow ?? 0, 11 * 3600)
-        _ = try await client.libraryStatus()
     }
 
     func testLibraryBrowsing() async throws {

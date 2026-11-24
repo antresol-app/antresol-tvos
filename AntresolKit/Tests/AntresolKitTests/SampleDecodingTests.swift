@@ -18,11 +18,6 @@ final class SampleDecodingTests: XCTestCase {
             "addon-step.json": d(WayStep.self),
             "auth-media-key.json": d(MediaKey.self),
             "auth-token.json": d(TokenResponse.self),
-            "book-audiobook-mp3.json": d(BookDetail.self),
-            "book-audiobook-multifile.json": d(BookDetail.self),
-            "book-audiobook.json": d(BookDetail.self),
-            "book-comic-volume.json": d(BookDetail.self),
-            "book-comic.json": d(BookDetail.self),
             "books-audiobooks.json": d(Page<Card>.self),
             "books-comics.json": d(Page<Card>.self),
             "books-home.json": d(ShelvesResponse.self),
@@ -30,7 +25,6 @@ final class SampleDecodingTests: XCTestCase {
             "channels.json": d(ChannelList.self),
             "channel-epg.json": d(ChannelEPGWindow.self),
             "playback-prefs.json": d(PlaybackPrefs.self),
-            "comic-pages.json": d(ComicPages.self),
             "error-401.json": d(ErrorBody.self),
             "health.json": d(ServerHealth.self),
             "hls-keepalive.json": d(HLSStatus.self),
@@ -42,7 +36,6 @@ final class SampleDecodingTests: XCTestCase {
             "item-trailers.json": d(TrailerList.self),
             "items-movies.json": d(Page<Card>.self),
             "items-series.json": d(Page<Card>.self),
-            "library-status.json": d(LibraryStatus.self),
             "me-devices.json": d(ItemsEnvelope<DeviceSession>.self),
             "me.json": d(User.self),
             "music-album.json": d(AlbumDetail.self),
@@ -233,31 +226,7 @@ final class SampleDecodingTests: XCTestCase {
     }
 
     func testBooks() throws {
-        let audiobook = try Samples.decode(BookDetail.self, "book-audiobook.json")
-        XCTAssertEqual(audiobook.kind, .audiobook)
-        XCTAssertNil(audiobook.progress)
-        XCTAssertNil(audiobook.series)
-        XCTAssertEqual(audiobook.chapters.map(\.title), ["Opening", "Middle", "Ending"])
-        XCTAssertEqual(audiobook.durationMs, 60000)
-
-        let multi = try Samples.decode(BookDetail.self, "book-audiobook-multifile.json")
-        XCTAssertEqual(multi.files.count, 2)
-
-        let series = try Samples.decode(BookDetail.self, "book-comic.json")
-        XCTAssertEqual(series.volumes.first?.fileId, 13)
-        XCTAssertEqual(series.volumes.first?.pages, 3)
-        XCTAssertEqual(series.volumes.first?.readingDirection, .rightToLeft)
-        XCTAssertEqual(series.volumes.first?.seriesId, 20)
-
-        let volume = try Samples.decode(BookDetail.self, "book-comic-volume.json")
-        XCTAssertEqual(volume.readFileId, 13)
-        XCTAssertEqual(volume.series?.name, "Hero Tales")
-        XCTAssertEqual(volume.series?.index, 1)
-
-        let pages = try Samples.decode(ComicPages.self, "comic-pages.json")
-        XCTAssertEqual(pages.count, 3)
-        XCTAssertEqual(pages.sizes.first, ComicPages.PageSize(width: 800, height: 1200))
-
+        // The TV app has no book screens: the books home and lists decode as cards.
         let home = try Samples.decode(ShelvesResponse.self, "books-home.json")
         XCTAssertEqual(home.shelves.first?.id, ShelfID.reading)
     }

@@ -248,49 +248,6 @@ public struct ErrorBody: Decodable, Hashable, Sendable {
     public var code: String?
 }
 
-/// `GET /api/library/status` (admin).
-public struct LibraryStatus: Decodable, Hashable, Sendable {
-    public var running: Bool
-    public var queued: Bool
-    public var startedAt: String?
-    public var finishedAt: String?
-    public var error: String?
-    public var movies: Int
-    public var episodes: Int
-    public var albums: Int
-    public var tracks: Int
-    public var books: Int
-    public var audiobooks: Int
-    public var comics: Int
-    public var files: Int
-    public var skipped: Int
-    public var removed: Int
-
-    enum CodingKeys: String, CodingKey {
-        case running, queued, startedAt, finishedAt, error, movies, episodes, albums, tracks
-        case books, audiobooks, comics, files, skipped, removed
-    }
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        running = c.value(.running, default: false)
-        queued = c.value(.queued, default: false)
-        startedAt = c.optional(.startedAt)
-        finishedAt = c.optional(.finishedAt)
-        error = c.optional(.error)
-        movies = c.value(.movies, default: 0)
-        episodes = c.value(.episodes, default: 0)
-        albums = c.value(.albums, default: 0)
-        tracks = c.value(.tracks, default: 0)
-        books = c.value(.books, default: 0)
-        audiobooks = c.value(.audiobooks, default: 0)
-        comics = c.value(.comics, default: 0)
-        files = c.value(.files, default: 0)
-        skipped = c.value(.skipped, default: 0)
-        removed = c.value(.removed, default: 0)
-    }
-}
-
 /// A device's separate history: the managed account it writes into.
 public struct HistoryRef: Codable, Hashable, Sendable {
     public var id: Int

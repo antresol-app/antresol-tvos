@@ -112,12 +112,7 @@ public final class TVSetupListener: @unchecked Sendable {
     /// The client's IP as text ("" when it is not an IP endpoint).
     static func address(of endpoint: NWEndpoint) -> String {
         guard case .hostPort(let host, _) = endpoint else { return "" }
-        switch host {
-        case .ipv4(let address): return "\(address)"
-        case .ipv6(let address): return "\(address)"
-        case .name(let name, _): return name
-        @unknown default: return ""
-        }
+        return host.text
     }
 }
 #endif

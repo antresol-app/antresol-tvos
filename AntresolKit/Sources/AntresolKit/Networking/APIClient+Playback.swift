@@ -37,18 +37,4 @@ extension APIClient {
     public func subtitleCues(path: String) async throws -> [SubtitleCue] {
         WebVTT.parse(try await subtitleText(path: path))
     }
-
-    /// `GET /api/subtitles/{fileId}/search` (OpenSubtitles; `503` when not configured).
-    public func searchSubtitles(fileId: Int, language: String) async throws -> [SubtitleSearchResult] {
-        try await send(
-            .get, "/api/subtitles/\(fileId)/search", query: [URLQueryItem(name: "lang", value: language)],
-            as: SubtitleSearchResponse.self
-        ).results
-    }
-
-    /// `POST /api/subtitles/{fileId}`: downloads an OpenSubtitles result into the library.
-    public func downloadSubtitle(fileId: Int, subtitleId: Int, language: String) async throws {
-        struct Body: Encodable { var subtitleId: Int; var lang: String }
-        try await sendWithoutResponse(.post, "/api/subtitles/\(fileId)", json: Body(subtitleId: subtitleId, lang: language))
-    }
 }

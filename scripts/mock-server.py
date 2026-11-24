@@ -159,11 +159,6 @@ ROUTES = {
     ("GET", r"/api/music/tracks/\d+/lyrics"): "music-lyrics.json",
     ("GET", r"/api/music/tracks/\d+"): "music-track.json",
     ("GET", r"/api/books/home"): "books-home.json",
-    ("GET", r"/api/books/20"): "book-comic.json",
-    ("GET", r"/api/books/21"): "book-comic-volume.json",
-    ("GET", r"/api/books/23"): "book-audiobook-multifile.json",
-    ("GET", r"/api/books/\d+"): "book-audiobook.json",
-    ("GET", r"/api/comics/\d+/pages"): "comic-pages.json",
 }
 
 

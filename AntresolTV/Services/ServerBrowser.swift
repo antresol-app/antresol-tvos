@@ -120,24 +120,31 @@ final class ServerBrowser {
             ip.version = .v4
         }
         let connection = NWConnection(to: endpoint, using: parameters)
-        let once = ResumeOnce()
+        let waiting = Locked<CheckedContinuation<(String, Int)?, Never>?>(nil)
+        // Resumes the continuation at most once (connection callbacks can arrive more than once).
+        let finish: @Sendable ((String, Int)?) -> Void = { answer in
+            waiting.withLock { pending -> CheckedContinuation<(String, Int)?, Never>? in
+                defer { pending = nil }
+                return pending
+            }?.resume(returning: answer)
+        }
         return await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<(String, Int)?, Never>) in
-                once.set(continuation)
+                waiting.withLock { $0 = continuation }
                 connection.stateUpdateHandler = { state in
                     switch state {
                     case .ready:
                         var answer: (String, Int)?
                         if case .hostPort(let host, let port)? = connection.currentPath?.remoteEndpoint {
-                            answer = (hostString(host), Int(port.rawValue))
+                            answer = (host.text, Int(port.rawValue))
                         }
                         connection.cancel()
-                        once.resume(answer)
+                        finish(answer)
                     case .failed, .waiting:
                         connection.cancel()
-                        once.resume(nil)
+                        finish(nil)
                     case .cancelled:
-                        once.resume(nil)
+                        finish(nil)
                     default:
                         break
                     }
@@ -145,20 +152,11 @@ final class ServerBrowser {
                 connection.start(queue: .global(qos: .utility))
                 DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
                     connection.cancel()
-                    once.resume(nil)
+                    finish(nil)
                 }
             }
         } onCancel: {
             connection.cancel()
-        }
-    }
-
-    nonisolated private static func hostString(_ host: NWEndpoint.Host) -> String {
-        switch host {
-        case .ipv4(let address): return "\(address)"
-        case .ipv6(let address): return "\(address)"
-        case .name(let name, _): return name
-        @unknown default: return ""
         }
     }
 
@@ -176,24 +174,4 @@ final class ServerBrowser {
         config.waitsForConnectivity = false
         return URLSession(configuration: config)
     }()
-}
-
-/// Resumes a continuation at most once (connection callbacks can arrive more than once).
-private final class ResumeOnce: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<(String, Int)?, Never>?
-
-    func set(_ continuation: CheckedContinuation<(String, Int)?, Never>) {
-        lock.lock()
-        self.continuation = continuation
-        lock.unlock()
-    }
-
-    func resume(_ value: (String, Int)?) {
-        lock.lock()
-        let pending = continuation
-        continuation = nil
-        lock.unlock()
-        pending?.resume(returning: value)
-    }
 }

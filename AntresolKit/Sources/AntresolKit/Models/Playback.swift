@@ -292,36 +292,3 @@ public struct ProgressUpdate: Encodable, Hashable, Sendable {
         ProgressUpdate(positionMs: positionMs, durationMs: durationMs, updatedAt: date)
     }
 }
-
-/// One result of OpenSubtitles search (`GET /api/subtitles/{fileId}/search`).
-public struct SubtitleSearchResult: Decodable, Hashable, Identifiable, Sendable {
-    public var subtitleId: Int
-    public var lang: String
-    public var release: String
-    public var downloads: Int
-    public var hashMatch: Bool
-
-    public var id: Int { subtitleId }
-
-    enum CodingKeys: String, CodingKey { case subtitleId, lang, release, downloads, hashMatch }
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        subtitleId = try c.decode(Int.self, forKey: .subtitleId)
-        lang = c.value(.lang, default: "")
-        release = c.value(.release, default: "")
-        downloads = c.value(.downloads, default: 0)
-        hashMatch = c.value(.hashMatch, default: false)
-    }
-}
-
-struct SubtitleSearchResponse: Decodable, Sendable {
-    var results: [SubtitleSearchResult]
-
-    enum CodingKeys: String, CodingKey { case results }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        results = c.value(.results, default: [])
-    }
-}

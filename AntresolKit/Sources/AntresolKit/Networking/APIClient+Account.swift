@@ -61,11 +61,6 @@ extension APIClient {
         try await send(.get, "/api/me/devices", as: ItemsEnvelope<DeviceSession>.self).items
     }
 
-    /// `DELETE /api/me/devices/{id}`.
-    public func revokeDevice(id: Int) async throws {
-        try await sendWithoutResponse(.delete, "/api/me/devices/\(id)")
-    }
-
     // «Отдельная история на этом устройстве». A kid profile gets 403 on the writes (its
     // switch is an administrator's); the list it may read.
 
@@ -89,11 +84,6 @@ extension APIClient {
         case .off(let merge): body = DeviceHistoryBody(separate: false, accountId: nil, merge: merge)
         }
         return try await send(.put, "/api/me/devices/current/history", json: body, as: DeviceHistoryAnswer.self).history
-    }
-
-    /// `GET /api/library/status` (admin).
-    public func libraryStatus() async throws -> LibraryStatus {
-        try await send(.get, "/api/library/status")
     }
 }
 
