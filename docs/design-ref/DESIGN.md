@@ -50,7 +50,8 @@ Focus, shadow and scrim values are tokens, not literals in the views:
   row 1.02, channel row 1.015) and `Theme.Motion.Press` (0.95 to 0.99).
 - `Theme.Shadow`: one `Lift` (opacity, blur radius, y) per kind of control, drawn by
   `focusShadow(_:isFocused:)` (nothing at rest) or `softShadow(_:)` (always on, `title`). A card's
-  shadow keeps its size and only fades in: a blur radius that grows is drawn again on every frame.
+  shadow keeps its size: the faint one at rest (`cardRest`) fades out as the lifted one (`card`) fades in,
+  because a blur radius that grows is drawn again on every frame.
 - `Theme.Colors.scrim` and `scrimStrong`: the dark plate behind text over video or artwork.
 - `focusPlate(...)` (ListRow.swift) is the focus of every full-width row: the lit plate, the lift and the shadow.
 

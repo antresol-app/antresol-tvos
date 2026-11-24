@@ -77,7 +77,7 @@ struct PosterCard: View {
                 }
             }
             .frame(width: width, height: width * shape.aspectRatio)
-            .watchedDimming(card.watched, isFocused: isFocused, cornerRadius: cornerRadius)
+            .watchedDimming(card.watched, width: width, isFocused: isFocused, cornerRadius: cornerRadius)
             .cardLift(isFocused: isFocused, cornerRadius: cornerRadius)
 
             CardCaption(card: card, alignment: shape == .circle ? .center : .leading)
@@ -134,7 +134,7 @@ struct WideCard: View {
                 }
             }
             .frame(width: width, height: width * 9 / 16)
-            .watchedDimming(card.watched, isFocused: isFocused)
+            .watchedDimming(card.watched, width: width, isFocused: isFocused)
             .cardLift(isFocused: isFocused)
 
             CardCaption(card: card, alignment: .leading, showsBadges: false)

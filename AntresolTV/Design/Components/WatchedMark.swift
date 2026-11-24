@@ -26,9 +26,10 @@ struct WatchedMark: View {
 }
 
 extension View {
-    /// Dims watched artwork and puts the watched mark in the middle of it. Focus lifts most of
-    /// the dimming so the focused card stays easy to see; the mark stays at full strength.
-    func watchedDimming(_ watched: Bool, isFocused: Bool, cornerRadius: CGFloat = Theme.Radius.card) -> some View {
+    /// Dims watched artwork and puts the watched mark in the middle of it, sized by the tile's
+    /// `width`. Focus lifts most of the dimming so the focused card stays easy to see; the mark
+    /// stays at full strength.
+    func watchedDimming(_ watched: Bool, width: CGFloat, isFocused: Bool, cornerRadius: CGFloat = Theme.Radius.card) -> some View {
         overlay {
             if watched {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -38,10 +39,7 @@ extension View {
         }
         .overlay {
             if watched {
-                GeometryReader { geo in
-                    WatchedMark(diameter: WatchedMark.diameter(forWidth: geo.size.width))
-                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                }
+                WatchedMark(diameter: WatchedMark.diameter(forWidth: width))
             }
         }
     }

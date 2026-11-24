@@ -209,8 +209,9 @@ enum Theme {
         static let block = Lift(opacity: 0.55, radius: 18, y: 10)
         /// A profile's avatar.
         static let tile = Lift(opacity: 0.6, radius: 26, y: 16)
-        /// A focused card's artwork.
+        /// A focused card's artwork, and the faint one under it at rest.
         static let card = Lift(opacity: 0.6, radius: 28, y: 18)
+        static let cardRest = Lift(opacity: 0.25, radius: 8, y: 4)
         /// A soft shadow under a title or a label laid over artwork (always on).
         static let title = Lift(opacity: 0.35, radius: 12, y: 0)
     }
@@ -231,6 +232,11 @@ extension View {
     /// `lift` under the view while it has focus; at rest no shadow.
     func focusShadow(_ lift: Theme.Shadow.Lift, isFocused: Bool) -> some View {
         shadow(color: .black.opacity(isFocused ? lift.opacity : 0), radius: lift.radius, y: lift.y)
+    }
+
+    /// `lift` under the view while it does not have focus (it fades out as `focusShadow`'s fades in).
+    func restingShadow(_ lift: Theme.Shadow.Lift, isFocused: Bool) -> some View {
+        shadow(color: .black.opacity(isFocused ? 0 : lift.opacity), radius: lift.radius, y: lift.y)
     }
 
     /// An always-on shadow of the design's.

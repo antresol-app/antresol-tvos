@@ -225,7 +225,7 @@ struct EpisodeCardView: View {
                 }
             }
             .frame(width: width, height: width * 9 / 16)
-            .watchedDimming(watched, isFocused: isFocused)
+            .watchedDimming(watched, width: width, isFocused: isFocused)
             .cardLift(isFocused: isFocused)
 
             VStack(alignment: .leading, spacing: 6) {

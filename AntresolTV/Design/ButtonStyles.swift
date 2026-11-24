@@ -153,7 +153,10 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// The lift applied to focused card artwork: scale, soft shadow and a thin light rim.
+    /// The lift applied to focused card artwork: scale, soft shadow and a thin light rim. A
+    /// shadow's size does not change with focus (a faint one at rest fades out, the lifted one
+    /// fades in): a blur radius that grows is drawn again on every frame, and there are
+    /// dozens of cards on a page.
     func cardLift(isFocused: Bool, cornerRadius: CGFloat = Theme.Radius.card) -> some View {
         self
             .overlay(
@@ -161,7 +164,8 @@ extension View {
                     .strokeBorder(.white.opacity(isFocused ? 0.85 : 0.08), lineWidth: isFocused ? 3 : 1)
             )
             .scaleEffect(isFocused ? Theme.Motion.Focus.card : 1)
-            .shadow(color: .black.opacity(isFocused ? 0.6 : 0.25), radius: isFocused ? 28 : 8, y: isFocused ? 18 : 4)
+            .restingShadow(Theme.Shadow.cardRest, isFocused: isFocused)
+            .focusShadow(Theme.Shadow.card, isFocused: isFocused)
     }
 }
 
