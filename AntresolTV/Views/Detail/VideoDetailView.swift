@@ -95,7 +95,7 @@ struct VideoDetailView: View {
                     .foregroundStyle(Theme.Colors.label)
                     .lineLimit(2)
                     .minimumScaleFactor(0.6)
-                    .shadow(color: .black.opacity(0.35), radius: 12)
+                    .softShadow(Theme.Shadow.title)
                     .frame(maxWidth: 1400, alignment: .leading)
                 if !metaLine.isEmpty {
                     Text(verbatim: metaLine)

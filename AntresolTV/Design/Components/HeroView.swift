@@ -58,7 +58,7 @@ struct HeroView: View {
                     .foregroundStyle(Theme.Colors.label)
                     .lineLimit(2)
                     .minimumScaleFactor(0.6)
-                    .shadow(color: .black.opacity(0.35), radius: 12)
+                    .softShadow(Theme.Shadow.title)
                 metaRow
                     .padding(.top, 18)
                 if let summary {

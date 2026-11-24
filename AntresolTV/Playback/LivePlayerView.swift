@@ -477,7 +477,7 @@ private struct TrackMenu: View {
         }
         .padding(24)
         .frame(width: 720, alignment: .leading)
-        .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous))
+        .background(Theme.Colors.scrim, in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous))
         .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 8, style: .continuous), highlighted: false, interactive: false)
         .focusSection()
         .defaultFocus($focused, selected)

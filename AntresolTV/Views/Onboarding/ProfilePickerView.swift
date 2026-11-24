@@ -193,8 +193,8 @@ private struct ProfileTile: View {
                     Circle().strokeBorder(.white.opacity(isFocused ? 0.95 : 0), lineWidth: 6)
                         .padding(-12)
                 )
-                .scaleEffect(isFocused ? 1.1 : 1)
-                .shadow(color: .black.opacity(isFocused ? 0.6 : 0), radius: 26, y: 16)
+                .scaleEffect(isFocused ? Theme.Motion.Focus.tile : 1)
+                .focusShadow(Theme.Shadow.tile, isFocused: isFocused)
 
             HStack(spacing: 10) {
                 Text(verbatim: profile.name)

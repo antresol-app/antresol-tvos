@@ -63,7 +63,7 @@ private struct PillButtonBody: View {
             }
             .modifier(PillSurface(segment: segment, highlighted: isFocused, prominent: kind == .primary))
             .scaleEffect(scale)
-            .shadow(color: .black.opacity(isFocused ? 0.55 : 0), radius: 22, y: 12)
+            .focusShadow(Theme.Shadow.pill, isFocused: isFocused)
             .opacity(isEnabled ? 1 : 0.45)
             .animation(Theme.Motion.easeOut, value: isFocused)
             .animation(Theme.Motion.easeOut, value: configuration.isPressed)
@@ -78,8 +78,8 @@ private struct PillButtonBody: View {
     }
 
     private var scale: CGFloat {
-        if configuration.isPressed { return 0.97 }
-        return isFocused ? Theme.Motion.focusScale : 1
+        if configuration.isPressed { return Theme.Motion.Press.control }
+        return isFocused ? Theme.Motion.Focus.pill : 1
     }
 }
 
@@ -134,7 +134,7 @@ private struct CardButtonBody: View {
     var body: some View {
         configuration.label
             .environment(\.isCardFocused, isFocused)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .scaleEffect(configuration.isPressed ? Theme.Motion.Press.control : 1)
             .animation(Theme.Motion.easeOut, value: isFocused)
             .animation(Theme.Motion.easeOut, value: configuration.isPressed)
     }
@@ -160,7 +160,7 @@ extension View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(.white.opacity(isFocused ? 0.85 : 0.08), lineWidth: isFocused ? 3 : 1)
             )
-            .scaleEffect(isFocused ? Theme.Motion.cardLift : 1)
+            .scaleEffect(isFocused ? Theme.Motion.Focus.card : 1)
             .shadow(color: .black.opacity(isFocused ? 0.6 : 0.25), radius: isFocused ? 28 : 8, y: isFocused ? 18 : 4)
     }
 }
@@ -186,7 +186,7 @@ private struct ShelfTitleButtonBody: View {
             .background {
                 if isFocused { Color.clear.glassSurface(in: Capsule(), highlighted: true) }
             }
-            .scaleEffect(configuration.isPressed ? 0.97 : (isFocused ? Theme.Motion.focusScale : 1))
+            .scaleEffect(configuration.isPressed ? Theme.Motion.Press.control : (isFocused ? Theme.Motion.Focus.pill : 1))
             .animation(Theme.Motion.easeOut, value: isFocused)
     }
 }

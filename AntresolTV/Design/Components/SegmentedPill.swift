@@ -55,8 +55,8 @@ private struct SegmentBody: View {
             // Plain fills inside the capsule's glass (no glass on glass): white for the
             // selected option, a lighter white for a focused unselected one.
             .background(plate, in: Capsule())
-            .scaleEffect(isFocused ? Theme.Motion.focusScale : (configuration.isPressed ? 0.97 : 1))
-            .shadow(color: .black.opacity(isFocused ? 0.5 : 0), radius: 16, y: 8)
+            .scaleEffect(isFocused ? Theme.Motion.Focus.pill : (configuration.isPressed ? Theme.Motion.Press.control : 1))
+            .focusShadow(Theme.Shadow.chip, isFocused: isFocused)
             .animation(Theme.Motion.easeOut, value: isFocused)
             .animation(Theme.Motion.easeOut, value: isSelected)
     }

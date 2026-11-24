@@ -414,8 +414,8 @@ private struct GuideBlockBody: View {
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label3)
             .background(isFocused ? Color.white : fill, in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous))
-            .scaleEffect(configuration.isPressed ? 0.98 : (isFocused ? 1.04 : 1))
-            .shadow(color: .black.opacity(isFocused ? 0.55 : 0), radius: 18, y: 10)
+            .scaleEffect(configuration.isPressed ? Theme.Motion.Press.block : (isFocused ? Theme.Motion.Focus.block : 1))
+            .focusShadow(Theme.Shadow.block, isFocused: isFocused)
             .zIndex(isFocused ? 1 : 0)
             .animation(Theme.Motion.easeOut, value: isFocused)
     }

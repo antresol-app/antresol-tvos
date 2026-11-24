@@ -100,7 +100,7 @@ struct ChannelNumberOverlay: View {
                         .foregroundStyle(Theme.Colors.label)
                         .padding(.horizontal, 44)
                         .padding(.vertical, 16)
-                        .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous))
+                        .background(Theme.Colors.scrim, in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous))
                         .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous), highlighted: false, interactive: false)
                         .accessibilityLabel(Text(verbatim: String(localized: "Channel \(entry.digits)", bundle: .localized)))
                         .accessibilityIdentifier("channel.number")
@@ -110,7 +110,7 @@ struct ChannelNumberOverlay: View {
                         .foregroundStyle(Theme.Colors.label)
                         .padding(.horizontal, 36)
                         .padding(.vertical, 22)
-                        .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous))
+                        .background(Theme.Colors.scrim, in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous))
                         .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous), highlighted: false, interactive: false)
                         .accessibilityIdentifier("channel.number.missing")
                 }
@@ -158,11 +158,11 @@ struct NumberPad: View {
             .focusSection()
         }
         .padding(48)
-        .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 12, style: .continuous))
+        .background(Theme.Colors.scrim, in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 12, style: .continuous))
         .glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet + 12, style: .continuous), highlighted: false, interactive: false)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
-            Color.black.opacity(0.55).ignoresSafeArea()
+            Theme.Colors.scrimStrong.ignoresSafeArea()
         }
         .overlay { ChannelNumberOverlay(input: input) }
         .defaultFocus($focused, "1")

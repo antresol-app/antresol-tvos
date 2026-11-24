@@ -34,3 +34,24 @@ Layout patterns (see tv_.png, tv_movies.png)
 - Grid pages: large bold page title left, segmented sort pill right ("Recently Added | By Title | By Year").
 - Icons: 24-grid line icons, stroke 1.9, round caps (SF Symbols equivalents are fine on Apple platforms).
 - Copy is localised EN + RU (server sends Accept-Language aware errors). Ship both.
+
+## tvOS (AntresolTV/Design/Theme.swift)
+
+The reference above is the web/iOS app's v0.3.0. The tvOS `Theme` follows it with these
+differences, kept as shipped (a 1920x1080 point canvas seen from the couch):
+
+- Sizes: type and cards are larger than on the web TV layout (`Theme.Typography`, `Theme.Layout`).
+- Secondary text: label-2 is #ebebf5 at 70% and label-3 at 45%; the web and iOS tokens have 62% and 36%.
+- Focus is lit glass, not a ring: a focused pill, row or segment turns white with black text.
+
+Focus, shadow and scrim values are tokens, not literals in the views:
+
+- `Theme.Motion.Focus` (how far a focused control grows: pill 1.07, tile 1.1, card and guide block 1.04,
+  row 1.02, channel row 1.015) and `Theme.Motion.Press` (0.95 to 0.99).
+- `Theme.Shadow`: one `Lift` (opacity, blur radius, y) per kind of control, drawn by
+  `focusShadow(_:isFocused:)` (nothing at rest) or `softShadow(_:)` (always on, `title`). A card's
+  shadow keeps its size and only fades in: a blur radius that grows is drawn again on every frame.
+- `Theme.Colors.scrim` and `scrimStrong`: the dark plate behind text over video or artwork.
+- `focusPlate(...)` (ListRow.swift) is the focus of every full-width row: the lit plate, the lift and the shadow.
+
+A new control takes its scale and shadow from these; a new value is added here first.

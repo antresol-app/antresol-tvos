@@ -33,6 +33,10 @@ enum Theme {
         static let watchedMarkFill = Color.black.opacity(0.62)
         static let watchedDim: Double = 0.5
         static let watchedDimFocused: Double = 0.15
+        /// A dark plate behind text laid over video or artwork (the live player's panels, the
+        /// channel number, the TV list's header), and the stronger one under a label or a dimmed page.
+        static let scrim = Color.black.opacity(0.35)
+        static let scrimStrong = Color.black.opacity(0.55)
     }
 
     enum Gradients {
@@ -102,7 +106,6 @@ enum Theme {
 
     enum Radius {
         static let card: CGFloat = 12
-        static let smallCard: CGFloat = 10
         static let control: CGFloat = 12
         static let sheet: CGFloat = 20
         static let badge: CGFloat = 6
@@ -156,13 +159,60 @@ enum Theme {
         /// cubic-bezier(.22, 1, .36, 1)
         static let easeOut = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.26)
         static let slowEaseOut = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.6)
-        static let focusScale: CGFloat = 1.07
-        static let cardLift: CGFloat = 1.04
+        /// How far a focused control grows. The scale suits the size: a pill or a round button
+        /// is small and grows most, a card or a guide block a little less, a row least (it is as
+        /// wide as the page).
+        enum Focus {
+            static let pill: CGFloat = 1.07
+            /// A profile's avatar on the picker.
+            static let tile: CGFloat = 1.1
+            static let card: CGFloat = 1.04
+            /// A programme block in the guide.
+            static let block: CGFloat = 1.04
+            /// A settings or list row, and the TV channel list's row.
+            static let row: CGFloat = 1.02
+            static let channelRow: CGFloat = 1.015
+        }
+
+        /// How far a pressed control shrinks.
+        enum Press {
+            static let circle: CGFloat = 0.95
+            static let control: CGFloat = 0.97
+            static let block: CGFloat = 0.98
+            static let row: CGFloat = 0.99
+        }
 
         /// A panel coming up from the bottom edge; only a fade with Reduce Motion on.
         static func rise(reduceMotion: Bool) -> AnyTransition {
             reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
         }
+    }
+
+    /// The shadow a focused control casts, black, from `y` below it (nothing at rest). The
+    /// size goes with the control's: one value for each kind of control.
+    enum Shadow {
+        struct Lift {
+            let opacity: Double
+            let radius: CGFloat
+            let y: CGFloat
+        }
+
+        static let pill = Lift(opacity: 0.55, radius: 22, y: 12)
+        /// Round buttons.
+        static let circle = Lift(opacity: 0.5, radius: 18, y: 10)
+        /// Segmented options and the category button.
+        static let chip = Lift(opacity: 0.5, radius: 16, y: 8)
+        /// Settings and list rows.
+        static let row = Lift(opacity: 0.45, radius: 18, y: 10)
+        /// The TV channel list's row.
+        static let channelRow = Lift(opacity: 0.5, radius: 24, y: 12)
+        static let block = Lift(opacity: 0.55, radius: 18, y: 10)
+        /// A profile's avatar.
+        static let tile = Lift(opacity: 0.6, radius: 26, y: 16)
+        /// A focused card's artwork.
+        static let card = Lift(opacity: 0.6, radius: 28, y: 18)
+        /// A soft shadow under a title or a label laid over artwork (always on).
+        static let title = Lift(opacity: 0.35, radius: 12, y: 0)
     }
 
     /// A saturated mid-dark colour derived from `seed`, used for placeholders and hero tints.
@@ -174,6 +224,18 @@ enum Theme {
         }
         let hue = Double(hash % 360) / 360
         return Color(hue: hue, saturation: 0.55, brightness: 0.42)
+    }
+}
+
+extension View {
+    /// `lift` under the view while it has focus; at rest no shadow.
+    func focusShadow(_ lift: Theme.Shadow.Lift, isFocused: Bool) -> some View {
+        shadow(color: .black.opacity(isFocused ? lift.opacity : 0), radius: lift.radius, y: lift.y)
+    }
+
+    /// An always-on shadow of the design's.
+    func softShadow(_ lift: Theme.Shadow.Lift) -> some View {
+        shadow(color: .black.opacity(lift.opacity), radius: lift.radius, y: lift.y)
     }
 }
 

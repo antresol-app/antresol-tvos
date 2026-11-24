@@ -327,8 +327,8 @@ private struct CategoryButtonBody: View {
             .padding(.horizontal, 30)
             .frame(minHeight: 72)
             .glassSurface(in: Capsule(), highlighted: isFocused)
-            .scaleEffect(isFocused ? Theme.Motion.focusScale : (configuration.isPressed ? 0.97 : 1))
-            .shadow(color: .black.opacity(isFocused ? 0.5 : 0), radius: 16, y: 8)
+            .scaleEffect(isFocused ? Theme.Motion.Focus.pill : (configuration.isPressed ? Theme.Motion.Press.control : 1))
+            .focusShadow(Theme.Shadow.chip, isFocused: isFocused)
             .animation(Theme.Motion.easeOut, value: isFocused)
     }
 }
@@ -386,7 +386,7 @@ private struct CategoriesPanel: View {
             .padding(.horizontal, 32)
             .frame(width: 720)
             .frame(maxHeight: .infinity, alignment: .top)
-            .background(.black.opacity(0.35))
+            .background(Theme.Colors.scrim)
             .glassSurface(in: Rectangle(), highlighted: false, interactive: false)
             .focusSection()
             .defaultFocus($focused, current)
@@ -770,7 +770,7 @@ private struct ProgrammeCard: View {
                 }
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
-                .background(.black.opacity(0.55), in: Capsule())
+                .background(Theme.Colors.scrimStrong, in: Capsule())
                 .padding(32)
             }
         }
@@ -835,14 +835,10 @@ private struct ChannelRowBody: View {
         configuration.label
             .environment(\.isCardFocused, isFocused)
             .padding(.horizontal, Theme.Layout.listRowInset)
-            .background {
-                if isFocused {
-                    Color.clear.glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.sheet, style: .continuous), highlighted: true)
-                }
-            }
-            .scaleEffect(configuration.isPressed ? 0.99 : (isFocused ? 1.015 : 1))
-            .shadow(color: .black.opacity(isFocused ? 0.5 : 0), radius: 24, y: 12)
-            .animation(Theme.Motion.easeOut, value: isFocused)
+            .focusPlate(
+                isFocused: isFocused, isPressed: configuration.isPressed,
+                radius: Theme.Radius.sheet, scale: Theme.Motion.Focus.channelRow, shadow: Theme.Shadow.channelRow
+            )
             .padding(.horizontal, -Theme.Layout.listRowInset)
     }
 }

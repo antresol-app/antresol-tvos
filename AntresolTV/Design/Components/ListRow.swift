@@ -19,14 +19,25 @@ private struct ListRowBody: View {
             .foregroundStyle(isFocused ? Theme.Colors.labelInverse : Theme.Colors.label)
             .padding(.horizontal, Theme.Layout.listRowInset)
             .frame(minHeight: 84)
-            .background {
-                if isFocused {
-                    Color.clear.glassSurface(in: RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous), highlighted: true)
-                }
+            .focusPlate(isFocused: isFocused, isPressed: configuration.isPressed)
+    }
+}
+
+extension View {
+    /// The focus of a row: a lit glass plate behind it, a gentle lift and a shadow. The
+    /// defaults are a settings or list row's; the TV channel list's row has its own.
+    func focusPlate(
+        isFocused: Bool, isPressed: Bool, radius: CGFloat = Theme.Radius.control,
+        scale: CGFloat = Theme.Motion.Focus.row, shadow: Theme.Shadow.Lift = Theme.Shadow.row
+    ) -> some View {
+        background {
+            if isFocused {
+                Color.clear.glassSurface(in: RoundedRectangle(cornerRadius: radius, style: .continuous), highlighted: true)
             }
-            .scaleEffect(configuration.isPressed ? 0.99 : (isFocused ? 1.02 : 1))
-            .shadow(color: .black.opacity(isFocused ? 0.45 : 0), radius: 18, y: 10)
-            .animation(Theme.Motion.easeOut, value: isFocused)
+        }
+        .scaleEffect(isPressed ? Theme.Motion.Press.row : (isFocused ? scale : 1))
+        .focusShadow(shadow, isFocused: isFocused)
+        .animation(Theme.Motion.easeOut, value: isFocused)
     }
 }
 
@@ -72,8 +83,8 @@ private struct CircleButtonBody: View {
                         .padding(.bottom, diameter * 0.12)
                 }
             }
-            .scaleEffect(configuration.isPressed ? 0.95 : (isFocused ? Theme.Motion.focusScale : 1))
-            .shadow(color: .black.opacity(isFocused ? 0.5 : 0), radius: 18, y: 10)
+            .scaleEffect(configuration.isPressed ? Theme.Motion.Press.circle : (isFocused ? Theme.Motion.Focus.pill : 1))
+            .focusShadow(Theme.Shadow.circle, isFocused: isFocused)
             .opacity(isEnabled ? 1 : 0.4)
             .animation(Theme.Motion.easeOut, value: isFocused)
     }

@@ -48,7 +48,7 @@ struct CollectionHeader<Actions: View>: View {
                         .foregroundStyle(Theme.Colors.label)
                         .lineLimit(2)
                         .minimumScaleFactor(0.5)
-                        .shadow(color: .black.opacity(0.35), radius: 12)
+                        .softShadow(Theme.Shadow.title)
                     if !subtitle.isEmpty {
                         Text(verbatim: subtitle)
                             .font(Theme.Typography.headline)
