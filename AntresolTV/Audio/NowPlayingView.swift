@@ -152,7 +152,7 @@ private struct NowPlayingContent: View {
             Button {
                 audio.setShuffle(!audio.queue.isShuffled)
             } label: {
-                Label("Shuffle", systemImage: "shuffle")
+                RoundGlyph("Shuffle", systemImage: "shuffle")
             }
             .buttonStyle(CircleButtonStyle(diameter: 80, isActive: audio.queue.isShuffled))
             .accessibilityValue(Text(audio.queue.isShuffled ? LocalizedStringKey("On") : LocalizedStringKey("Off")))
@@ -165,7 +165,7 @@ private struct NowPlayingContent: View {
             Button {
                 audio.cycleRepeat()
             } label: {
-                Label("Repeat", systemImage: audio.queue.repeatMode == .one ? "repeat.1" : "repeat")
+                RoundGlyph("Repeat", systemImage: audio.queue.repeatMode == .one ? "repeat.1" : "repeat")
             }
             .buttonStyle(CircleButtonStyle(diameter: 80, isActive: audio.queue.repeatMode != .off))
             .accessibilityValue(Text(verbatim: AudioFormat.repeatMode(audio.queue.repeatMode)))
@@ -175,7 +175,7 @@ private struct NowPlayingContent: View {
                 Button {
                     audio.toggleStar(track)
                 } label: {
-                    Label(starred ? "Remove from Favorites" : "Add to Favorites", systemImage: starred ? "star.fill" : "star")
+                    RoundGlyph(starred ? "Remove from Favorites" : "Add to Favorites", systemImage: starred ? "star.fill" : "star")
                 }
                 .buttonStyle(CircleButtonStyle(diameter: 80, isActive: starred))
             }
@@ -187,7 +187,7 @@ private struct NowPlayingContent: View {
         Button {
             audio.togglePlayPause()
         } label: {
-            Label(audio.isPlaying ? "Pause" : "Play", systemImage: audio.isPlaying ? "pause.fill" : "play.fill")
+            RoundGlyph(audio.isPlaying ? "Pause" : "Play", systemImage: audio.isPlaying ? "pause.fill" : "play.fill")
         }
         .buttonStyle(CircleButtonStyle(diameter: 112))
         .focused($focusedControl, equals: .playPause)
@@ -195,7 +195,7 @@ private struct NowPlayingContent: View {
 
     private func transportButton(_ title: LocalizedStringKey, _ systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
+            RoundGlyph(title, systemImage: systemImage)
         }
         .buttonStyle(CircleButtonStyle(diameter: 80))
     }

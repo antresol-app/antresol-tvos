@@ -59,6 +59,7 @@ private struct CircleButtonBody: View {
     var body: some View {
         configuration.label
             .labelStyle(.iconOnly)
+            .environment(\.roundGlyphPointSize, diameter * 0.36)
             .font(.system(size: diameter * 0.36, weight: .semibold))
             .foregroundStyle(foreground)
             .frame(width: diameter, height: diameter)

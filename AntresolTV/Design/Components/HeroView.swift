@@ -126,7 +126,7 @@ struct HeroView: View {
                     Button {
                         Task { await toggleWatchlist() }
                     } label: {
-                        Label("Watchlist", systemImage: inWatchlist ? "checkmark" : "plus")
+                        RoundGlyph("Watchlist", systemImage: inWatchlist ? "checkmark" : "plus")
                     }
                     .buttonStyle(CircleButtonStyle(diameter: Theme.Layout.heroCircleButton))
                     .focused($focusedButton, equals: .watchlist)
@@ -135,7 +135,7 @@ struct HeroView: View {
                 }
 
                 NavigationLink(value: Route.item(card)) {
-                    Label("Details", systemImage: "info.circle")
+                    RoundGlyph("Details", systemImage: "info.circle")
                 }
                 .buttonStyle(CircleButtonStyle(diameter: Theme.Layout.heroCircleButton))
                 .focused($focusedButton, equals: .details)
@@ -144,7 +144,7 @@ struct HeroView: View {
                     Button {
                         page(by: 1)
                     } label: {
-                        Label("Next", systemImage: "chevron.right")
+                        RoundGlyph("Next", systemImage: "chevron.right")
                     }
                     .buttonStyle(CircleButtonStyle(diameter: Theme.Layout.heroCircleButton))
                     .focused($focusedButton, equals: .next)

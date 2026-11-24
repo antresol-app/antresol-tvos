@@ -366,7 +366,7 @@ private struct LiveControls: View {
 
     private func control(_ id: Control, _ title: LocalizedStringKey, _ symbol: String, isActive: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: symbol)
+            RoundGlyph(title, systemImage: symbol)
         }
         .buttonStyle(CircleButtonStyle(diameter: 84, isActive: isActive))
         .focused($focused, equals: id)

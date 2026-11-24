@@ -269,7 +269,7 @@ private struct TVHeader: View {
                 action: openCategories
             )
             Button(action: openNumberPad) {
-                Label("Channel Number", systemImage: "number")
+                RoundGlyph("Channel Number", systemImage: "number")
             }
             .buttonStyle(CircleButtonStyle(diameter: 72))
             .accessibilityIdentifier("tv.numberpad")
