@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The watched mark on a card's artwork: an eye on a dark disc in the middle of the tile,
-/// a quarter of its width. Pair it with `watchedDimming(_:isFocused:)` on the same artwork.
+/// a quarter of its width. Pair it with `watchedDimming(_:width:isFocused:)` on the same artwork.
 struct WatchedMark: View {
     var diameter: CGFloat
 

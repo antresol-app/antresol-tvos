@@ -24,6 +24,9 @@ final class ServerAddressTests: XCTestCase {
         XCTAssertEqual(candidates("media.example.com"), ["https://media.example.com", "http://media.example.com:8420"])
         XCTAssertEqual(candidates("media.example.com/api/"), ["https://media.example.com", "http://media.example.com:8420"])
         XCTAssertEqual(candidates("media.example.com:9000"), ["https://media.example.com:9000", "http://media.example.com:9000"])
+        // the default port, typed on purpose, goes with https too (an https server may listen on it)
+        XCTAssertEqual(candidates("media.example.com:8420"), ["https://media.example.com:8420", "http://media.example.com:8420"])
+        XCTAssertEqual(candidates(" media.example.com:8420/ "), ["https://media.example.com:8420", "http://media.example.com:8420"])
         XCTAssertEqual(candidates("172.32.0.1"), ["https://172.32.0.1", "http://172.32.0.1:8420"])
         XCTAssertEqual(candidates("100.128.0.1"), ["https://100.128.0.1", "http://100.128.0.1:8420"])
     }

@@ -20,7 +20,7 @@ Running log between milestones. Newest entry last.
   - `ServerURLs`: image/stream/HLS/track/audio/subtitle/comic-page URL builders (`?mk=` where allowed).
     `client.authorizationHeaders` is what image loaders must attach (images need Bearer).
   - `ServerAddress.normalize`: "192.168.1.10" -> `http://192.168.1.10:8420`.
-  - `TokenStore` protocol keyed by `CredentialKey(serverId, userId)`; `InMemoryTokenStore` for tests.
+  - `TokenStore` protocol keyed by `CredentialKey(serverId, userId)`; `InMemoryTokenStore` for tests *(removed 2026-11-24, nothing used it)*.
   - Playback: `MediaKeyStore` (actor, caches mk, refreshes with < 1 h left), `VideoPlaybackSession`
     (actor: `/api/play` with Apple TV caps, mk-signed URL, 20 s keepalive, `replaceSession` on re-start,
     expiry callback on keepalive 404, DELETE on stop), `PlaybackSource` (player <-> file time mapping,
@@ -1105,9 +1105,13 @@ load uses it. The plain `authorizationHeaders` property is for requests the kit 
 - Left on purpose: the Home refetch behind See All (it is also the grid's refresh), the
   resting card shadow (a visual change), the repeated track discovery on a live tune-in,
   `@State` engines built in `MainShellView.init`, Top Shelf artwork downscaling.
+  *(Since 2026-11-24: Top Shelf artwork is asked for at the tile's width and the card's shadow
+  no longer animates its blur radius, the faint resting shadow stays; see "Quality wave".)*
 - Kit API nothing in the app calls (tests only), kept: `Models/Books.swift` beyond
   `isBook` / `withoutBooks`, `devices()`, `revokeDevice(id:)`, `searchSubtitles`,
   `downloadSubtitle`, `libraryStatus()`, `ServerURLs.download`, `ServerURLs.events`.
+  *(Since 2026-11-24 `Models/Books.swift`, `revokeDevice`, `searchSubtitles`, `downloadSubtitle`
+  and `libraryStatus` are gone: see "Quality wave".)*
 
 ## App review round, third pass, 2026-11-17 (the live player and sign-in in the simulator)
 
@@ -1449,3 +1453,27 @@ The owner's list for the iPhone app, taken against this app in the tvOS 27.2 sim
   the server address `-AntresolServerURL` gives it, lands on the server screen and lists the servers of the network, and a
   press of Select there connects to a real one. The new tests stop at the first failed step (`continueAfterFailure = false`)
   for that reason.
+
+## Quality wave, 2026-11-24
+
+Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
+
+- **Images**: `ServerURLs.image(_:width:)` asks the server for `?w=<smallest step >= width>` (not for
+  video frames, paths with a query, other hosts, or logos: the sized copy is a JPEG). `RemoteImage`, the hero
+  tint, Now Playing and the up-next art pass their decode size; Top Shelf asks 1280 (16:9) or 960 (poster) wide,
+  four at a time, straight to disk. `ImagePipeline` has its own `URLSession` (4 connections a host, no
+  `URLCache`), maps cached files and trims `Caches/Artwork` to 300 MB oldest-first on launch.
+- **TV tab**: a refreshed channel list, guide, categories or channel is assigned only when it changed.
+- **Keychain**: items are `...AfterFirstUnlockThisDeviceOnly`; an older item is updated in place on its first
+  read (never deleted, so nobody is signed out; a failed update is logged by status code and retried on the
+  next read). The Top Shelf session is stored only when its token was.
+  *Check once on a real Apple TV after the update: still signed in, Top Shelf fills.*
+- **Server address**: a host away from the home network typed without a scheme is tried over https first
+  (`ServerAddress.candidates(for:)`); plain http to one needs a second press of Connect after a note.
+- **Removed (nothing called them)**: `Models/Books.swift`, `searchSubtitles`, `downloadSubtitle`,
+  `revokeDevice`, `libraryStatus`, `InMemoryTokenStore`, `Theme.Radius.smallCard`, the book and comic-page
+  samples, the library-status sample.
+- **Design**: focus scales, press scales, shadows and scrims are tokens (`Theme.Motion.Focus` / `Press`,
+  `Theme.Shadow`, `Theme.Colors.scrim`), see `docs/design-ref/DESIGN.md`. Card shadow: the faint resting one
+  fades out as the lifted one fades in, neither changes its blur radius; resting and focused look as before.
+- Not done: TVQ-12 (font tokens, text under 23 pt), the way player's `TimedNotice` (player-core batch).

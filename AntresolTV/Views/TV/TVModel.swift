@@ -116,7 +116,7 @@ final class TVModel {
         do {
             let fresh = try await service.list()
             if fresh != list { list = fresh }
-            phase = .loaded
+            if phase != .loaded { phase = .loaded }
         } catch {
             guard !Task.isCancelled else { return }
             let message = appState?.message(for: error)

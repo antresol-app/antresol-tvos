@@ -32,8 +32,9 @@ public enum ServerAddress {
     }
 
     /// The URLs to try for what was typed, best first. An address without a scheme for a
-    /// host away from the home network is tried over https first (the port, when one was
-    /// typed, goes with it), and over plain http (`normalize`) only after that; every other
+    /// host away from the home network is tried over https first (a port that was typed,
+    /// 8420 too, goes with it; the default one is for http only), and over plain http
+    /// (`normalize`) only after that; every other
     /// address is the one URL `normalize` makes of it. Empty for something that is not an
     /// address.
     public static func candidates(for input: String) -> [URL] {
@@ -42,7 +43,8 @@ public enum ServerAddress {
               var secure = URLComponents(url: plain, resolvingAgainstBaseURL: false)
         else { return [plain] }
         secure.scheme = "https"
-        if secure.port == defaultPort { secure.port = nil }
+        let typed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if URLComponents(string: "http://" + typed)?.port == nil { secure.port = nil }
         return [secure.url, plain].compactMap { $0 }
     }
 

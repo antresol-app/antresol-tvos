@@ -76,8 +76,12 @@ struct TopShelfArtwork {
             defer { try? FileManager.default.removeItem(at: temporary) }
             let size = (try? temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             guard (response as? HTTPURLResponse)?.statusCode == 200, size > 0 else { return stale() }
-            try? FileManager.default.removeItem(at: file)
-            try FileManager.default.moveItem(at: temporary, to: file)
+            // Never remove the copy there is before the new one is in place.
+            if FileManager.default.fileExists(atPath: file.path) {
+                _ = try FileManager.default.replaceItemAt(file, withItemAt: temporary)
+            } else {
+                try FileManager.default.moveItem(at: temporary, to: file)
+            }
             return file
         } catch {
             // Offline: a stale copy is better than no artwork.

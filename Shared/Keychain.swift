@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Security
 
 /// Generic-password items of one Keychain service, addressed by account name.
@@ -15,6 +16,7 @@ struct Keychain: Sendable {
     }
 
     private static let accessible = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Antresol", category: "keychain")
 
     func string(for account: String) -> String? {
         var query = baseQuery(for: account)
@@ -29,7 +31,13 @@ struct Keychain: Sendable {
         // A token stored before it was bound to this device: the attribute is changed in
         // place, the item (and so the sign-in) stays. A failed update changes nothing.
         if (item[kSecAttrAccessible as String] as? String) != (Self.accessible as String) {
-            SecItemUpdate(baseQuery(for: account) as CFDictionary, [kSecAttrAccessible as String: Self.accessible] as CFDictionary)
+            let status = SecItemUpdate(baseQuery(for: account) as CFDictionary, [kSecAttrAccessible as String: Self.accessible] as CFDictionary)
+            // Only the service and the status code: never the account (server and profile) or the value.
+            if status == errSecSuccess {
+                Self.log.info("moved an item of \(service, privacy: .public) to this device only")
+            } else if status != errSecItemNotFound {
+                Self.log.error("moving an item of \(service, privacy: .public) to this device only failed: \(status, privacy: .public)")
+            }
         }
         return String(data: data, encoding: .utf8)
     }

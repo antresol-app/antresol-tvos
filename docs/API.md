@@ -512,7 +512,7 @@ Samples: `search.json`, `search-music.json`.
 - `startedAt` and `finishedAt` are left out until set.
 - The counts are library totals.
 
-Sample: `library-status.json`.
+*(The sample file is gone: the TV app never calls this endpoint.)*
 
 ---
 
@@ -916,8 +916,7 @@ Works for `book`, `audiobook`, `comic` (series) and `comic_volume` ids.
 | volumes | VolumeCard[] | Comic series only: Card fields flattened, plus `pages: int`, `direction: "rtl"\|"ltr"`, `fileId: int`. |
 | direction | string | Comic reading direction, `"rtl"` or `"ltr"`; `""` for non-comics. |
 
-Samples: `book-audiobook.json` (an m4b with embedded chapters), `book-audiobook-multifile.json`
-(2 mp3 parts), `book-audiobook-mp3.json`, `book-comic.json`, `book-comic-volume.json`.
+*(The recorded samples of this response are gone: the TV app does not offer books.)*
 
 ### 8.3 Audiobook streaming: `GET /api/audio/{fileId}`
 
@@ -950,7 +949,7 @@ Samples: `book-audiobook.json` (an m4b with embedded chapters), `book-audiobook-
 - These endpoints need Bearer or cookie; `mk` does not work.
 - Progress: `PUT /api/progress/{volumeItemId}` with `{"locator": "page:<1-based page>", "fraction": <(lastVisiblePage+1)/count>}`.
 
-Sample: `comic-pages.json`.
+*(No recorded sample: the TV app does not offer comics.)*
 
 ### 8.6 E-books (low priority)
 

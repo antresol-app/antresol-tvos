@@ -16,8 +16,9 @@ import UIKit
 ///   for 30 days, then the oldest over `byteCap`.
 /// - Its own `URLSession` (four connections to a host, no `URLCache`: this cache is the
 ///   cache), so a cold grid does not queue the API calls behind its pictures.
-/// - Concurrent requests for the same image share one download, whatever sizes they ask
-///   for, and one decode per size; a download nobody waits for any more is cancelled.
+/// - Concurrent requests for the same URL share one download, whatever pixel sizes they
+///   decode it to (the server's copy at another width is another URL), and one decode per
+///   size; a download nobody waits for any more is cancelled.
 /// - A few decodes run at once (`decodeSlots`); the others wait their turn.
 final class ImagePipeline: @unchecked Sendable {
     static let shared = ImagePipeline()
@@ -100,8 +101,8 @@ final class ImagePipeline: @unchecked Sendable {
 
     // MARK: - Loading
 
-    /// The original bytes of `url`. Every size asked for at the same time shares one
-    /// load (the hero wants its backdrop small for the tint and large for the screen).
+    /// The bytes of `url`. Every decode size asked for at the same time shares one
+    /// load of the same URL (the hero shows its backdrop at one size and tints from another).
     /// The load is cancelled when every caller waiting for it was (cells scrolled away).
     private func originalData(for url: URL, headers: [String: String]) async -> Data? {
         let key = url.absoluteString
