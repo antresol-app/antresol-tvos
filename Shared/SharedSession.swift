@@ -50,7 +50,9 @@ enum SharedSessionStore {
         if let current = load(), current.session == session, current.token == token {
             return false
         }
-        try? keychain.set(token, for: tokenAccount)
+        // The session goes with its token: a token that was not kept leaves the extension
+        // with the pair it had.
+        guard (try? keychain.set(token, for: tokenAccount)) != nil else { return false }
         defaults?.set(try? JSONEncoder().encode(session), forKey: sessionKey)
         return true
     }

@@ -3,6 +3,8 @@ import Security
 
 /// Generic-password items of one Keychain service, addressed by account name.
 /// With an `accessGroup` the items live in that shared group (app and Top Shelf extension).
+/// Items are readable after the first unlock and stay on this device (no backup or
+/// device-to-device transfer); an item made before that is moved to it the first time it is read.
 struct Keychain: Sendable {
     let service: String
     var accessGroup: String?
@@ -12,26 +14,35 @@ struct Keychain: Sendable {
         self.accessGroup = accessGroup
     }
 
+    private static let accessible = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+
     func string(for account: String) -> String? {
         var query = baseQuery(for: account)
         query[kSecReturnData as String] = true
+        query[kSecReturnAttributes as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data
+              let item = result as? [String: Any],
+              let data = item[kSecValueData as String] as? Data
         else { return nil }
+        // A token stored before it was bound to this device: the attribute is changed in
+        // place, the item (and so the sign-in) stays. A failed update changes nothing.
+        if (item[kSecAttrAccessible as String] as? String) != (Self.accessible as String) {
+            SecItemUpdate(baseQuery(for: account) as CFDictionary, [kSecAttrAccessible as String: Self.accessible] as CFDictionary)
+        }
         return String(data: data, encoding: .utf8)
     }
 
     func set(_ value: String, for account: String) throws {
         let data = Data(value.utf8)
         let query = baseQuery(for: account)
-        let update: [String: Any] = [kSecValueData as String: data]
+        let update: [String: Any] = [kSecValueData as String: data, kSecAttrAccessible as String: Self.accessible]
         var status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
         if status == errSecItemNotFound {
             var insert = query
             insert[kSecValueData as String] = data
-            insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            insert[kSecAttrAccessible as String] = Self.accessible
             status = SecItemAdd(insert as CFDictionary, nil)
         }
         guard status == errSecSuccess else { throw KeychainError(status: status) }
