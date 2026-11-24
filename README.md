@@ -17,10 +17,12 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   approves the sign-in at once; a phone camera opens a page to type the server address. The
   remote stays a fallback: servers on the home network found with Bonjour (`_antresol._tcp`,
   server with LAN discovery), or "Enter Address with the Remote": a host, `host:port` or URL
-  (port 8420 by default). Then "Sign in with your phone": a QR code and a
+  (port 8420 by default; a host away from the home network typed without a scheme is tried
+  over https first, and plain http to one asks for a second press of Connect after a note that
+  the connection is not encrypted). Then "Sign in with your phone": a QR code and a
   6-character code that a signed-in phone approves (the Antresol app or the server's `/pair`
   page), renewed when it expires; or "Sign In with the Remote": the "Who's watching?" profile picker with avatar gradients, password entry for protected profiles,
-  and kid profiles. Tokens are kept per server and profile in the Keychain, and the session is
+  and kid profiles. Tokens are kept per server and profile in the Keychain (this device only), and the session is
   restored at launch.
 - **Home**: a full-screen hero carousel like the TV app's (title, kind and genres with the age
   rating, a one-line description, Play and round watchlist, info and next buttons, page dots),
