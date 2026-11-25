@@ -310,7 +310,7 @@
 /* Servers on the network and sign-in with a phone */
 "Servers on This Network" = "Серверы в этой сети";
 "Looking for servers…" = "Ищем серверы…";
-"No servers found. A server in Docker is found only with host networking: enter its address below." = "Серверы не найдены. Сервер в Docker виден, только если он запущен с сетью хоста (network_mode: host), — введите его адрес ниже.";
+"No servers found. A server in Docker is found only with host networking: enter its address below." = "Серверы не найдены. Сервер в Docker виден только с сетью хоста (host): введите его адрес ниже.";
 "Antresol can't look for servers: local network access is off. Turn it on in Settings > General > Privacy & Security > Local Network, or enter the address below." = "Antresol не может искать серверы: доступ к локальной сети выключен. Включите его в Настройках > Основные > Конфиденциальность и безопасность > Локальная сеть или введите адрес ниже.";
 "Sign in with your phone" = "Войдите с телефона";
 "Scan the code with your phone's camera or in the Antresol app (Sign In on a TV). Or open %@ on a phone signed in to Antresol and type the code." = "Отсканируйте код камерой телефона или в приложении Antresol («Войти на телевизоре»). Или откройте %@ на телефоне, где вы вошли в Antresol, и введите код.";
