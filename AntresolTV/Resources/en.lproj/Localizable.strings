@@ -421,8 +421,7 @@
 "All watched" = "All watched";
 "Up next: %@" = "Up next: %@";
 "%@ of %@" = "%1$@ of %2$@";
-"Play from %@" = "Play from %@";
-"%@ from %@" = "%1$@ from %2$@";
+"Continue from Their Place" = "Continue from Their Place";
 "S%lld E%lld" = "S%lld, E%lld";
 "Special %lld" = "Special %lld";
 "Pick up where they are — the progress is saved to your profile." = "Pick up where they are — the progress is saved to your profile.";

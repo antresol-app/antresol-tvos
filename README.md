@@ -98,7 +98,7 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 - **Family**: where the other profiles are in a title (`GET /api/items/{id}/family`, as the web's «Семья»). Under the
   actions of a movie, show or episode page a quiet line shows their faces in progress rings (a check when finished),
   «Family» and who is where («Alex · S1, E2 · 17 min», «2 more»); Select opens the list: each profile's place, when they
-  were there, and «Play from 34:00» (or the episode), which takes their position as this profile's own
+  were there, and «Continue from Their Place» (or «Play S1 E3» for an episode nobody has started), which takes their position as this profile's own
   (`POST /api/progress/{id}/adopt`; theirs is never written) and plays from it. A profile whose next episode it is just
   starts that one; a finished one has no button. Episode tiles carry the faces of those who are in them, and the player's
   transport bar has a «Family» menu that goes to their place without saving it as this profile's until it plays on there

@@ -47,7 +47,7 @@ final class FamilyUITests: XCTestCase {
         XCTAssertTrue(alex.label.contains("Alex"), alex.label)
         XCTAssertTrue(alex.label.contains(language == "ru" ? "34 мин из 1 ч 50 мин" : "34 min of 1 h 50 min"), alex.label)
         XCTAssertTrue(alex.label.contains(language == "ru" ? "2 ч назад" : "2 hr ago"), "no time of the last watch: \(alex.label)")
-        XCTAssertTrue(alex.label.contains(language == "ru" ? "Смотреть с 34:00" : "Play from 34:00"), "no jump: \(alex.label)")
+        XCTAssertTrue(alex.label.contains(language == "ru" ? "Продолжить с их места" : "Continue from Their Place"), "no jump: \(alex.label)")
         XCTAssertTrue(waitForFocus(alex), "the list did not start on the newest profile: \(focusedLabel)")
         // a device's account names its person; a profile that finished it has nothing to continue from
         let device = app.buttons["family.row.14"]
@@ -83,7 +83,7 @@ final class FamilyUITests: XCTestCase {
         remote.press(.select)
         let alex = app.buttons["family.row.11"]
         XCTAssertTrue(alex.waitForExistence(timeout: 10), "the list did not open")
-        XCTAssertTrue(alex.label.contains(language == "ru" ? "С1 Э2 с 17:00" : "S1, E2 from 17:00"), "no jump to the episode: \(alex.label)")
+        XCTAssertTrue(alex.label.contains(language == "ru" ? "Продолжить с их места" : "Continue from Their Place"), "no jump to the episode: \(alex.label)")
         let sam = app.buttons["family.row.12"]
         XCTAssertTrue(sam.label.contains(language == "ru" ? "Далее: С2 Э1" : "Up next: S2, E1"), "no next episode: \(sam.label)")
         XCTAssertTrue(sam.label.contains(language == "ru" ? "Смотреть С2 Э1" : "S2, E1"), "no way to start it: \(sam.label)")

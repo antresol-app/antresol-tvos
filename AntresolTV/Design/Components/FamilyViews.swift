@@ -34,13 +34,13 @@ enum FamilyText {
         }
     }
 
-    /// The jump's words: «Play from 33:20», «Play S1 E3», «S1 E2 from 17:00»; "" for none.
+    /// The jump's words: «Continue from Their Place» (the place itself is on the row's line), «Play S1 E3» for an
+    /// episode nobody has started; "" for none.
     static func jump(_ jump: FamilyJump) -> String {
         switch jump {
         case .none: return ""
         case .watchEpisode(let at): return String(localized: "Play \(code(at))", bundle: .localized)
-        case .watchEpisodeAt(let at, let clock): return String(localized: "\(code(at)) from \(clock)", bundle: .localized)
-        case .watchAt(let clock): return String(localized: "Play from \(clock)", bundle: .localized)
+        case .watchEpisodeAt, .watchAt: return String(localized: "Continue from Their Place", bundle: .localized)
         }
     }
 
