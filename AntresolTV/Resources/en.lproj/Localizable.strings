@@ -21,7 +21,6 @@
 "Antresol %@ · %@" = "Antresol %1$@ · %2$@";
 "This server has no profiles yet. Create one in the Antresol web app." = "This server has no profiles yet. Create one in the Antresol web app.";
 "Password protected" = "Password protected";
-"Enter the password for this profile" = "Enter the password for this profile";
 "Password" = "Password";
 "Sign In" = "Sign In";
 
