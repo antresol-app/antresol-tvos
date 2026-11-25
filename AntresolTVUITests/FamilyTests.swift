@@ -240,8 +240,10 @@ final class FamilyUITests: XCTestCase {
     /// Once the player has played five seconds at their place it is this profile's own: saved from there on.
     func testAPeekedPlaceBecomesOursOncePlayedOn() throws {
         let clock = playFromTheSavedPositionAndPeekAtAlex()
-        // the hold ends five seconds on; the periodic write (every 10 s) then takes the real position
-        XCTAssertTrue(wait(30) { self.clipWrites().contains { $0 >= 28_000 } }, "the place played on was not saved: \(clipWrites())")
+        // the bar's Select paused the player: it plays on from their place, and five seconds there end the hold; the
+        // periodic write (every 10 s) then takes the real position
+        remote.press(.playPause)
+        XCTAssertTrue(wait(30) { self.clipWrites().contains { $0 >= 30_000 } }, "the place played on was not saved: \(clipWrites())")
         leavePlayer(clock)
         let writes = clipWrites()
         XCTAssertTrue(writes.allSatisfy { $0 >= 18_000 }, "a position from before the film was written: \(writes)")
