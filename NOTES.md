@@ -1564,7 +1564,9 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
   or episode someone else is in. A row seeks there (`seekFile`, so a growing playlist gets a new session); while the player
   is only looking, the position saved stays the one before the jump (`FamilyHold`: from the target on, five seconds of
   playing there make it this profile's own; going elsewhere, or never arriving in 20 s, ends the hold), and «Back to 12:40»
-  seeks back. The menu rows carry the profile's gradient and initial (the photo is not loaded for a menu).
+  seeks back. The player has «arrived» after two readings in a row at the target: a seek in flight reports the target and
+  then the old place again before it lands (seen on the simulator), and one reading was taken for «went elsewhere».
+  The menu rows carry the profile's gradient and initial (the photo is not loaded for a menu).
 - A season's page is its series': a series' member sits at an episode (`itemId`), «Up next» (`next`) at the one after the
   last finished. The server omits `season` when it is 0, so a special shows as «S0, E3», as on the web.
 - The mock's `--family`: the film 19 (four profiles), the clip 22 (positions inside its 60 s, to play from), the series 2 and
