@@ -110,10 +110,12 @@ struct RequestCandidateCard: View {
                     .foregroundStyle(Theme.Colors.label2)
                     .lineLimit(1)
                 if let request {
+                    // two lines: «Одобрено — скоро появится» is wider than the card
                     Text(verbatim: request.status.title)
                         .font(Theme.Typography.cardMeta)
                         .foregroundStyle(request.status.tint)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(.top, 20)
