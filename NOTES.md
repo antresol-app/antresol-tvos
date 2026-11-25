@@ -1542,3 +1542,31 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
 - Refreshing: the list is read when «My Requests» opens, and the book is kept (an ask puts its answer in at once). The app
   has no event stream, so an answer from a parent shows the next time the list or a page is opened.
 - Not done: a parent's own side (approve and decline) stays in the web app.
+
+## Family: where the others are in a title (round 25 November, apple-family)
+
+- The web's «Семья» (FamilyProgress), on the title pages and in the player. The server lists the other profiles'
+  places in an item (`GET /api/items/{id}/family`: an adult sees every profile that does not hide its progress, a kid
+  sees nobody, so the app does not even ask a kid) and `POST /api/progress/{id}/adopt {"userId"}` copies one's
+  unfinished position into the caller's own progress row (404 when they are not in the family view or have none).
+- AntresolKit has the model (`FamilyMember`, tolerant like the rest; an entry without ids is dropped), the places
+  (`FamilyPlace`, `FamilyJump`, `FamilyWhen`: the numbers, never sentences: the words are the app's, in
+  `FamilyText`), `FamilyLine` (the folded line: four faces, who is first, how many more, nil when nobody) and
+  `FamilyHold`. `family(itemId:)` answers an empty list for a server without it (400/404/405); any other error is the
+  caller's (the page keeps what it showed).
+- The app: `VideoDetailModel.family` (asked beside the detail, again when a player closes), `FamilyLineLabel` under the
+  action row, `FamilySheetView` (a sheet like the addons' chooser: rows in `ListRowButtonStyle`, Menu closes it),
+  faces on the episode tiles. A row adopts first and plays only if the server took it (a refusal stays in the sheet, in
+  red under the list); the sheet closes and the player comes up 0.6 s later (a cover does not come up over a sheet that is
+  still closing). The player asks for the saved position of the item after the adopt, so it starts exactly there
+  (the app keeps no queued position of its own). A next episode (or one not started) plays from its start and takes nothing.
+- The player's transport bar has «Family» (after Audio, Subtitles, Quality and «Skip Automatically»), only for a film
+  or episode someone else is in. A row seeks there (`seekFile`, so a growing playlist gets a new session); while the player
+  is only looking, the position saved stays the one before the jump (`FamilyHold`: from the target on, five seconds of
+  playing there make it this profile's own; going elsewhere, or never arriving in 20 s, ends the hold), and «Back to 12:40»
+  seeks back. The menu rows carry the profile's gradient and initial (the photo is not loaded for a menu).
+- A season's page is its series': a series' member sits at an episode (`itemId`), «Up next» (`next`) at the one after the
+  last finished. The server omits `season` when it is 0, so a special shows as «S0, E3», as on the web.
+- The mock's `--family`: the film 19 (four profiles), the clip 22 (positions inside its 60 s, to play from), the series 2 and
+  its episodes 4, 5 and 12; `POST /api/progress/{id}/adopt` keeps the copy, which `GET /api/progress/{id}` then answers
+  until `/mock/reset`; the second port records the adopt's body. `FamilyUITests` drive all of it.
