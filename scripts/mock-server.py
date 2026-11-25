@@ -59,7 +59,8 @@ port `POST /mock/decide/<id>/<status>?reason=` answers one, as a parent would, u
 
 With `--family` the other profiles of the family have places in some titles (`GET /api/items/{id}/family`, as the web
 and the apps read it; a kid gets nobody): the film 19 (four profiles: a film's 34 minutes of 1 h 50 min, one finished, one
-in a device's account), the short clip 22 (positions inside its 60 s, to play from), the series 2 and its episodes 4, 5, 12.
+in a device's account), the short clip 22 (positions inside its 60 s, to play from), the series 2 and its episodes 4, 5, 12, and the film 23
+(a long title, profile names of 40+ characters: nothing in the list may be cut).
 `POST /api/progress/{id}/adopt` copies a profile's unfinished position into the caller's own (the second port keeps its
 body, `{"userId": N}`), and `GET /api/progress/{id}` answers that copy until the next `/mock/reset`.
 
@@ -691,7 +692,11 @@ FAMILY_PEOPLE = {
     12: {"name": "Sam", "avatar": "grad-2"},
     13: {"name": "Kim", "avatar": "grad-5"},
     14: {"name": "Living Room", "ownerName": "Alex", "avatar": "grad-6"},
+    # the longest names the server accepts are 64 characters: the list has to wrap them
+    15: {"name": "Alexandria Konstantinopolskaya-Vishnevskaya", "avatar": "grad-4"},
+    16: {"name": "Living Room Projector Upstairs", "ownerName": "Alexandria Konstantinopolskaya-Vishnevskaya", "avatar": "grad-1"},
 }
+LONG_TITLE_ITEM = 23
 MINUTE = 60_000
 
 
@@ -712,6 +717,10 @@ def family_members(item_id, now):
                 member(13, 19, 5 * 86400, 10 * MINUTE, 110 * MINUTE)]
     if item_id == 22:
         return [member(11, 22, 90, 25_000, 60_046), member(13, 22, 3 * 3600, 12_000, 60_046)]
+    if item_id == LONG_TITLE_ITEM:
+        return [member(15, 23, 2 * 3600, 34 * MINUTE, 110 * MINUTE),
+                member(16, 23, 5 * 3600, 71 * MINUTE + 5000, 110 * MINUTE),
+                member(12, 23, 30 * 3600, 110 * MINUTE, 110 * MINUTE, finished=True)]
     if item_id == 2:
         return [member(11, 5, 2 * 3600, 17 * MINUTE, 45 * MINUTE, season=1, episode=2, title="Episode 2", done=1, total=3),
                 member(12, 12, 28 * 3600, season=2, episode=1, title="Episode 1", next=True, done=2, total=3),
@@ -737,7 +746,9 @@ def family_item(item_id):
     if item_id in (2, 3, 11, 19):
         return None
     item = item_with_extras(item_id, "item-movie.json")
-    return dict(item, id=item_id) if item_id != 22 else dict(item, id=22)
+    if item_id == LONG_TITLE_ITEM:
+        return dict(item, id=item_id, title="The Extraordinarily Long Title of a Quiet Film About Family Evenings, Part Two")
+    return dict(item, id=item_id)
 
 
 def family_request(server, method, path, body, kid):

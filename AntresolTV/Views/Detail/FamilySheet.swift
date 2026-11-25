@@ -24,18 +24,20 @@ struct FamilySheetView: View {
                     .tracking(2)
                     .textCase(.uppercase)
                     .foregroundStyle(Theme.Colors.label2)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 Text("Family")
                     .font(Theme.Typography.pageTitle)
                     .foregroundStyle(Theme.Colors.label)
                     .accessibilityAddTraits(.isHeader)
             }
             rows
-            Text(verbatim: failure ?? String(localized: "Pick up where they are — the progress is saved to your profile.", bundle: .localized))
-                .font(Theme.Typography.cardMeta)
-                .foregroundStyle(failure == nil ? Theme.Colors.label3 : Theme.Colors.red)
-                .padding(.horizontal, Theme.Layout.listRowInset)
-                .accessibilityIdentifier("family.note")
+            if let failure {
+                Text(verbatim: failure)
+                    .font(Theme.Typography.cardMeta)
+                    .foregroundStyle(Theme.Colors.red)
+                    .padding(.horizontal, Theme.Layout.listRowInset)
+                    .accessibilityIdentifier("family.failure")
+            }
         }
         .padding(.horizontal, Theme.Layout.margin)
         .padding(.vertical, 56)
@@ -112,20 +114,22 @@ private struct FamilyRowLabel: View {
     var body: some View {
         HStack(spacing: 28) {
             FamilyAvatar(member: member, size: 72)
+            // Names and places wrap instead of being cut; the button keeps its natural width.
             VStack(alignment: .leading, spacing: 6) {
                 Text(verbatim: member.listName)
                     .font(Theme.Typography.headline)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(verbatim: FamilyText.placeAndWhen(member, kind: kind))
                     .font(Theme.Typography.cardMeta)
                     .opacity(0.7)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 40)
             if jump != .none {
                 Label(FamilyText.jump(jump), systemImage: "play.fill")
                     .font(Theme.Typography.meta)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
             }
         }
         .padding(.vertical, 12)

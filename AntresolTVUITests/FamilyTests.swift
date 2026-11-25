@@ -57,7 +57,7 @@ final class FamilyUITests: XCTestCase {
         XCTAssertTrue(finished.exists, "the one who finished it is not listed")
         XCTAssertTrue(finished.label.contains(tr("Watched")), finished.label)
         XCTAssertFalse(app.buttons["family.row.12"].exists, "a button on a row with nothing to continue")
-        XCTAssertTrue(app.staticTexts[tr("Pick up where they are — the progress is saved to your profile.")].exists, "no note under the list")
+        XCTAssertFalse(app.staticTexts["family.note"].exists, "an explanatory note under the list")
         sleep(2)
         snapshot("03-film-list")
 
@@ -66,6 +66,28 @@ final class FamilyUITests: XCTestCase {
         XCTAssertFalse(alex.exists, "the list stayed")
         sleep(1)
         snapshot("04-film-line-after-menu")
+    }
+
+    /// The longest names the server accepts and a long title: the list wraps them, and the button keeps
+    /// its words whole («Continue from Their Place» / «Продолжить с их места»): see the picture.
+    func testLongNamesAreNotCut() {
+        signIn(opening: 23)
+        let line = app.buttons["family.line"]
+        XCTAssertTrue(line.waitForExistence(timeout: 30), "no «Family» line on the page: \(focusedLabel)")
+        enterPage()
+        XCTAssertTrue(moveFocus(.down, to: line, limit: 3), "focus cannot reach the line: \(focusedLabel)")
+        remote.press(.select)
+        let long = app.buttons["family.row.15"]
+        XCTAssertTrue(long.waitForExistence(timeout: 10), "the list did not open: \(focusedLabel)")
+        XCTAssertTrue(long.label.contains("Alexandria Konstantinopolskaya-Vishnevskaya"), long.label)
+        let device = app.buttons["family.row.16"]
+        XCTAssertTrue(device.label.contains("Living Room Projector Upstairs · Alexandria Konstantinopolskaya-Vishnevskaya"), device.label)
+        XCTAssertTrue(long.label.contains(language == "ru" ? "Продолжить с их места" : "Continue from Their Place"), long.label)
+        // the list scrolls; every row stays inside the panel
+        XCTAssertLessThanOrEqual(long.frame.maxX, 1920, "a row runs off the screen: \(long.frame)")
+        sleep(2)
+        snapshot("05-long-names-list")
+        remote.press(.menu)
     }
 
     /// A series: «Alex · S1 E2 · 17 min» in the line, a next episode and a finished profile in the list, faces on the episode's tile.

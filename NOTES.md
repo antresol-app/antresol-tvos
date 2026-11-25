@@ -1569,6 +1569,9 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
   The menu rows carry the profile's gradient and initial (the photo is not loaded for a menu).
 - A season's page is its series': a series' member sits at an episode (`itemId`), «Up next» (`next`) at the one after the
   last finished. The server omits `season` when it is 0, so a special shows as «S0, E3», as on the web.
-- The mock's `--family`: the film 19 (four profiles), the clip 22 (positions inside its 60 s, to play from), the series 2 and
-  its episodes 4, 5 and 12; `POST /api/progress/{id}/adopt` keeps the copy, which `GET /api/progress/{id}` then answers
+- The list has no explanatory note (owner: minimal text). Its rows never cut a word: the name and the place wrap, the
+  button keeps its natural width («Continue from Their Place» / «Продолжить с их места», no time: the place is on the
+  row's line). The film 23 of the mock has a long title and 64-character names to see that.
+- The mock's `--family`: the film 19 (four profiles), the clip 22 (positions inside its 60 s, to play from), the film 23
+  (long names), the series 2 and its episodes 4, 5 and 12; `POST /api/progress/{id}/adopt` keeps the copy, which `GET /api/progress/{id}` then answers
   until `/mock/reset`; the second port records the adopt's body. `FamilyUITests` drive all of it.
