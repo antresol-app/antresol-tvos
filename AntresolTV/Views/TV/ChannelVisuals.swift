@@ -205,7 +205,7 @@ extension ChannelFilter {
     func title(in categories: [ChannelCategory]) -> String {
         switch self {
         case .all: return String(localized: "All Channels", bundle: .localized)
-        case .favorites: return String(localized: "Favourites", bundle: .localized)
+        case .favorites: return String(localized: "Favorites", bundle: .localized)
         case .category: return categoryName(in: categories) ?? String(localized: "No category", bundle: .localized)
         }
     }

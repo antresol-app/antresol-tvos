@@ -110,7 +110,7 @@ struct ProgramDetailView: View {
                 Button {
                     Task { await model.toggleFavorite(details.channelId) }
                 } label: {
-                    Label(favorite ? "In Favourites" : "Add to Favourites", systemImage: favorite ? "star.fill" : "star")
+                    Label(favorite ? "In Favorites" : "Add to Favorites", systemImage: favorite ? "star.fill" : "star")
                 }
                 .buttonStyle(PillButtonStyle(kind: .glass))
             }

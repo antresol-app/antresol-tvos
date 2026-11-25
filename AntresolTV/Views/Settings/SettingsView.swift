@@ -181,7 +181,7 @@ private struct SettingsPage: View {
                 }
             } label: {
                 SettingsRowLabel(
-                    "Favourite Channels First",
+                    "Favorite Channels First",
                     value: on ? String(localized: "On", bundle: .localized) : String(localized: "Off", bundle: .localized),
                     symbol: nil
                 )
