@@ -9,7 +9,7 @@ final class LocalizationTests: XCTestCase {
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
     /// Texts that read the same in both languages (a brand, a name).
-    private static let sameInBoth: Set<String> = ["Apple", "Antresol %@ · %@"]
+    private static let sameInBoth: Set<String> = ["Apple", "Antresol %@ · %@", "“%@”"]
 
     /// `<folder>/<language>.lproj/Localizable.strings` as key → text (keys and texts as written, escapes kept).
     private func catalog(_ folder: String, _ language: String) throws -> [String: String] {

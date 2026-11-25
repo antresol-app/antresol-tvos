@@ -270,7 +270,6 @@
 "Yesterday" = "Вчера";
 "Favorite Channel" = "Избранный канал";
 "Guide" = "Телегид";
-"Back to %@" = "Вернуться на %@";
 "No favorite channels" = "Нет избранных каналов";
 "No channels here" = "Здесь нет каналов";
 "Press and hold a channel, or use the star in the player, to add it to Favorites." = "Чтобы добавить канал в избранное, нажмите и удерживайте его в списке или нажмите звёздочку в плеере.";
