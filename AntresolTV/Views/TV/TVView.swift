@@ -634,7 +634,7 @@ struct ChannelRow: View {
                             Image(systemName: "star.fill")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(secondary)
-                                .accessibilityLabel(Text("Favorite"))
+                                .accessibilityLabel(Text("Favorite Channel"))
                         }
                     }
                     Text(verbatim: program?.fullTitle ?? String(localized: "Nothing on now", bundle: .localized))

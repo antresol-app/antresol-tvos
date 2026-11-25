@@ -268,8 +268,7 @@
 "Today" = "Today";
 "Tomorrow" = "Tomorrow";
 "Yesterday" = "Yesterday";
-"Favorites" = "Favorites";
-"Favorite" = "Favorite";
+"Favorite Channel" = "Favorite Channel";
 "Guide" = "Guide";
 "Back to %@" = "Back to %@";
 "No favorite channels" = "No favorite channels";
@@ -286,9 +285,6 @@
 "Languages" = "Languages";
 "%@, %lld channels. Choose a category" = "%@, %lld channels. Choose a category";
 "Watch" = "Watch";
-"Remove from Favorites" = "Remove from Favorites";
-"Add to Favorites" = "Add to Favorites";
-"In Favorites" = "In Favorites";
 "No programs" = "No programs";
 "Starts at %@" = "Starts at %@";
 "Switch Channel" = "Switch Channel";

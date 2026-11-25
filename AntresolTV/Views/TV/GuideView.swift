@@ -220,7 +220,7 @@ struct GuideView: View {
                 Image(systemName: "star.fill")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Theme.Colors.label3)
-                    .accessibilityLabel(Text("Favorite"))
+                    .accessibilityLabel(Text("Favorite Channel"))
             }
         }
         .padding(.trailing, 18)

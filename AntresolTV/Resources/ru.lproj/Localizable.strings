@@ -268,8 +268,7 @@
 "Today" = "Сегодня";
 "Tomorrow" = "Завтра";
 "Yesterday" = "Вчера";
-"Favorites" = "Избранное";
-"Favorite" = "Избранный";
+"Favorite Channel" = "Избранный канал";
 "Guide" = "Телегид";
 "Back to %@" = "Вернуться на %@";
 "No favorite channels" = "Нет избранных каналов";
@@ -286,9 +285,6 @@
 "Languages" = "Языки";
 "%@, %lld channels. Choose a category" = "%1$@, каналов: %2$lld. Выбрать категорию";
 "Watch" = "Смотреть";
-"Remove from Favorites" = "Убрать из избранного";
-"Add to Favorites" = "В избранное";
-"In Favorites" = "В избранном";
 "No programs" = "Нет передач";
 "Starts at %@" = "Начнётся в %@";
 "Switch Channel" = "Переключить канал";
