@@ -81,9 +81,9 @@ struct GuideView: View {
         if rows.isEmpty {
             EmptyStateView(
                 systemImage: model.activeFilter == .favorites ? "star" : "tv",
-                title: model.activeFilter == .favorites ? "No favourite channels" : "No channels here",
+                title: model.activeFilter == .favorites ? "No favorite channels" : "No channels here",
                 message: model.activeFilter == .favorites
-                    ? "Press and hold a channel in the list, or use the star in the player, to add it to Favourites."
+                    ? "Press and hold a channel in the list, or use the star in the player, to add it to Favorites."
                     : "Choose another filter."
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -220,7 +220,7 @@ struct GuideView: View {
                 Image(systemName: "star.fill")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Theme.Colors.label3)
-                    .accessibilityLabel(Text("Favourite"))
+                    .accessibilityLabel(Text("Favorite Channel"))
             }
         }
         .padding(.trailing, 18)
@@ -239,7 +239,7 @@ struct GuideView: View {
         return ZStack(alignment: .topLeading) {
             if row.programs.isEmpty {
                 Button {} label: {
-                    Text("No programmes")
+                    Text("No programs")
                         .font(Theme.Typography.cardMeta)
                         .padding(.horizontal, 22)
                         .frame(width: Self.timeAreaWidth - Self.blockGap, height: Self.rowHeight, alignment: .leading)

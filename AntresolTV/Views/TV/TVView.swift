@@ -511,9 +511,9 @@ private struct ChannelListView: View {
         if channels.isEmpty {
             EmptyStateView(
                 systemImage: model.activeFilter == .favorites ? "star" : "tv",
-                title: model.activeFilter == .favorites ? "No favourite channels" : "No channels here",
+                title: model.activeFilter == .favorites ? "No favorite channels" : "No channels here",
                 message: model.activeFilter == .favorites
-                    ? "Press and hold a channel, or use the star in the player, to add it to Favourites."
+                    ? "Press and hold a channel, or use the star in the player, to add it to Favorites."
                     : "Choose another filter."
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -559,9 +559,9 @@ private struct ChannelListView: View {
                                 Task { await model.toggleFavorite(channel.id) }
                             } label: {
                                 if channel.favorite {
-                                    Label("Remove from Favourites", systemImage: "star.slash")
+                                    Label("Remove from Favorites", systemImage: "star.slash")
                                 } else {
-                                    Label("Add to Favourites", systemImage: "star")
+                                    Label("Add to Favorites", systemImage: "star")
                                 }
                             }
                             Button {
@@ -634,7 +634,7 @@ struct ChannelRow: View {
                             Image(systemName: "star.fill")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(secondary)
-                                .accessibilityLabel(Text("Favourite"))
+                                .accessibilityLabel(Text("Favorite Channel"))
                         }
                     }
                     Text(verbatim: program?.fullTitle ?? String(localized: "Nothing on now", bundle: .localized))
@@ -744,7 +744,7 @@ private struct ProgrammeCard: View {
                     }
                     HStack(spacing: 40) {
                         KeyHint(key: "Press", label: "Watch")
-                        KeyHint(key: "Hold", label: channel.favorite ? "Remove from Favourites" : "Add to Favourites")
+                        KeyHint(key: "Hold", label: channel.favorite ? "Remove from Favorites" : "Add to Favorites")
                     }
                     .padding(.top, 8)
                 }

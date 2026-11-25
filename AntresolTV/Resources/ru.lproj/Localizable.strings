@@ -5,7 +5,6 @@
 
 /* Server address */
 "Connect to your server" = "Подключитесь к серверу";
-"Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Выберите сервер, найденный в вашей сети, или введите адрес компьютера, на котором работает Antresol, например 192.168.1.10 или nas.local. По умолчанию используется порт 8420.";
 "Server address" = "Адрес сервера";
 "Connect" = "Подключиться";
 "Cancel" = "Отмена";
@@ -21,7 +20,6 @@
 "Antresol %@ · %@" = "Antresol %1$@ · %2$@";
 "This server has no profiles yet. Create one in the Antresol web app." = "На сервере ещё нет профилей. Создайте профиль в веб-версии Antresol.";
 "Password protected" = "Защищён паролем";
-"Enter the password for this profile" = "Введите пароль этого профиля";
 "Password" = "Пароль";
 "Sign In" = "Войти";
 
@@ -195,11 +193,8 @@
 /* Settings */
 "Playback" = "Воспроизведение";
 "Video Quality" = "Качество видео";
-"Auto plays the original file when Apple TV can, and converts it otherwise." = "«Авто» воспроизводит исходный файл, если Apple TV это умеет, а иначе конвертирует его.";
 "Audio Language" = "Язык аудио";
-"Used when a video has a track in this language. Automatic plays the file's default track." = "Используется, если у видео есть дорожка на этом языке. «Автоматически» — дорожка файла по умолчанию.";
 "Automatic" = "Автоматически";
-"Subtitles in this language turn on by themselves when a video has them." = "Субтитры на этом языке включаются сами, если они есть у видео.";
 "Autoplay Next Episode" = "Автовоспроизведение следующей серии";
 "Language" = "Язык";
 "Some text changes language the next time Antresol is opened." = "Часть текста сменит язык при следующем запуске Antresol.";
@@ -208,12 +203,12 @@
 "System" = "Системный";
 "Antresol for Apple TV" = "Antresol для Apple TV";
 "Acknowledgements" = "Благодарности и лицензии";
-"This Apple TV is removed from the profile's devices. You can sign in again from the profile picker." = "Этот Apple TV будет удалён из устройств профиля. Войти снова можно на экране выбора профиля.";
+"This Apple TV is removed from the profile's devices." = "Этот Apple TV будет удалён из устройств профиля.";
 "The Apple TV app for the Antresol home media server. It is built only on Apple's system frameworks (SwiftUI, AVKit, MediaPlayer, TVServices) and contains no third-party code." = "Приложение для Apple TV к домашнему медиасерверу Antresol. Оно построено только на системных фреймворках Apple (SwiftUI, AVKit, MediaPlayer, TVServices) и не содержит стороннего кода.";
 "Your library" = "Ваша медиатека";
 "Films, shows, music, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else." = "Фильмы, сериалы, музыка, обложки и описания приходят с вашего собственного сервера Antresol. Никуда больше ничего не отправляется.";
 "Apple" = "Apple";
-"The system font and SF Symbols are provided by Apple and used under Apple's licence terms." = "Системный шрифт и SF Symbols предоставлены Apple и используются на условиях лицензии Apple.";
+"The system font and SF Symbols are provided by Apple and used under Apple's license terms." = "Системный шрифт и SF Symbols предоставлены Apple и используются на условиях лицензии Apple.";
 "About This App" = "О приложении";
 
 /* Errors, version picker, carousel, shelves (review fixes) */
@@ -273,14 +268,13 @@
 "Today" = "Сегодня";
 "Tomorrow" = "Завтра";
 "Yesterday" = "Вчера";
-"Favourites" = "Избранное";
-"Favourite" = "Избранный";
+"Favorite Channel" = "Избранный канал";
 "Guide" = "Телегид";
 "Back to %@" = "Вернуться на %@";
-"No favourite channels" = "Нет избранных каналов";
+"No favorite channels" = "Нет избранных каналов";
 "No channels here" = "Здесь нет каналов";
-"Press and hold a channel, or use the star in the player, to add it to Favourites." = "Чтобы добавить канал в избранное, нажмите и удерживайте его в списке или нажмите звёздочку в плеере.";
-"Press and hold a channel in the list, or use the star in the player, to add it to Favourites." = "Чтобы добавить канал в избранное, нажмите и удерживайте его в списке каналов или нажмите звёздочку в плеере.";
+"Press and hold a channel, or use the star in the player, to add it to Favorites." = "Чтобы добавить канал в избранное, нажмите и удерживайте его в списке или нажмите звёздочку в плеере.";
+"Press and hold a channel in the list, or use the star in the player, to add it to Favorites." = "Чтобы добавить канал в избранное, нажмите и удерживайте его в списке каналов или нажмите звёздочку в плеере.";
 "Choose another filter." = "Выберите другой фильтр.";
 "All Channels" = "Все каналы";
 "No category" = "Без категории";
@@ -291,10 +285,7 @@
 "Languages" = "Языки";
 "%@, %lld channels. Choose a category" = "%1$@, каналов: %2$lld. Выбрать категорию";
 "Watch" = "Смотреть";
-"Remove from Favourites" = "Убрать из избранного";
-"Add to Favourites" = "В избранное";
-"In Favourites" = "В избранном";
-"No programmes" = "Нет передач";
+"No programs" = "Нет передач";
 "Starts at %@" = "Начнётся в %@";
 "Switch Channel" = "Переключить канал";
 "Options" = "Параметры";
@@ -303,8 +294,7 @@
 
 /* Round 4: the profile's interface language */
 "Interface Language" = "Язык интерфейса";
-"As the Profile" = "Как у профиля";
-"Also the language the server uses for titles, channels and descriptions." = "На этом языке сервер отдаёт и названия, каналы и описания.";
+"Also the language the server uses for titles, channels and descriptions." = "На этом же языке сервер показывает названия, каналы и описания.";
 "This channel won’t open right now" = "Канал сейчас не открывается";
 "This channel doesn’t play on Apple TV" = "Этот канал не играет на Apple TV";
 "The channel’s source isn’t answering. Switch channels or try again later." = "Источник канала не отвечает. Переключите канал или попробуйте позже.";
@@ -316,7 +306,7 @@
 /* Servers on the network and sign-in with a phone */
 "Servers on This Network" = "Серверы в этой сети";
 "Looking for servers…" = "Ищем серверы…";
-"No servers found. A server in Docker is found only with host networking: enter its address below." = "Серверы не найдены. Сервер в Docker виден, только если он запущен с сетью хоста (network_mode: host), — введите его адрес ниже.";
+"No servers found. A server in Docker is found only with host networking: enter its address below." = "Серверы не найдены. Сервер в Docker виден только с сетью хоста (host): введите его адрес ниже.";
 "Antresol can't look for servers: local network access is off. Turn it on in Settings > General > Privacy & Security > Local Network, or enter the address below." = "Antresol не может искать серверы: доступ к локальной сети выключен. Включите его в Настройках > Основные > Конфиденциальность и безопасность > Локальная сеть или введите адрес ниже.";
 "Sign in with your phone" = "Войдите с телефона";
 "Scan the code with your phone's camera or in the Antresol app (Sign In on a TV). Or open %@ on a phone signed in to Antresol and type the code." = "Отсканируйте код камерой телефона или в приложении Antresol («Войти на телевизоре»). Или откройте %@ на телефоне, где вы вошли в Antresol, и введите код.";
@@ -331,7 +321,7 @@
 /* Set up with a phone */
 "Set up with your phone" = "Настройте с телефона";
 "Scan the code with your phone's camera or in the Antresol app." = "Отсканируйте код камерой телефона или в приложении Antresol.";
-"Apple TV isn't connected to a home network, so the phone can't reach it. Choose a server below or enter its address with the remote." = "Apple TV не подключена к домашней сети, и телефон не может с ней связаться. Выберите сервер ниже или введите адрес пультом.";
+"Apple TV isn't connected to a home network, so the phone can't reach it." = "Apple TV не подключена к домашней сети, и телефон не может с ней связаться.";
 "Enter Address with the Remote" = "Ввести адрес пультом";
 
 /* Trailers */
@@ -360,8 +350,8 @@
 "Credits" = "Титры";
 
 /* Separate history on this device (the web's wording) */
-"Separate Histories" = "Отдельные истории";
-"Separate History on This Device" = "Отдельная история на этом устройстве";
+"This Apple TV" = "Этот Apple TV";
+"Separate History" = "Отдельная история";
 "New History…" = "Новая история…";
 "Name" = "Название";
 "For example, Living Room" = "Например, Гостиная";
@@ -370,9 +360,8 @@
 "Move to My Profile" = "Перенести в мой профиль";
 "Keep Apart" = "Оставить";
 "Couldn’t switch the history" = "Не удалось переключить историю";
-"A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in." = "Своя история для общего устройства: «Продолжить», просмотренное и «Семья смотрит» не смешиваются с вашими. Доступ и ограничения — как у профиля, отдельного входа нет.";
-"Favourite Channels First" = "Избранные каналы первыми";
-"Favourite channels are listed at the top of the channel list and the guide, each part by number." = "Избранные каналы стоят в начале списка каналов и телегида, каждая часть — по номерам.";
+"Its Continue Watching, watched marks and Family Is Watching stay apart from yours." = "«Продолжить», просмотренное и «Семья смотрит» не смешиваются с вашими.";
+"Favorite Channels First" = "Избранные каналы первыми";
 "Channel Number" = "Номер канала";
 "Channel %@" = "Канал %@";
 "No channel %@" = "Канала %@ нет";

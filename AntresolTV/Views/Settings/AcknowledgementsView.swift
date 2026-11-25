@@ -19,7 +19,7 @@ struct AcknowledgementsView: View {
                 )
                 entry(
                     "Apple",
-                    "The system font and SF Symbols are provided by Apple and used under Apple's licence terms."
+                    "The system font and SF Symbols are provided by Apple and used under Apple's license terms."
                 )
             }
             .frame(width: 1100, alignment: .leading)

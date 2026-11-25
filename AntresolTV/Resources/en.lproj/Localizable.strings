@@ -5,7 +5,6 @@
 
 /* Server address */
 "Connect to your server" = "Connect to your server";
-"Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420.";
 "Server address" = "Server address";
 "Connect" = "Connect";
 "Cancel" = "Cancel";
@@ -21,7 +20,6 @@
 "Antresol %@ · %@" = "Antresol %1$@ · %2$@";
 "This server has no profiles yet. Create one in the Antresol web app." = "This server has no profiles yet. Create one in the Antresol web app.";
 "Password protected" = "Password protected";
-"Enter the password for this profile" = "Enter the password for this profile";
 "Password" = "Password";
 "Sign In" = "Sign In";
 
@@ -195,11 +193,8 @@
 /* Settings */
 "Playback" = "Playback";
 "Video Quality" = "Video Quality";
-"Auto plays the original file when Apple TV can, and converts it otherwise." = "Auto plays the original file when Apple TV can, and converts it otherwise.";
 "Audio Language" = "Audio Language";
-"Used when a video has a track in this language. Automatic plays the file's default track." = "Used when a video has a track in this language. Automatic plays the file's default track.";
 "Automatic" = "Automatic";
-"Subtitles in this language turn on by themselves when a video has them." = "Subtitles in this language turn on by themselves when a video has them.";
 "Autoplay Next Episode" = "Autoplay Next Episode";
 "Language" = "Language";
 "Some text changes language the next time Antresol is opened." = "Some text changes language the next time Antresol is opened.";
@@ -208,12 +203,12 @@
 "System" = "System";
 "Antresol for Apple TV" = "Antresol for Apple TV";
 "Acknowledgements" = "Acknowledgements";
-"This Apple TV is removed from the profile's devices. You can sign in again from the profile picker." = "This Apple TV is removed from the profile's devices. You can sign in again from the profile picker.";
+"This Apple TV is removed from the profile's devices." = "This Apple TV is removed from the profile's devices.";
 "The Apple TV app for the Antresol home media server. It is built only on Apple's system frameworks (SwiftUI, AVKit, MediaPlayer, TVServices) and contains no third-party code." = "The Apple TV app for the Antresol home media server. It is built only on Apple's system frameworks (SwiftUI, AVKit, MediaPlayer, TVServices) and contains no third-party code.";
 "Your library" = "Your library";
 "Films, shows, music, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else." = "Films, shows, music, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else.";
 "Apple" = "Apple";
-"The system font and SF Symbols are provided by Apple and used under Apple's licence terms." = "The system font and SF Symbols are provided by Apple and used under Apple's licence terms.";
+"The system font and SF Symbols are provided by Apple and used under Apple's license terms." = "The system font and SF Symbols are provided by Apple and used under Apple's license terms.";
 "About This App" = "About This App";
 
 /* Errors, version picker, carousel, shelves (review fixes) */
@@ -273,14 +268,13 @@
 "Today" = "Today";
 "Tomorrow" = "Tomorrow";
 "Yesterday" = "Yesterday";
-"Favourites" = "Favourites";
-"Favourite" = "Favourite";
+"Favorite Channel" = "Favorite Channel";
 "Guide" = "Guide";
 "Back to %@" = "Back to %@";
-"No favourite channels" = "No favourite channels";
+"No favorite channels" = "No favorite channels";
 "No channels here" = "No channels here";
-"Press and hold a channel, or use the star in the player, to add it to Favourites." = "Press and hold a channel, or use the star in the player, to add it to Favourites.";
-"Press and hold a channel in the list, or use the star in the player, to add it to Favourites." = "Press and hold a channel in the list, or use the star in the player, to add it to Favourites.";
+"Press and hold a channel, or use the star in the player, to add it to Favorites." = "Press and hold a channel, or use the star in the player, to add it to Favorites.";
+"Press and hold a channel in the list, or use the star in the player, to add it to Favorites." = "Press and hold a channel in the list, or use the star in the player, to add it to Favorites.";
 "Choose another filter." = "Choose another filter.";
 "All Channels" = "All Channels";
 "No category" = "No category";
@@ -291,10 +285,7 @@
 "Languages" = "Languages";
 "%@, %lld channels. Choose a category" = "%@, %lld channels. Choose a category";
 "Watch" = "Watch";
-"Remove from Favourites" = "Remove from Favourites";
-"Add to Favourites" = "Add to Favourites";
-"In Favourites" = "In Favourites";
-"No programmes" = "No programmes";
+"No programs" = "No programs";
 "Starts at %@" = "Starts at %@";
 "Switch Channel" = "Switch Channel";
 "Options" = "Options";
@@ -303,7 +294,6 @@
 
 /* Round 4: the profile's interface language */
 "Interface Language" = "Interface Language";
-"As the Profile" = "As the Profile";
 "Also the language the server uses for titles, channels and descriptions." = "Also the language the server uses for titles, channels and descriptions.";
 "This channel won’t open right now" = "This channel won’t open right now";
 "This channel doesn’t play on Apple TV" = "This channel doesn’t play on Apple TV";
@@ -331,7 +321,7 @@
 /* Set up with a phone */
 "Set up with your phone" = "Set up with your phone";
 "Scan the code with your phone's camera or in the Antresol app." = "Scan the code with your phone's camera or in the Antresol app.";
-"Apple TV isn't connected to a home network, so the phone can't reach it. Choose a server below or enter its address with the remote." = "Apple TV isn't connected to a home network, so the phone can't reach it. Choose a server below or enter its address with the remote.";
+"Apple TV isn't connected to a home network, so the phone can't reach it." = "Apple TV isn't connected to a home network, so the phone can't reach it.";
 "Enter Address with the Remote" = "Enter Address with the Remote";
 
 /* Trailers */
@@ -360,8 +350,8 @@
 "Credits" = "Credits";
 
 /* Separate history on this device (the web's wording) */
-"Separate Histories" = "Separate Histories";
-"Separate History on This Device" = "Separate History on This Device";
+"This Apple TV" = "This Apple TV";
+"Separate History" = "Separate History";
 "New History…" = "New History…";
 "Name" = "Name";
 "For example, Living Room" = "For example, Living Room";
@@ -370,9 +360,8 @@
 "Move to My Profile" = "Move to My Profile";
 "Keep Apart" = "Keep Apart";
 "Couldn’t switch the history" = "Couldn’t switch the history";
-"A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in." = "A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in.";
-"Favourite Channels First" = "Favourite Channels First";
-"Favourite channels are listed at the top of the channel list and the guide, each part by number." = "Favourite channels are listed at the top of the channel list and the guide, each part by number.";
+"Its Continue Watching, watched marks and Family Is Watching stay apart from yours." = "Its Continue Watching, watched marks and Family Is Watching stay apart from yours.";
+"Favorite Channels First" = "Favorite Channels First";
 "Channel Number" = "Channel Number";
 "Channel %@" = "Channel %@";
 "No channel %@" = "No channel %@";

@@ -267,7 +267,7 @@ final class ScreenshotTests: XCTestCase {
             XCTAssertFalse(setting(app, title).exists, title)
         }
         // A kid's separate history is an administrator's to change.
-        XCTAssertFalse(setting(app, "Separate History on This Device").exists, "a kid has no separate-history row")
+        XCTAssertFalse(setting(app, "Separate History").exists, "a kid has no separate-history row")
         remote.press(.select)
         pause(2)
         snapshot(app, "40-acknowledgements")

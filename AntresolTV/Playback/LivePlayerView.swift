@@ -321,7 +321,7 @@ private struct LiveControls: View {
                         model.openMenu = model.openMenu == .quality ? nil : .quality
                     }
                 }
-                control(.favorite, model.isFavorite ? "Remove from Favourites" : "Add to Favourites", model.isFavorite ? "star.fill" : "star", isActive: false) {
+                control(.favorite, model.isFavorite ? "Remove from Favorites" : "Add to Favorites", model.isFavorite ? "star.fill" : "star", isActive: false) {
                     model.toggleFavorite()
                 }
                 if model.previousChannel != nil {

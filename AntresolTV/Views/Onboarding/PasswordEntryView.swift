@@ -15,14 +15,9 @@ struct PasswordEntryView: View {
     var body: some View {
         VStack(spacing: 44) {
             AvatarView(profile: profile, size: 200)
-            VStack(spacing: 14) {
-                Text(verbatim: profile.name)
-                    .font(Theme.Typography.pageTitle)
-                    .foregroundStyle(Theme.Colors.label)
-                Text("Enter the password for this profile")
-                    .font(Theme.Typography.body)
-                    .foregroundStyle(Theme.Colors.label2)
-            }
+            Text(verbatim: profile.name)
+                .font(Theme.Typography.pageTitle)
+                .foregroundStyle(Theme.Colors.label)
             SecureField("Password", text: $password)
                 .textContentType(.password)
                 .focused($isFieldFocused)

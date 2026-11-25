@@ -73,7 +73,7 @@ private struct SettingsPage: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This Apple TV is removed from the profile's devices. You can sign in again from the profile picker.")
+            Text("This Apple TV is removed from the profile's devices.")
         }
     }
 
@@ -142,7 +142,6 @@ private struct SettingsPage: View {
             NavigationLink {
                 SettingsChoiceView(
                     title: "Video Quality",
-                    footnote: "Auto plays the original file when Apple TV can, and converts it otherwise.",
                     options: VideoQuality.allCases.map { SettingsOption(value: $0, title: $0.displayName) },
                     selection: $quality
                 )
@@ -153,7 +152,6 @@ private struct SettingsPage: View {
             NavigationLink {
                 SettingsChoiceView(
                     title: "Audio Language",
-                    footnote: "Used when a video has a track in this language. Automatic plays the file's default track.",
                     options: [SettingsOption(value: String?.none, title: String(localized: "Automatic", bundle: .localized))]
                         + Self.mediaLanguages.map { SettingsOption<String?>(value: $0, title: languageName($0)) },
                     selection: $audioLanguage
@@ -165,7 +163,6 @@ private struct SettingsPage: View {
             NavigationLink {
                 SettingsChoiceView(
                     title: "Subtitles",
-                    footnote: "Subtitles in this language turn on by themselves when a video has them.",
                     options: [SettingsOption(value: String?.none, title: String(localized: "Off", bundle: .localized))]
                         + Self.mediaLanguages.map { SettingsOption<String?>(value: $0, title: languageName($0)) },
                     selection: $subtitleLanguage
@@ -192,7 +189,7 @@ private struct SettingsPage: View {
     /// profile on the server, which orders the channel list so for every device.
     private var tvSection: some View {
         let on = appState.channelPrefs?.favoritesFirst ?? true
-        return SettingsSection("TV", footnote: "Favourite channels are listed at the top of the channel list and the guide, each part by number.") {
+        return SettingsSection("TV") {
             Button {
                 Task {
                     do {
@@ -203,7 +200,7 @@ private struct SettingsPage: View {
                 }
             } label: {
                 SettingsRowLabel(
-                    "Favourite Channels First",
+                    "Favorite Channels First",
                     value: on ? String(localized: "On", bundle: .localized) : String(localized: "Off", bundle: .localized),
                     symbol: nil
                 )
@@ -217,12 +214,12 @@ private struct SettingsPage: View {
     /// «Отдельная история на этом устройстве» (`DeviceHistoryView`); a kid's is an
     /// administrator's to change, so a kid profile has no row.
     private var historySection: some View {
-        SettingsSection("Separate Histories") {
+        SettingsSection("This Apple TV") {
             NavigationLink {
                 DeviceHistoryView(current: user.deviceHistory)
             } label: {
                 SettingsRowLabel(
-                    "Separate History on This Device",
+                    "Separate History",
                     value: user.deviceHistory?.name ?? String(localized: "Off", bundle: .localized)
                 )
             }
@@ -232,7 +229,7 @@ private struct SettingsPage: View {
     // MARK: Language
 
     /// «Язык интерфейса»: kept for the profile on the server, so every device of the
-    /// profile shows the same language. "As the Profile" follows the profile's audio
+    /// profile shows the same language. "Automatic" follows the profile's audio
     /// languages, then the household's.
     private var languageSection: some View {
         SettingsSection("Language") {
@@ -256,7 +253,7 @@ private struct SettingsPage: View {
         switch code {
         case "ru": return "Русский"
         case "en": return "English"
-        default: return String(localized: "As the Profile", bundle: .localized)
+        default: return String(localized: "Automatic", bundle: .localized)
         }
     }
 
