@@ -98,5 +98,21 @@
             <string>%lld albums</string>
         </dict>
     </dict>
+    <key>%lld more</key>
+    <dict>
+        <key>NSStringLocalizedFormatKey</key>
+        <string>%#@more@</string>
+        <key>more</key>
+        <dict>
+            <key>NSStringFormatSpecTypeKey</key>
+            <string>NSStringPluralRuleType</string>
+            <key>NSStringFormatValueTypeKey</key>
+            <string>lld</string>
+            <key>one</key>
+            <string>%lld more</string>
+            <key>other</key>
+            <string>%lld more</string>
+        </dict>
+    </dict>
 </dict>
 </plist>

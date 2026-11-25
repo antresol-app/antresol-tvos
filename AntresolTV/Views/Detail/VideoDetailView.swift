@@ -16,6 +16,7 @@ struct VideoDetailView: View {
     @Environment(\.claimsFocusOnAppear) private var claimsFocusOnAppear
     @State private var didClaimFocus = false
     @State private var choosingVersion = false
+    @State private var showsFamily = false
 
     enum HeaderButton: Hashable {
         case play
@@ -58,12 +59,19 @@ struct VideoDetailView: View {
         }
         .task(id: card.uniqueKey) { await model.load(using: appState) }
         .task(id: card.uniqueKey) { await model.loadTrailers(using: appState) }
+        .task(id: card.uniqueKey) { await model.loadFamily(using: appState) }
         .task(id: WayPollKey(target: model.wayTarget, snapshot: addons.snapshot, revision: addons.revision)) {
             guard let target = model.wayTarget else { return }
             await wayStates.poll(target: target, ways: addons.ways(for: target), using: appState)
         }
         .onChange(of: playback.completedSessions) {
             Task { await model.load(using: appState) }
+            Task { await model.loadFamily(using: appState) }
+        }
+        .sheet(isPresented: $showsFamily) {
+            if let line = familyLine {
+                FamilySheetView(title: shownCard.title, line: line, jump: continueFrom)
+            }
         }
     }
 
@@ -126,6 +134,15 @@ struct VideoDetailView: View {
                 }
                 actions
                     .padding(.top, 16)
+                if let line = familyLine {
+                    Button {
+                        showsFamily = true
+                    } label: {
+                        FamilyLineLabel(line: line)
+                    }
+                    .buttonStyle(FamilyLineButtonStyle())
+                    .accessibilityIdentifier("family.line")
+                }
                 if let message = model.actionError ?? failureMessage {
                     Text(verbatim: message)
                         .font(Theme.Typography.meta)
@@ -198,6 +215,32 @@ struct VideoDetailView: View {
             return rest > 0 ? String(localized: "\(hours) h \(rest) min", bundle: .localized) : String(localized: "\(hours) h", bundle: .localized)
         }
         return String(localized: "\(minutes) min", bundle: .localized)
+    }
+
+    // MARK: Family
+
+    /// «Family»: the other profiles' places here; nothing when nobody has progress.
+    private var familyLine: FamilyLine? {
+        FamilyKind(shownCard.kind).flatMap { FamilyLine(model.family, kind: $0) }
+    }
+
+    /// «Play from their place»: takes the member's position as this profile's own (the server
+    /// copies it, theirs is never written), closes the list, and plays from the saved position.
+    /// A next episode (or one not started) plays from its start, taking nothing.
+    private func continueFrom(_ member: FamilyMember) async throws {
+        guard let client = appState.client else { return }
+        if member.adopts { try await client.adoptProgress(itemId: member.itemId, userId: member.userId) }
+        showsFamily = false
+        // a player does not come up over a sheet that is still closing
+        try? await Task.sleep(for: .milliseconds(600))
+        playback.play(familyCard(member), from: member.adopts ? .resume : .beginning)
+    }
+
+    /// What the member's place plays: this page's movie or episode, or the series' episode they are at.
+    private func familyCard(_ member: FamilyMember) -> Card {
+        if member.itemId == shownCard.id { return shownCard }
+        if let episode = model.detail?.seasons.lazy.flatMap(\.episodes).first(where: { $0.id == member.itemId }) { return episode.card }
+        return Card(id: member.itemId, kind: .episode, title: member.title, seriesId: model.detail?.id, season: member.season, episode: member.episode)
     }
 
     // MARK: Actions
