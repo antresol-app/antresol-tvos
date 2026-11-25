@@ -1,7 +1,8 @@
 import Foundation
 
 // «ТВ» external channels (an admin's M3U / Xtream source on the server): the app plays the
-// provider's stream itself; the server never touches the video.
+// provider's stream itself; the server touches the video only to convert an audio the device
+// cannot decode (`remuxAudio`), through its relay.
 
 /// One way to play an external channel: the provider's URL with the headers its playlist
 /// asked for (user-agent / referrer), or the server's redirect
@@ -14,20 +15,26 @@ public struct StreamSource: Decodable, Hashable, Sendable {
     public var unsupported: [String]
     /// What the stream is, by the server: "hls", "ts" (a raw MPEG-TS stream) or "" (unknown).
     public var format: String
-    /// The web's same-origin relay of the stream (a path); the apps keep `url` and only show
-    /// that it exists.
+    /// The server's relay of the stream (a path on the server): it fetches the stream with the
+    /// source's own headers and, when `remuxAudio`, converts its audio to AAC.
     public var relay: String
+    /// The stream's audio is one this device cannot decode (MP2, AC-3, DTS ...), so the
+    /// provider's URL plays without a sound; the relay plays it with the audio converted.
+    /// Absent on a server that does not say (then the provider's URL is played as before).
+    public var remuxAudio: Bool
 
-    public init(url: String, userAgent: String = "", referrer: String = "", unsupported: [String] = [], format: String = "", relay: String = "") {
+    public init(url: String, userAgent: String = "", referrer: String = "", unsupported: [String] = [], format: String = "",
+                relay: String = "", remuxAudio: Bool = false) {
         self.url = url
         self.userAgent = userAgent
         self.referrer = referrer
         self.unsupported = unsupported
         self.format = format
         self.relay = relay
+        self.remuxAudio = remuxAudio
     }
 
-    enum CodingKeys: String, CodingKey { case url, userAgent, referrer, unsupported, format, relay }
+    enum CodingKeys: String, CodingKey { case url, userAgent, referrer, unsupported, format, relay, remuxAudio }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -37,6 +44,17 @@ public struct StreamSource: Decodable, Hashable, Sendable {
         unsupported = c.value(.unsupported, default: [String]())
         format = c.value(.format, default: "")
         relay = c.value(.relay, default: "")
+        remuxAudio = c.value(.remuxAudio, default: false)
+    }
+
+    /// What the player opens for this source: the server's relay when the server says the audio
+    /// is one this device cannot decode and gives a relay (a server path, which the player opens
+    /// with the media key; the relay sends the source's headers itself, so none go from here),
+    /// else the source as it is. A server that does not say (`remuxAudio` absent) or has no relay
+    /// changes nothing.
+    public var playing: StreamSource {
+        guard remuxAudio, relay.hasPrefix("/"), !relay.hasPrefix("//") else { return self }
+        return StreamSource(url: relay, unsupported: unsupported, format: format, remuxAudio: true)
     }
 
     /// The server's own redirect (a path): it needs the app's media key like every other
@@ -76,9 +94,10 @@ public struct ChannelStream: Decodable, Hashable, Sendable {
 
     public var sources: [StreamSource] { [primary] + fallbacks }
 
-    /// The sources this platform plays, in the order the player tries them.
+    /// The sources this platform plays, in the order the player tries them, each as the player
+    /// opens it (`StreamSource.playing`: the relay where the audio needs it).
     public func playable(on tags: Set<String>) -> [StreamSource] {
-        sources.filter { !$0.isUnsupported(on: tags) }
+        sources.filter { !$0.isUnsupported(on: tags) }.map(\.playing)
     }
 
     /// The tags `unsupported` may name for this app.
