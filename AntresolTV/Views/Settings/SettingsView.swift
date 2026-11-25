@@ -170,7 +170,7 @@ private struct SettingsPage: View {
     /// profile on the server, which orders the channel list so for every device.
     private var tvSection: some View {
         let on = appState.channelPrefs?.favoritesFirst ?? true
-        return SettingsSection("TV", footnote: "Favourite channels are listed at the top of the channel list and the guide, each part by number.") {
+        return SettingsSection("TV") {
             Button {
                 Task {
                     do {
