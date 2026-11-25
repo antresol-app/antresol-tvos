@@ -143,20 +143,13 @@ final class AppState {
     /// Accepts a host, `host:port` or a full http(s) URL; the port defaults to 8420. A host
     /// away from the home network typed without a scheme is tried over https first. Plain
     /// http to such a host (typed, or after https failed) needs `allowUnencrypted`: without
-    /// it the call throws `UnencryptedConnection` before anything is sent or kept.
+    /// it the call throws `UnencryptedConnection` before anything is sent or kept, unless https
+    /// already showed the host cannot be reached at all (`ServerAddress.connect`).
     func connect(to address: String, allowUnencrypted: Bool = false) async throws {
-        var failure: Error = APIError.invalidURL(address)
-        var reached: (url: URL, connection: ServerConnection)?
-        for url in ServerAddress.candidates(for: address) {
-            if ServerAddress.isUnencryptedRemote(url), !allowUnencrypted { throw UnencryptedConnection() }
-            do {
-                reached = (url, try await ServerConnection.connect(to: url, language: language.serverCode))
-                break
-            } catch {
-                failure = error
-            }
+        let code = language.serverCode
+        let (url, connection) = try await ServerAddress.connect(to: address, allowUnencrypted: allowUnencrypted) {
+            try await ServerConnection.connect(to: $0, language: code)
         }
-        guard let (url, connection) = reached else { throw failure }
         if connection.serverId != server?.serverId {
             settings.lastUserId = nil
         }
@@ -570,11 +563,6 @@ final class AppState {
         }
     }
 }
-
-/// The address is plain http to a host away from the home network: the profile's password
-/// would cross the internet in the clear. `AppState.connect(to:allowUnencrypted:)` throws it
-/// until the viewer agrees.
-struct UnencryptedConnection: Error {}
 
 /// A server that answered `/api/health`.
 struct ServerConnection {

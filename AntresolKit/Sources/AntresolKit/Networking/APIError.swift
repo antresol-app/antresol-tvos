@@ -8,8 +8,9 @@ public enum APIError: Error, Hashable, Sendable {
     case server(status: Int, message: String?, code: String?, retryAfter: Double?)
     /// The response body did not match the expected shape.
     case decoding(String)
-    /// The request could not be sent or no response arrived.
-    case transport(String)
+    /// The request could not be sent or no response arrived. `hostUnreachable`: the host's name does
+    /// not resolve, or the device has no network (`isHostUnreachable`).
+    case transport(String, hostUnreachable: Bool = false)
     /// The URL could not be built from the server address and path.
     case invalidURL(String)
 
@@ -38,6 +39,19 @@ public enum APIError: Error, Hashable, Sendable {
 
     public var isNotFound: Bool { statusCode == 404 }
 
+    /// The failed request shows the host cannot be reached at all: its name does not resolve, or the
+    /// device has no network. Another scheme or port of the same host fails the same way, so nothing
+    /// is gained by trying it. (A refused or timed-out connection says nothing of the other port.)
+    public var isHostUnreachable: Bool {
+        if case .transport(_, let unreachable) = self { return unreachable }
+        return false
+    }
+
+    /// Whether `error` is one of the `URLError`s that make a host unreachable.
+    static func isHostUnreachable(_ error: URLError) -> Bool {
+        [.cannotFindHost, .dnsLookupFailed, .notConnectedToInternet].contains(error.code)
+    }
+
     /// `429`: the profile already has the maximum number of HLS sessions.
     public var isTooManySessions: Bool { statusCode == 429 }
 }
@@ -51,7 +65,7 @@ extension APIError: LocalizedError {
             return message ?? "Server error \(status)"
         case .decoding(let detail):
             return "Unexpected server response: \(detail)"
-        case .transport(let detail):
+        case .transport(let detail, _):
             return detail
         case .invalidURL(let detail):
             return "Invalid address: \(detail)"

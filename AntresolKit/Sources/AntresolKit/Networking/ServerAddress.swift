@@ -48,6 +48,33 @@ public enum ServerAddress {
         return [secure.url, plain].compactMap { $0 }
     }
 
+    /// Tries `candidates(for: input)` in order with `attempt` and returns the first that answers with
+    /// the URL it answered at; when none does, the last failure. Plain http to a host away from the home
+    /// network is not tried unless `allowUnencrypted`: the call throws `UnencryptedConnection` before
+    /// anything is sent, so the viewer can be told first. A failure that shows the host cannot be
+    /// reached at all (`APIError.isHostUnreachable`: its name does not resolve, the device has no
+    /// network) ends the tries on the spot and is the answer: http would fail the same way, so nobody
+    /// is asked to agree to an unencrypted connection to a host that does not exist, and no plain-http
+    /// request is sent before they agree.
+    public static func connect<Connection>(
+        to input: String,
+        allowUnencrypted: Bool = false,
+        attempt: (URL) async throws -> Connection
+    ) async throws -> (url: URL, connection: Connection) {
+        var failure: Error = APIError.invalidURL(input)
+        for url in candidates(for: input) {
+            if isUnencryptedRemote(url), !allowUnencrypted { throw UnencryptedConnection() }
+            do {
+                return (url, try await attempt(url))
+            } catch let error as APIError where error.isHostUnreachable {
+                throw error
+            } catch {
+                failure = error
+            }
+        }
+        throw failure
+    }
+
     /// Plain http to a host away from the home network: what is sent there (the profile's
     /// password) crosses the internet in the clear.
     public static func isUnencryptedRemote(_ url: URL) -> Bool {
@@ -71,4 +98,10 @@ public enum ServerAddress {
         if let port = url.port { return "\(host):\(port)" }
         return host
     }
+}
+
+/// The address is plain http to a host away from the home network: the profile's password would cross
+/// the internet in the clear. `ServerAddress.connect` throws it until the viewer agrees.
+public struct UnencryptedConnection: Error {
+    public init() {}
 }
