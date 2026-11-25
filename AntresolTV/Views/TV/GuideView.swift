@@ -239,7 +239,7 @@ struct GuideView: View {
         return ZStack(alignment: .topLeading) {
             if row.programs.isEmpty {
                 Button {} label: {
-                    Text("No programmes")
+                    Text("No programs")
                         .font(Theme.Typography.cardMeta)
                         .padding(.horizontal, 22)
                         .frame(width: Self.timeAreaWidth - Self.blockGap, height: Self.rowHeight, alignment: .leading)
