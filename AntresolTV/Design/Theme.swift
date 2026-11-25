@@ -14,6 +14,7 @@ enum Theme {
         static let labelInverse = Color.black
         static let accent = Color(hex: 0x0A84FF)
         static let orange = Color(hex: 0xFF9F0A)
+        static let green = Color(hex: 0x30D158)
         static let red = Color(hex: 0xFF453A)
         static let fill = Color(hex: 0x787880).opacity(0.36)
         static let fillSecondary = Color(hex: 0x767680).opacity(0.16)

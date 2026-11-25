@@ -10,6 +10,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             SettingsPage(user: user)
+                // «My Requests» opens the pages of the titles in it.
+                .navigationDestination(for: Route.self) { RoutePage(route: $0) }
         }
     }
 }
@@ -18,6 +20,7 @@ private struct SettingsPage: View {
     let user: User
 
     @Environment(AppState.self) private var appState
+    @Environment(KidRequests.self) private var requests
     @Environment(\.locale) private var locale
     @AppStorage(PlayerPreferences.Key.quality) private var quality: VideoQuality = .auto
     @AppStorage(PlayerPreferences.Key.audioLanguage) private var audioLanguage: String?
@@ -37,6 +40,7 @@ private struct SettingsPage: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 60) {
+                    if user.isKid && user.canRequest { requestsSection }
                     playbackSection
                     if appState.channelPrefs != nil { tvSection }
                     if !user.isKid { historySection }
@@ -114,6 +118,21 @@ private struct SettingsPage: View {
             return "Kid profile"
         }
         return "Profile"
+    }
+
+    // MARK: Requests
+
+    /// «My Requests» (a kid who may ask a parent for titles the library lacks).
+    private var requestsSection: some View {
+        SettingsSection("Requests") {
+            NavigationLink {
+                MyRequestsView()
+            } label: {
+                SettingsRowLabel("My Requests", value: requests.loaded ? requests.book.list.count.formatted() : nil)
+            }
+            .accessibilityIdentifier("settings.myRequests")
+        }
+        .task { await requests.load(using: appState) }
     }
 
     // MARK: Playback

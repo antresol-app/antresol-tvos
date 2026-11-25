@@ -400,3 +400,18 @@
 /* The TV tab's programme card: what a press and a long press of the remote's button do */
 "Press" = "Press";
 "Hold" = "Hold";
+
+/* A kid asks a parent for what the library lacks */
+"Ask" = "Ask";
+"Ask a Parent" = "Ask a Parent";
+"My Requests" = "My Requests";
+"Requests" = "Requests";
+"No requests yet" = "No requests yet";
+"Find a movie or show in Search and ask for it." = "Find a movie or show in Search and ask a parent for it.";
+"Waiting for an answer" = "Waiting for an answer";
+"Approved — coming soon" = "Approved — coming soon";
+"A parent said no" = "A parent said no";
+"Already in the library" = "Already in the library";
+"Couldn't send the request. Try again." = "Couldn't send the request. Try again.";
+"Not available for this profile" = "Not available for this profile";
+"“%@”" = "“%@”";

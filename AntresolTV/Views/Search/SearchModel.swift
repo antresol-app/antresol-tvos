@@ -20,6 +20,10 @@ final class SearchModel {
     private(set) var addonSections: [AddonSearchSection] = []
     /// An addon's search is still under way.
     private(set) var addonsSearching = false
+    /// A kid profile's titles to ask a parent for (what the library lacks), after the addons'.
+    private(set) var asks: [KidCandidate] = []
+    /// The kid's request search is still under way.
+    private(set) var asksSearching = false
 
     @ObservationIgnored private var generation = 0
 
@@ -34,6 +38,8 @@ final class SearchModel {
             state = .idle
             addonSections = []
             addonsSearching = false
+            asks = []
+            asksSearching = false
             return
         }
         try? await Task.sleep(nanoseconds: 300_000_000)
@@ -43,12 +49,30 @@ final class SearchModel {
         addonSections = []
         addonsSearching = !searches.isEmpty
         let addonTask = Task { await self.searchAddons(query, searches: searches, client: client, generation: mine) }
+        let asksTask = Task { await self.searchAsks(query, using: appState, client: client, generation: mine) }
         await withTaskCancellationHandler {
             await searchLibrary(query, using: appState, client: client)
             await addonTask.value
+            await asksTask.value
         } onCancel: {
             addonTask.cancel()
+            asksTask.cancel()
         }
+    }
+
+    /// A kid profile that may ask finds what the library lacks (movies, shows and albums) to ask a parent
+    /// for; the others ask nothing. A closed search finds nothing and says nothing.
+    private func searchAsks(_ query: String, using appState: AppState, client: APIClient, generation mine: Int) async {
+        asks = []
+        guard let user = appState.currentUser, user.isKid, user.canRequest else {
+            asksSearching = false
+            return
+        }
+        asksSearching = true
+        let found = await KidRequestBook.candidates { try await client.requestSearch(query, kind: $0) }
+        guard !Task.isCancelled, generation == mine else { return }
+        asks = found
+        asksSearching = false
     }
 
     private func searchLibrary(_ query: String, using appState: AppState, client: APIClient) async {

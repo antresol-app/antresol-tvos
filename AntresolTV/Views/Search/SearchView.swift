@@ -39,10 +39,10 @@ struct SearchView: View {
             }
             .frame(minHeight: 500)
         case .results(let groups):
-            if groups.isEmpty, model.addonSections.isEmpty, model.addonsSearching {
+            if groups.isEmpty, model.addonSections.isEmpty, model.asks.isEmpty, model.addonsSearching || model.asksSearching {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 300)
-            } else if groups.isEmpty, model.addonSections.isEmpty {
+            } else if groups.isEmpty, model.addonSections.isEmpty, model.asks.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 64))
@@ -80,8 +80,22 @@ struct SearchView: View {
                     .buttonStyle(CardButtonStyle())
                 }
             }
+            // A kid's titles the library lacks, to ask a parent for, last.
+            if !model.asks.isEmpty {
+                ShelfRow(title: String(localized: "Ask", bundle: .localized), items: model.asks, id: \.id) { candidate in
+                    NavigationLink(value: Self.route(for: candidate)) {
+                        RequestCandidateCard(candidate: candidate)
+                    }
+                    .buttonStyle(CardButtonStyle())
+                }
+            }
         }
         .padding(.top, 20)
+    }
+
+    /// A movie or show opens the page of a title off the library (it has «Ask a Parent»); an album its own.
+    private static func route(for candidate: KidCandidate) -> Route {
+        candidate.isVideo ? .title(TitleRef(candidate)) : .request(candidate)
     }
 
     /// A title the library has opens its page; one it lacks opens the page of a title off the library.

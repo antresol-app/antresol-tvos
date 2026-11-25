@@ -72,6 +72,7 @@ struct TitleDetailView: View {
     @Environment(AddonWays.self) private var addons
     @State private var model: TitleDetailModel
     @State private var wayStates = WayStateModel()
+    @Environment(KidRequests.self) private var requests
 
     init(ref: TitleRef) {
         self.ref = ref
@@ -94,6 +95,7 @@ struct TitleDetailView: View {
         .ignoresSafeArea(edges: [.top, .horizontal])
         .background(Theme.Colors.background.ignoresSafeArea())
         .task { await model.load(using: appState) }
+        .task(id: model.info?.kidRequest != nil) { if model.info?.kidRequest != nil { await requests.load(using: appState) } }
         .task(id: WayPollKey(target: model.target, snapshot: addons.snapshot, revision: addons.revision)) {
             await wayStates.poll(target: model.target, ways: addons.ways(for: model.target), using: appState)
         }
@@ -197,6 +199,10 @@ struct TitleDetailView: View {
     @ViewBuilder
     private var actions: some View {
         ActionRow {
+            // A kid's page: «Ask a Parent» in place of every other action.
+            if let info = model.info, let state = info.kidRequest {
+                RequestActions(ask: KidRequestAsk(kind: info.kind, tmdbId: info.tmdbId, title: card.title), state: state)
+            }
             WayWatchButtons(target: model.target, card: card, hasPlay: false)
             WayKeepButtons(target: model.target, card: card, states: wayStates)
             // The library has it after all (added since the search): its own page plays it.

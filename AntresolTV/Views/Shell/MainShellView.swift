@@ -13,6 +13,7 @@ struct MainShellView: View {
     @State private var audio = AudioPlayer()
     @State private var playlists = PlaylistActions()
     @State private var addons = AddonWays()
+    @State private var requests = KidRequests()
     @State private var showsNowPlaying = false
     @State private var tabReset = TabResetCoordinator()
     /// The profile's avatar, drawn once for the profile tab.
@@ -24,7 +25,7 @@ struct MainShellView: View {
         .environment(playback)
         .environment(audio)
         .environment(playlists)
-        .environment(addons)
+        .modifier(AddonsAndRequests(addons: addons, requests: requests, userId: user.id))
         .overlay(alignment: .bottom) {
             if let message = bannerMessage {
                 NoticeBanner(message: message)
@@ -338,27 +339,51 @@ struct TabNavigation<Root: View>: View {
             root()
                 .id(reset.generation(of: tab))
                 .navigationDestination(for: Route.self) { route in
-                    Group {
-                        switch route {
-                        case .item(let card):
-                            ItemDetailView(card: card)
-                        case .linkedItem(let card):
-                            ItemDetailView(card: card)
-                                .environment(\.claimsFocusOnAppear, true)
-                        case .genre(let name):
-                            GenreView(name: name)
-                        case .shelf(let id, let title):
-                            ShelfGridView(shelfId: id, title: title)
-                        case .title(let ref):
-                            TitleDetailView(ref: ref)
-                        }
-                    }
-                    .modifier(FullScreenWidth())
+                    RoutePage(route: route)
+                        .modifier(FullScreenWidth())
                 }
         }
         .environment(\.openRoute, OpenRouteAction { path.wrappedValue.append($0) })
         .environment(\.shellTab, tab)
         .environment(\.tabReset, reset)
+    }
+}
+
+/// What the server's addons offer and a kid's requests, for every page of the shell (read from the
+/// environment); another profile's requests never show.
+private struct AddonsAndRequests: ViewModifier {
+    let addons: AddonWays
+    let requests: KidRequests
+    let userId: Int
+
+    func body(content: Content) -> some View {
+        content
+            .environment(addons)
+            .environment(requests)
+            .onChange(of: userId) { requests.reset() }
+    }
+}
+
+/// The page a route opens.
+struct RoutePage: View {
+    let route: Route
+
+    var body: some View {
+        switch route {
+        case .item(let card):
+            ItemDetailView(card: card)
+        case .linkedItem(let card):
+            ItemDetailView(card: card)
+                .environment(\.claimsFocusOnAppear, true)
+        case .genre(let name):
+            GenreView(name: name)
+        case .shelf(let id, let title):
+            ShelfGridView(shelfId: id, title: title)
+        case .title(let ref):
+            TitleDetailView(ref: ref)
+        case .request(let candidate):
+            RequestPageView(candidate: candidate)
+        }
     }
 }
 
