@@ -19,7 +19,8 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   server with LAN discovery), or "Enter Address with the Remote": a host, `host:port` or URL
   (port 8420 by default; a host away from the home network typed without a scheme is tried
   over https first, and plain http to one asks for a second press of Connect after a note that
-  the connection is not encrypted). Then "Sign in with your phone": a QR code and a
+  the connection is not encrypted; a name that does not resolve, or no network, is said at once as
+  "Couldn't reach the server", with no such note). Then "Sign in with your phone": a QR code and a
   6-character code that a signed-in phone approves (the Antresol app or the server's `/pair`
   page), renewed when it expires; or "Sign In with the Remote": the "Who's watching?" profile picker with avatar gradients, password entry for protected profiles,
   and kid profiles. Tokens are kept per server and profile in the Keychain (this device only), and the session is
@@ -271,7 +272,12 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   main port has, so the screenshot tests keep seeing what they saw.
 - `testAddonWays` needs the mock with `--addons` (two neutral addons: ways that watch and keep,
   a chooser, the chevron's menu of the ways, an input player that answers `202` first) and `TEST_RUNNER_ANTRESOL_MOCK_ADDONS=1`;
-  it skips itself otherwise.
+  it skips itself otherwise. `testSearchOpensATitleTheLibraryLacks` needs the same: it searches, opens a title the
+  library lacks from an addon's shelf (the ways, a show's seasons, Menu back to the card) and one the library has.
+- The address tests (`testAnAddressThatDoesNotResolveIsNotOfferedUnencrypted`, `testATypedAddressConnectsToTheServer`)
+  start on the setup screen with discovery off (`-AntresolNoDiscovery YES`, Debug) and press Select only on a control
+  they saw focused: they never connect to a server of the network. The first types a `.invalid` name, which never
+  resolves.
 - The tests run in Russian with `TEST_RUNNER_ANTRESOL_TEST_LANGUAGE=ru` (the app is launched in Russian, and
   `RuntimeTests` look labels up in `ru.lproj/Localizable.strings`). Build the tests signed (no
   `CODE_SIGNING_ALLOWED=NO`): an unsigned app has no Keychain, cannot keep the mock's address and lands on the server

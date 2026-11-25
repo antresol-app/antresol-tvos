@@ -1477,3 +1477,32 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
   `Theme.Shadow`, `Theme.Colors.scrim`), see `docs/design-ref/DESIGN.md`. Card shadow: the faint resting one
   fades out as the lifted one fades in, neither changes its blur radius; resting and focused look as before.
 - Not done: TVQ-12 (font tokens, text under 23 pt), the way player's `TimedNotice` (player-core batch).
+
+## Round 25 November 2026
+
+- **Server address, the transport error**: `ServerAddress.connect(to:allowUnencrypted:attempt:)` (AntresolKit) is the
+  candidate loop `AppState.connect` had, with one rule more: a failure that shows the host cannot be reached at all
+  (`APIError.isHostUnreachable`: `cannotFindHost`, `dnsLookupFailed`, `notConnectedToInternet`, carried by
+  `APIError.transport(_, hostUnreachable:)`) is the answer, at once. The https attempt that failed that way is the
+  evidence that plain http fails too, so no plain-http request is sent before the viewer agrees, and the viewer
+  is not asked to agree to an unencrypted connection to a host that does not exist: the screen says «Couldn't reach
+  the server». A refused connection, a timeout or a failed handshake prove nothing about the host's other port and
+  still ask first (https on 443 may be closed while http on 8420 answers). After the viewer agreed, both schemes are
+  tried and the last failure is shown, as before. `UnencryptedConnection` moved to AntresolKit with it.
+- **UI-test hook**: `-AntresolNoDiscovery YES` (Debug) keeps the Bonjour browser from finding anything, so a server of
+  the network cannot take focus from the control a test is about to press Select on
+  (`testAnAddressThatDoesNotResolveIsNotOfferedUnencrypted`, which types a `.invalid` name: it never resolves).
+- **Search finds what the library lacks (checked end to end)**: it already did: the addons' `x/app` searches (the
+  server's one catalogue search: web's `searchBlocks` and the iPhone's addon sections ask the same call; the core's
+  kid-only «Найти и попросить» is not in any app) add a shelf per addon after the library's, and a title the library
+  lacks opens `TitleDetailView` (`GET /api/title/…`, the ways, a show's seasons), one it has opens the library's page.
+  What was missing was a run of it: `testSearchOpensATitleTheLibraryLacks` (mock with `--addons`, adult profile)
+  types a query, reaches each shelf with the remote, opens a show and a film the library lacks and one it has, checks
+  focus on arrival (the pill), down to the seasons and back, and that Menu returns to the card it came from.
+  The pure part of the search, asking every addon at once and showing a section per addon that found titles in the
+  order of the addons, moved to AntresolKit (`AddonSearching.sections`, tests with answers arriving in the wrong
+  order, failures, nothing found, and a consumer that stops).
+- **Trailers on that page**: none, as on the iPhone's. The server lists trailers by a library item
+  (`GET /api/items/{id}/trailers`); nothing gives them for a TMDB id the library lacks. A title page with a
+  Trailer button would need a server call by `kind` and `tmdbId`.
+

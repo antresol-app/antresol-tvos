@@ -26,6 +26,11 @@ final class ServerBrowser {
 
     func start() {
         guard browser == nil else { return }
+        #if DEBUG
+        // UI tests: `-AntresolNoDiscovery YES` finds nothing, so a server of the network never takes
+        // the focus from the control a test is about to press Select on.
+        if UserDefaults.standard.bool(forKey: "AntresolNoDiscovery") { return }
+        #endif
         let parameters = NWParameters()
         parameters.includePeerToPeer = false
         let browser = NWBrowser(for: .bonjourWithTXTRecord(type: ServerDiscovery.serviceType, domain: nil), using: parameters)

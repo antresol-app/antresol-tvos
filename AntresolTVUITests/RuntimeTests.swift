@@ -39,6 +39,54 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-03-left-the-app")
     }
 
+    /// The setup screen's address field, reached with the remote and typed into. Discovery is off
+    /// (`-AntresolNoDiscovery`) so no server of the network can take focus from the control Select is
+    /// pressed on, and Select is pressed only on a control the test saw focused: a test never connects
+    /// to a server it was not given.
+    private func typeAddress(_ address: String) {
+        app.launchArguments += ["-AntresolResetSession", "YES", "-AntresolNoDiscovery", "YES", "-AppleLanguages", "(\(language))"]
+        app.launch()
+        let enter = app.buttons[tr("Enter Address with the Remote")]
+        XCTAssertTrue(enter.waitForExistence(timeout: 30), "no setup screen")
+        XCTAssertTrue(waitForFocus(enter), "focus is not on «Enter Address with the Remote»: \(focusedLabel)")
+        remote.press(.select)
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "no address field")
+        XCTAssertTrue(waitForFocus(field), "focus is not on the address field: \(focusedLabel)")
+        remote.press(.select)
+        sleep(1)
+        field.typeText(address + "\n")
+    }
+
+    /// A typed address whose name does not resolve (`.invalid` never does): the screen says the server
+    /// cannot be reached. It does not ask for a second press that would send a password over plain http
+    /// to a host that is not there.
+    func testAnAddressThatDoesNotResolveIsNotOfferedUnencrypted() {
+        continueAfterFailure = false
+        typeAddress("no-such-host.invalid")
+        // by the beginning of the text: a query by a long identifier is refused
+        func line(_ key: String) -> XCUIElement {
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", String(tr(key).prefix(30)))).firstMatch
+        }
+        let unreachable = line("Couldn't reach the server. Check the address and that the server is running.")
+        let unencrypted = line("This connection isn't encrypted: your password would cross the internet in the clear. Select Connect again to use it anyway.")
+        XCTAssertTrue(unreachable.waitForExistence(timeout: 60) || unencrypted.exists, "no answer: \(focusedLabel)")
+        sleep(1)
+        snapshot("rt-80-address-does-not-resolve")
+        XCTAssertTrue(unreachable.exists, "the screen does not say the server cannot be reached")
+        XCTAssertFalse(unencrypted.exists, "the viewer was asked to accept plain http to a host that does not resolve")
+    }
+
+    /// The address the viewer types reaches the mock (the home network's http, one attempt) and goes on to
+    /// the profile picker: what `ServerAddress.connect` hands `AppState.connect` is kept as the server.
+    func testATypedAddressConnectsToTheServer() {
+        continueAfterFailure = false
+        typeAddress(server)
+        XCTAssertTrue(app.staticTexts[tr("Who's watching?")].waitForExistence(timeout: 30), "no profile picker: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-81-typed-address-connected")
+    }
+
     /// The TV tab opens on the last channel; the player plays it, zaps, opens the options
     /// row and the audio list with focus where the viewer expects it, and Menu comes back
     /// to the channel's row.
@@ -861,6 +909,91 @@ final class RuntimeTests: XCTestCase {
         remote.press(.select)
         XCTAssertTrue(waitForEvent(timeout: 10) { $0["method"] as? String == "POST" && $0["path"] as? String == "/api/addons/beta/x/app/cancel" },
                       "the copy was not cancelled")
+    }
+
+    /// Search finds what the library lacks (the mock with `--addons`; both addons answer a search with
+    /// titles of their own, whatever the text): their shelves come after the library's, each under the
+    /// heading its addon names. A title the library lacks opens its own page, with the ways the addons
+    /// offer it and a show's seasons; Menu comes back to the card it was opened from. A title the library
+    /// has opens the library's page.
+    func testSearchOpensATitleTheLibraryLacks() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_ADDONS"] != nil,
+                          "needs scripts/mock-server.py --addons and ANTRESOL_MOCK_ADDONS")
+        // A press after a failed step would land on whatever has focus: stop at the first failure.
+        continueAfterFailure = false
+        // The third profile (Family) is an adult; the kid is offered no ways.
+        signInToMovie(profilesToTheRight: 2, openingMovie: false)
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 40), "not signed in: \(focusedLabel)")
+        sleep(2)
+        XCTAssertTrue(openSection(tr("Search"), showing: app.searchFields.firstMatch), "no Search tab: \(focusedLabel)")
+        sleep(2)
+        app.searchFields.firstMatch.typeText("far")
+
+        func card(_ title: String) -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        }
+        // The addons' headings, after the library's shelves.
+        XCTAssertTrue(app.staticTexts["Find and add"].waitForExistence(timeout: 30), "no shelf of the addon that adds")
+        XCTAssertTrue(app.staticTexts["Find and watch"].exists, "no shelf of the addon that watches")
+        let far = card("Far Show")
+        XCTAssertTrue(far.exists, "the addon's title is not on its shelf")
+        sleep(2)
+        snapshot("rt-89-search-results")
+        // Down from the keyboard to the shelf, through the library's.
+        XCTAssertTrue(moveFocus(.down, to: far, limit: 14), "focus cannot reach the addon's title: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-90-search-addon-shelf")
+
+        // A show the library lacks: its page, the addons' ways, the seasons.
+        remote.press(.select)
+        let play = app.buttons["way-play"]
+        let keep = app.buttons["Add to server"]
+        XCTAssertTrue(play.waitForExistence(timeout: 30), "no title page with a way to watch: \(focusedLabel)")
+        XCTAssertTrue(app.buttons["way-menu"].exists, "no menu of the ways beside the pill")
+        XCTAssertTrue(keep.exists, "no round button for the way that keeps a copy")
+        XCTAssertTrue(app.staticTexts["Far Show"].exists, "no title on the page")
+        XCTAssertTrue(waitForFocus(play, seconds: 8), "focus did not start on the pill: \(focusedLabel)")
+        XCTAssertTrue(app.staticTexts["A show the library lacks."].waitForExistence(timeout: 10), "no overview")
+        sleep(3)
+        snapshot("rt-91-title-page-show")
+        // Down to the seasons and back up: the remote reaches every row.
+        remote.press(.down)
+        sleep(1)
+        XCTAssertFalse(play.hasFocus, "focus did not leave the buttons for the seasons: \(focusedLabel)")
+        snapshot("rt-92-title-page-seasons")
+        remote.press(.up)
+        XCTAssertTrue(waitForFocus(play), "focus did not come back to the buttons: \(focusedLabel)")
+        remote.press(.menu)
+        XCTAssertTrue(waitForFocus(far, seconds: 10), "Menu did not come back to the card: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-93-back-on-the-card")
+
+        // A film the library lacks, from the other addon's shelf: the ways of both addons in the menu.
+        let film = card("Sample Film")
+        XCTAssertTrue(moveFocus(.up, to: film, limit: 3), "focus cannot reach the film: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(play.waitForExistence(timeout: 30), "no title page for the film: \(focusedLabel)")
+        XCTAssertTrue(waitForFocus(play, seconds: 8), "focus did not start on the pill: \(focusedLabel)")
+        remote.press(.right)
+        sleep(1)
+        remote.press(.select)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Watch here")).firstMatch
+            .waitForExistence(timeout: 10), "the menu of the ways did not open: \(focusedLabel)")
+        snapshot("rt-94-title-page-film-ways")
+        remote.press(.menu)
+        sleep(1)
+        remote.press(.menu)
+        XCTAssertTrue(waitForFocus(film, seconds: 10), "Menu did not come back to the film's card: \(focusedLabel)")
+
+        // A title the library has (next to the film on the same shelf) opens the library's own page: it
+        // has its own buttons, and no pill of the addons for what the library lacks.
+        remote.press(.right)
+        sleep(1)
+        XCTAssertTrue(focusedLabel.contains("Test Show"), "focus is not on the title the library has: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons[tr("Mark as Watched")].waitForExistence(timeout: 30), "the library's title did not open its own page: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-95-library-title-page")
     }
 
     /// A kid's profile is offered no ways, and the app does not even ask the addons for them.
