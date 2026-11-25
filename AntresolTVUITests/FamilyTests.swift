@@ -219,6 +219,38 @@ final class FamilyUITests: XCTestCase {
     /// «Family» in the transport bar: a row takes the player to their place, and while it is only looked
     /// at the position saved stays the one before it; «Back to …» goes back.
     func testThePlayersFamilyMenu() throws {
+        let clock = playFromTheSavedPositionAndPeekAtAlex()
+        snapshot("62-at-their-place")
+        // the menu again: «Back to 0:15» comes first, and takes the player back
+        remote.press(.select)
+        sleep(2)
+        snapshot("63-family-menu-back-row")
+        remote.press(.select)
+        XCTAssertTrue(wait(10) { (Int(clock.value as? String ?? "") ?? 99) <= 22 }, "Back did not return: \(clock.value as? String ?? "")")
+        sleep(2)
+        snapshot("64-back-again")
+        leavePlayer(clock)
+        // what is saved is where this profile was, never the place only looked at
+        let writes = clipWrites()
+        XCTAssertFalse(writes.isEmpty, "nothing was saved on leaving")
+        XCTAssertTrue(writes.allSatisfy { $0 < 22_000 }, "the place only looked at was saved: \(writes)")
+        print("progress writes of the clip (positionMs): \(writes)")
+    }
+
+    /// Once the player has played five seconds at their place it is this profile's own: saved from there on.
+    func testAPeekedPlaceBecomesOursOncePlayedOn() throws {
+        let clock = playFromTheSavedPositionAndPeekAtAlex()
+        // the hold ends five seconds on; the periodic write (every 10 s) then takes the real position
+        XCTAssertTrue(wait(30) { self.clipWrites().contains { $0 >= 28_000 } }, "the place played on was not saved: \(clipWrites())")
+        leavePlayer(clock)
+        let writes = clipWrites()
+        XCTAssertTrue(writes.allSatisfy { $0 >= 18_000 }, "a position from before the film was written: \(writes)")
+        print("progress writes of the clip (positionMs): \(writes)")
+    }
+
+    /// Plays the clip from its saved 0:15, opens «Family» in the transport bar and goes to Alex's 0:25; the
+    /// player's clock.
+    private func playFromTheSavedPositionAndPeekAtAlex() -> XCUIElement {
         signIn(opening: 22)
         let play = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", tr("Resume"), tr("Play"))).firstMatch
         XCTAssertTrue(play.waitForExistence(timeout: 30), "no Play: \(focusedLabel)")
@@ -231,35 +263,46 @@ final class FamilyUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(Int(clock.value as? String ?? "") ?? 0, 14, "not from the saved 0:15")
 
         // The transport bar (Select shows it, Up goes to its buttons): Audio, Subtitles, Quality, Skip Automatically,
-        // then Family (a skip pill may come first); Right until the focus is on it.
+        // then Family (a skip pill may come first); Right until the focus is on it. The bar's buttons are the
+        // system's: the menu is found by its title, or the icon's name.
         remote.press(.select)
         sleep(2)
         remote.press(.up)
         sleep(2)
-        let family = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", tr("Family"), "family.line")).firstMatch
-        XCTAssertTrue(moveFocus(.right, to: family, limit: 9), "no «Family» in the transport bar: \(focusedLabel)")
+        func onFamily() -> Bool {
+            let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+            return focused.exists && focused.identifier != "family.line" && [tr("Family"), "person.2"].contains { focused.label.contains($0) || focused.identifier.contains($0) }
+        }
+        var trail: [String] = [focusedLabel]
+        for _ in 0..<9 where !onFamily() {
+            remote.press(.right)
+            sleep(1)
+            trail.append(focusedLabel)
+        }
+        XCTAssertTrue(onFamily(), "no «Family» in the transport bar: \(trail)")
         snapshot("60-transport-family-button")
         remote.press(.select)
         sleep(2)
         snapshot("61-family-menu")
         // the newest profile first (Alex, 0:25); a press goes there
         remote.press(.select)
-        sleep(2)
-        remote.press(.select)
         XCTAssertTrue(wait(10) { (Int(clock.value as? String ?? "") ?? 0) >= 24 }, "the player did not go to their place: \(clock.value as? String ?? "")")
-        snapshot("62-at-their-place")
-        // still looking: what is saved is the place before (0:15), however long it is held
-        sleep(3)
+        return clock
+    }
+
+    /// Progress writes of the clip (positionMs), in order.
+    private func clipWrites() -> [Int] {
+        mockEvents().filter { ($0["method"] as? String) == "PUT" && ($0["path"] as? String) == "/api/progress/22" }.compactMap { $0["positionMs"] as? Int }
+    }
+
+    /// Menu until the player is gone, and a moment for its last write.
+    private func leavePlayer(_ clock: XCUIElement) {
         for _ in 0..<4 where clock.exists {
             remote.press(.menu)
             sleep(2)
         }
         XCTAssertFalse(clock.exists, "Menu did not leave the player")
         sleep(2)
-        let writes = mockEvents().filter { ($0["method"] as? String) == "PUT" && ($0["path"] as? String) == "/api/progress/22" }.compactMap { $0["positionMs"] as? Int }
-        XCTAssertFalse(writes.isEmpty, "nothing was saved on leaving")
-        XCTAssertTrue(writes.allSatisfy { $0 < 22_000 }, "the place only looked at was saved: \(writes)")
-        print("progress writes of the clip (positionMs): \(writes)")
     }
 
     // MARK: helpers
