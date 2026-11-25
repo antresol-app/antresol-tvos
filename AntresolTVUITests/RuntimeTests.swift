@@ -1050,6 +1050,136 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(asked.isEmpty, "the addons were asked for a kid: \(asked)")
     }
 
+    // MARK: A kid asks a parent
+
+    /// A kid profile finds a title the library lacks and asks a parent for it (the mock with `--requests`, and
+    /// `ANTRESOL_MOCK_REQUESTS` set): Search shows an «Ask» shelf under the library's, the card shows where a request stands,
+    /// a movie's page has «Ask a Parent» and then where the request stands, «My Requests» (the profile's settings) lists
+    /// it first, and what a parent answers shows when the page is opened again.
+    func testAKidAsksAParent() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_REQUESTS"] != nil,
+                          "needs scripts/mock-server.py --requests and ANTRESOL_MOCK_REQUESTS")
+        // A press after a failed step would land on whatever has focus: stop at the first failure.
+        continueAfterFailure = false
+        mock("POST", "/mock/reset")
+        // The second profile of the mock's second port is the kid.
+        signInToMovie(profilesToTheRight: 1, openingMovie: false)
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 40), "not signed in: \(focusedLabel)")
+        sleep(2)
+        XCTAssertTrue(openSection(tr("Search"), showing: app.searchFields.firstMatch), "no Search tab: \(focusedLabel)")
+        sleep(2)
+        app.searchFields.firstMatch.typeText("padd")
+
+        func card(_ title: String) -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        }
+        // The shelf of what the library lacks, under its own heading, with the state of each request on its card.
+        XCTAssertTrue(app.staticTexts[tr("Ask")].waitForExistence(timeout: 30), "no shelf to ask from")
+        let peru = card("Paddington in Peru")
+        XCTAssertTrue(peru.waitForExistence(timeout: 10), "no card of a title already asked for")
+        XCTAssertTrue(peru.label.contains(tr("Waiting for an answer")), "the card does not say it waits: \(peru.label)")
+        XCTAssertTrue(card("The Adventures of Paddington Bear").label.contains(tr("Approved — coming soon")), "no approval on the card")
+        XCTAssertTrue(card("Paddington Goes Too Far").label.contains(tr("A parent said no")), "no refusal on the card")
+        let paddington = card("Paddington, ")
+        XCTAssertTrue(paddington.exists, "the title not asked for yet is not on the shelf")
+        XCTAssertFalse(paddington.label.contains(tr("Waiting for an answer")))
+        sleep(2)
+        snapshot("kid-01-search-shelf")
+        XCTAssertTrue(moveFocus(.down, to: paddington, limit: 14), "focus cannot reach the shelf: \(focusedLabel)")
+        sleep(2)
+        snapshot("kid-02-search-card-focused")
+
+        // The movie's page: «Ask a Parent» in place of Play, focus on it; one press asks.
+        remote.press(.select)
+        let ask = app.buttons["request-ask"]
+        XCTAssertTrue(ask.waitForExistence(timeout: 30), "no «Ask a Parent» on the page: \(focusedLabel)")
+        XCTAssertEqual(ask.label, tr("Ask a Parent"))
+        XCTAssertTrue(waitForFocus(ask, seconds: 8), "focus did not start on the pill: \(focusedLabel)")
+        XCTAssertTrue(app.staticTexts["Paddington"].exists, "no title on the page")
+        sleep(3)
+        snapshot("kid-03-title-page")
+        remote.press(.select)
+        let status = app.buttons["request-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 15), "the page does not say the request was made: \(focusedLabel)")
+        XCTAssertEqual(status.label, tr("Waiting for an answer"))
+        XCTAssertFalse(ask.exists, "a second «Ask a Parent» after asking")
+        sleep(2)
+        snapshot("kid-04-title-page-asked")
+        let asked = mockEvents().filter { ($0["method"] as? String) == "POST" && ($0["path"] as? String) == "/api/requests" }
+        XCTAssertEqual(asked.count, 1, "the request was sent \(asked.count) times")
+        XCTAssertEqual(json(asked.first?["body"])?["tmdbId"] as? Int, 116149)
+        XCTAssertEqual(json(asked.first?["body"])?["kind"] as? String, "movie")
+
+        // Back on the shelf the card says the same.
+        remote.press(.menu)
+        XCTAssertTrue(waitForFocus(card("Paddington, "), seconds: 10), "Menu did not come back to the card: \(focusedLabel)")
+        XCTAssertTrue(card("Paddington, ").label.contains(tr("Waiting for an answer")), "the card does not follow the page")
+        sleep(1)
+        snapshot("kid-05-search-card-asked")
+
+        // «My Requests», in the profile's settings: the new request first.
+        remote.press(.menu)
+        XCTAssertTrue(openSection("Kiddo", prefix: true, showing: app.buttons["settings.myRequests"]), "no My Requests row: \(focusedLabel)")
+        sleep(2)
+        snapshot("kid-06-settings-row")
+        // Right from the profile column lands on the row beside it; the new section is the first of the list.
+        remote.press(.right)
+        XCTAssertTrue(moveFocus(.up, to: app.buttons["settings.myRequests"], limit: 6), "focus: \(focusedLabel)")
+        remote.press(.select)
+        let rows = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", tr("Waiting for an answer")))
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 20), "no list of requests")
+        XCTAssertTrue(app.staticTexts[tr("My Requests")].exists, "no title on the list")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Paddington, ")).firstMatch.exists, "the new request is not listed")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Maybe when you are older")).firstMatch.exists, "no reason of the refusal")
+        sleep(2)
+        snapshot("kid-07-my-requests")
+
+        // A parent answers; the list shows it when it is opened again.
+        remote.press(.menu)
+        mock("POST", "/mock/decide/11/approved")
+        mock("POST", "/mock/decide/21/declined?reason=Not%20today")
+        let row = app.buttons["settings.myRequests"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Menu did not come back to the settings: \(focusedLabel)")
+        if !waitForFocus(row, seconds: 3) {
+            remote.press(.right)
+            XCTAssertTrue(moveFocus(.up, to: row, limit: 6), "focus: \(focusedLabel)")
+        }
+        remote.press(.select)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Not today")).firstMatch.waitForExistence(timeout: 20),
+                      "the parent's answer did not reach the list")
+        sleep(2)
+        snapshot("kid-08-my-requests-answered")
+    }
+
+    /// An album a kid found has a page of its own (no TMDB title): «Ask a Parent» there asks for it.
+    func testAKidAsksForAnAlbum() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_REQUESTS"] != nil,
+                          "needs scripts/mock-server.py --requests and ANTRESOL_MOCK_REQUESTS")
+        continueAfterFailure = false
+        mock("POST", "/mock/reset")
+        signInToMovie(profilesToTheRight: 1, openingMovie: false)
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 40), "not signed in: \(focusedLabel)")
+        sleep(2)
+        XCTAssertTrue(openSection(tr("Search"), showing: app.searchFields.firstMatch), "no Search tab: \(focusedLabel)")
+        sleep(2)
+        app.searchFields.firstMatch.typeText("songs of")
+        let album = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Songs of Paddington")).firstMatch
+        XCTAssertTrue(album.waitForExistence(timeout: 30), "no album to ask for")
+        XCTAssertTrue(moveFocus(.down, to: album, limit: 8), "focus cannot reach the album: \(focusedLabel)")
+        remote.press(.select)
+        let ask = app.buttons["request-ask"]
+        XCTAssertTrue(ask.waitForExistence(timeout: 20), "no page of the album: \(focusedLabel)")
+        XCTAssertTrue(waitForFocus(ask, seconds: 8), "focus: \(focusedLabel)")
+        sleep(2)
+        snapshot("kid-09-album-page")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["request-status"].waitForExistence(timeout: 15), "the page does not say the request was made")
+        snapshot("kid-10-album-page-asked")
+        let asked = mockEvents().filter { ($0["method"] as? String) == "POST" && ($0["path"] as? String) == "/api/requests" }
+        XCTAssertEqual(json(asked.first?["body"])?["extId"] as? String, "mb-demo")
+        XCTAssertEqual(json(asked.first?["body"])?["kind"] as? String, "music")
+    }
+
     // MARK: What the iPhone review found, as it shows on the Apple TV
 
     /// The chooser of a way (the mock with `--addons`): every row's badges are one height, a subtitles badge with no

@@ -1524,3 +1524,21 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
   provider's address (its own headers, no media key) and the server converts nothing for it; MP2, DTS, anything else
   and a flag with no codec named (an older server) still go through the relay. Android keeps going by the flag alone.
   The mock sends no codec, so its flagged channel is the older-server case and still plays through the relay.
+
+## A kid asks a parent (round 25 November, apple-kidreq)
+
+- A kid profile cannot search the addons (403), so the app asks the server's own kid flow, the same calls the web makes:
+  `GET /api/requests/search?q=&kind=video|music` (the app has no books), `POST /api/requests`, `GET /api/requests/mine`, the
+  `kidRequest` of `/api/title/…`, and `canRequest` of `/api/me` (set for a kid while requests are open; the app asks
+  nothing without it). Models, the request book (`KidRequestBook`: by kind and key, newest first, what the server refused
+  with its words) and the search of every kind at once (`KidRequestBook.candidates`) are in AntresolKit; the app has
+  `KidRequests` (the book as an environment object, reset when the profile changes).
+- Search: an «Ask» shelf after the library's and the addons', cards with the state of the request on them; failures and a
+  closed search leave no shelf and say nothing (as the addons'). A movie or show opens `TitleDetailView`, whose actions
+  are `RequestActions` for a kid; an album opens `RequestPageView`. «My Requests» is a row of the profile's settings
+  (kids who may ask), a list of rows (newest first, a request opens its title page or the library's).
+- The state pills that do nothing (waiting, approved, declined) are buttons that do nothing: a page without a focusable
+  control would give the remote nothing to land on.
+- Refreshing: the list is read when «My Requests» opens, and the book is kept (an ask puts its answer in at once). The app
+  has no event stream, so an answer from a parent shows the next time the list or a page is opened.
+- Not done: a parent's own side (approve and decline) stays in the web app.

@@ -51,6 +51,12 @@ With `--addons` both ports also serve the addons' `x/app` protocol (two neutral 
 and `beta`; kids get 403) and the core's input player, for the screens that offer an addon's
 ways. The second port records those requests with their bodies, as it does the others.
 
+With `--requests` the kid profile may ask a parent for what the library lacks (`canRequest`): the
+kid's `GET /api/requests/search` (movies and shows as `video`, one album as `music`), `POST /api/requests`
+and `GET /api/requests/mine`, and the title pages of those titles carry the kid's request of them.
+Three requests are answered to start with (waiting, approved, declined with a reason); on the second
+port `POST /mock/decide/<id>/<status>?reason=` answers one, as a parent would, until the next reset.
+
 Its play answers carry skip segments: the film (file 12) an intro at 0:18–0:30 and credits
 running to its end from 0:44, the episode (file 2, a 60 s file there) credits from 0:18;
 `PUT /api/me/playback-prefs/auto-skip` is kept (the event has its `body`) and the playback
@@ -88,6 +94,11 @@ LIVE_AUDIO = [("Русский", "ru"), ("English", "en"), ("Оригинал", 
 KID_TOKEN = "mock-kid-token"
 KID_USER = {"id": 2, "name": "Kiddo", "avatar": "grad-4", "photo": "/api/profiles/2/photo?v=1763500000", "hasPassword": False, "isAdmin": False,
             "isKid": True, "maxRating": "PG", "remote": False, "libraryOnly": True}
+
+
+def kid_user(server):
+    """The kid profile; with `--requests` it may ask a parent for titles."""
+    return dict(KID_USER, canRequest=True) if getattr(server, "requests", False) else KID_USER
 
 # The second port's passwordless adult profile, for «Отдельная история на этом устройстве».
 FAMILY_TOKEN = "mock-family-token"
@@ -585,6 +596,89 @@ def addon_request(server, method, path, query, body):
     return None
 
 
+# Kids' requests, with `--requests`: what the library lacks and a kid may ask a parent for. The
+# mock ignores the profile's age limit; the wording is its own.
+REQUEST_TITLES = [
+    {"kind": "movie", "tmdbId": 116149, "title": "Paddington", "year": 1999, "poster": "/api/images/request/116149/poster",
+     "overview": "A young bear travels to a new city in search of a home."},
+    {"kind": "movie", "tmdbId": 1008042, "title": "Paddington in Peru", "year": 2024, "poster": "/api/images/request/1008042/poster",
+     "overview": "The bear goes back to see his aunt."},
+    {"kind": "series", "tmdbId": 2005, "title": "The Adventures of Paddington Bear", "year": 1997,
+     "poster": "/api/images/request/2005/poster", "overview": "The bear and his friends, every week."},
+    {"kind": "movie", "tmdbId": 2006, "title": "Paddington Goes Too Far", "year": 1999, "poster": "/api/images/request/2006/poster",
+     "overview": "A longer story for older viewers."},
+]
+REQUEST_ALBUM = {"kind": "music", "tmdbId": 0, "extId": "mb-demo", "title": "Songs of Paddington", "subtitle": "Fixture Band", "year": 2019}
+
+
+def new_request_state():
+    """The kid's requests (newest first when listed): three answered to start with."""
+    def made(id, title, status, reason="", at="2026-11-25T09:00:00Z"):
+        return {"id": id, "key": f"tmdb:{title['tmdbId']}", "kind": title["kind"], "tmdbId": title["tmdbId"], "extId": "",
+                "title": title["title"], "subtitle": "", "year": title["year"], "poster": title["poster"], "aliases": [],
+                "rating": "PG", "status": status, "reason": reason, "libraryItemId": None, "createdAt": at}
+    return {"next": 20, "mine": {
+        11: made(11, REQUEST_TITLES[1], "pending", at="2026-11-25T08:30:00Z"),
+        12: made(12, REQUEST_TITLES[2], "approved", at="2026-11-24T18:10:00Z"),
+        13: made(13, REQUEST_TITLES[3], "declined", "Maybe when you are older", at="2026-11-23T16:00:00Z")}}
+
+
+def request_key(candidate):
+    return f"tmdb:{candidate['tmdbId']}" if candidate["kind"] in ("movie", "series") else f"ext:{candidate['extId']}"
+
+
+def request_of(state, candidate):
+    return next((r for r in state["mine"].values() if r["kind"] == candidate["kind"] and r["key"] == request_key(candidate)), None)
+
+
+def requests_request(server, method, path, query, body, kid):
+    """(status, payload) of the kid's request calls; None for any other path."""
+    state = server.request_state
+    if method == "GET" and path == "/api/requests/search":
+        if not kid:
+            return 403, {"error": "Only kid profiles may ask"}
+        params = urllib.parse.parse_qs(query)
+        text = (params.get("q") or [""])[0].lower().strip()
+        kind = (params.get("kind") or [""])[0]
+        found = REQUEST_TITLES if kind == "video" else [REQUEST_ALBUM] if kind == "music" else []
+        return 200, [dict(c, extId=c.get("extId", ""), subtitle=c.get("subtitle", ""), aliases=[], explicit=False,
+                          kidRequest={"key": request_key(c), "allowed": True, "request": request_of(state, c)})
+                     for c in found if text and text in c["title"].lower()]
+    if method == "GET" and path == "/api/requests/mine":
+        return 200, sorted(state["mine"].values(), key=lambda r: (r["createdAt"], r["id"]), reverse=True)
+    if method == "POST" and path == "/api/requests":
+        if not kid:
+            return 403, {"error": "Only kid profiles may ask"}
+        asked = json.loads(body or b"{}")
+        candidate = next((c for c in REQUEST_TITLES + [REQUEST_ALBUM]
+                          if c["kind"] == asked.get("kind") and (c.get("tmdbId") == asked.get("tmdbId") or c.get("extId") == asked.get("extId"))), None)
+        if candidate is None:
+            return 404, {"error": "Unknown title"}
+        known = request_of(state, candidate)
+        if known:
+            return 200, known
+        state["next"] += 1
+        made = {"id": state["next"], "key": request_key(candidate), "kind": candidate["kind"], "tmdbId": candidate["tmdbId"],
+                "extId": candidate.get("extId", ""), "title": candidate["title"], "subtitle": candidate.get("subtitle", ""),
+                "year": candidate["year"], "poster": candidate.get("poster", ""), "aliases": [], "rating": "PG", "status": "pending",
+                "reason": "", "libraryItemId": None, "createdAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+        state["mine"][made["id"]] = made
+        return 200, made
+    match = re.fullmatch(r"/api/title/(movie|series)/(\d+)", path)
+    if match and method == "GET":
+        found = next((c for c in REQUEST_TITLES if c["kind"] == match.group(1) and c["tmdbId"] == int(match.group(2))), None)
+        if found is None:
+            return None
+        info = {"tmdbId": found["tmdbId"], "extId": "", "kind": found["kind"], "title": found["title"], "subtitle": "", "year": found["year"],
+                "poster": found["poster"], "overview": found["overview"], "inLibrary": False, "libraryItemId": None,
+                "backdrop": "/api/images/request/%d/backdrop" % found["tmdbId"], "genres": ["Family", "Comedy"], "runtime": 95,
+                "rating": "PG", "cast": [], "seasons": [{"number": 1, "episodes": 2}] if found["kind"] == "series" else []}
+        if kid:
+            info["kidRequest"] = {"key": request_key(found), "allowed": True, "request": request_of(state, found)}
+        return 200, info
+    return None
+
+
 def movie_grid(query):
     """The recorded movies plus generated ones, so the grid has rows to scroll."""
     page = json.loads((SAMPLES / "items-movies.json").read_text())
@@ -823,7 +917,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         # Profile 2 is a kid profile, as on the sample server.
         if method == "POST" and path == "/api/auth/token" and json.loads(body or b"{}").get("userId") == 2:
-            return self.send(200, json.dumps({"token": KID_TOKEN, "user": KID_USER}).encode(), "application/json")
+            return self.send(200, json.dumps({"token": KID_TOKEN, "user": kid_user(self.server)}).encode(), "application/json")
         authorization = self.headers.get("Authorization") or ""
         pairing_port = getattr(self.server, "pairing", False)
         if pairing_port and path == "/api/profiles" and method == "GET":
@@ -833,7 +927,7 @@ class Handler(BaseHTTPRequestHandler):
             user = dict(FAMILY_USER, deviceHistory=history_ref(self.server.history))
             return self.send(200, json.dumps({"token": FAMILY_TOKEN, "user": user}).encode(), "application/json")
         if method == "GET" and path == "/api/me":
-            me = KID_USER if KID_TOKEN in authorization else FAMILY_USER if FAMILY_TOKEN in authorization else json.loads((SAMPLES / "me.json").read_text())
+            me = kid_user(self.server) if KID_TOKEN in authorization else FAMILY_USER if FAMILY_TOKEN in authorization else json.loads((SAMPLES / "me.json").read_text())
             return self.send(200, json.dumps(dict(me, deviceHistory=history_ref(self.server.history))).encode(), "application/json")
         handled = managed_request(self.server.history, method, path, json.loads(body or b"{}") if method in ("POST", "PUT") else {},
                                   kid=KID_TOKEN in authorization)
@@ -845,6 +939,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, json.dumps(pairing_code(self.server.server_port)).encode(), "application/json")
             if path == "/api/auth/pair/poll":
                 return self.send(200, json.dumps({"status": "pending"}).encode(), "application/json")
+        if getattr(self.server, "requests", False) and (path.startswith("/api/requests") or path.startswith("/api/title/")):
+            answer = requests_request(self.server, method, path, query, body, kid=KID_TOKEN in authorization)
+            if answer is not None:
+                return self.send(answer[0], json.dumps(answer[1]).encode(), "application/json")
         if getattr(self.server, "addons", False) and (path.startswith("/api/addons/") or path.startswith("/api/title/")
                                                        or path.startswith("/api/play/input/") or path == "/api/tracking/series/5555/episodes"):
             if KID_TOKEN in authorization and path.startswith("/api/addons/"):
@@ -1019,6 +1117,7 @@ class Handler(BaseHTTPRequestHandler):
         server = self.server
         if path.startswith("/mock/"):
             match = re.fullmatch(r"/mock/fail-progress/(\d+)", path)
+            decide = re.fullmatch(r"/mock/decide/(\d+)/(pending|approved|declined|in_library)", path)
             with server.hooks_lock:
                 if method == "GET" and path == "/mock/events":
                     payload = json.dumps(server.events).encode()
@@ -1029,12 +1128,20 @@ class Handler(BaseHTTPRequestHandler):
                     server.history = new_history_state()
                     server.channels = new_channel_state()
                     server.addon_state = new_addon_state()
+                    server.request_state = new_request_state()
                     payload = b"{}"
                 elif method == "POST" and path == "/mock/external-audio":
                     server.channels["externalAudio"] = True
                     payload = b"{}"
                 elif method == "POST" and match:
                     server.fail_progress.add(int(match.group(1)))
+                    payload = b"{}"
+                elif method == "POST" and decide and int(decide.group(1)) in server.request_state["mine"]:
+                    # a parent answers a request (a reason with `?reason=`; `in_library` as the library gets the title)
+                    asked = server.request_state["mine"][int(decide.group(1))]
+                    asked["status"] = decide.group(2)
+                    asked["reason"] = (urllib.parse.parse_qs(query).get("reason") or [""])[0]
+                    asked["libraryItemId"] = 1 if decide.group(2) == "in_library" else None
                     payload = b"{}"
                 else:
                     payload = None
@@ -1053,7 +1160,7 @@ class Handler(BaseHTTPRequestHandler):
             self.event["positionMs"] = self.progress_write
         if method == "PUT" and path in ("/api/me/playback-prefs/auto-skip", "/api/me/devices/current/history"):
             self.event["body"] = self.request_body.decode("utf-8", "replace")
-        if method in ("POST", "PUT") and ("/x/app/" in path or path.startswith("/api/play/input/")):
+        if method in ("POST", "PUT") and ("/x/app/" in path or path.startswith("/api/play/input/") or path == "/api/requests"):
             self.event["body"] = self.request_body.decode("utf-8", "replace")
         match = re.fullmatch(r"/api/progress/(\d+)", path)
         with server.hooks_lock:
@@ -1146,6 +1253,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8421)
     parser.add_argument("--addons", action="store_true", help="serve the addons' x/app protocol and the input player")
+    parser.add_argument("--requests", action="store_true", help="the kid profile may ask a parent for titles the library lacks")
     parser.add_argument("--channels", type=int, default=0, help="the main port's channel list has this many channels (for screenshots)")
     args = parser.parse_args()
     pairing = ThreadingHTTPServer(("127.0.0.1", args.port + 1), Handler)
@@ -1155,11 +1263,13 @@ def main():
     pairing.history = new_history_state()
     pairing.channels = new_channel_state()
     pairing.addons, pairing.addon_state = args.addons, new_addon_state()
+    pairing.requests, pairing.request_state = args.requests, new_request_state()
     threading.Thread(target=pairing.serve_forever, daemon=True).start()
     main_server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     main_server.auto_skip = {}
     main_server.channel_count = args.channels
     main_server.addons, main_server.addon_state = args.addons, new_addon_state()
+    main_server.requests, main_server.request_state = args.requests, new_request_state()
     main_server.history = new_history_state()
     main_server.serve_forever()
 

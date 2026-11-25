@@ -89,6 +89,12 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 - **Search**: across movies, shows and music, with browse tiles. Each server addon that searches
   adds its own section, under its own heading, after the library's results; a title the library
   has opens its page, any other opens a page of its own.
+- **Asking a parent**: a kid profile gets no ways and no addons; while the server has requests open (`canRequest`
+  of `/api/me`), Search adds an «Ask» shelf of what the library lacks (movies, shows and albums, from
+  `GET /api/requests/search`) with where each request stands on its card. A movie or show opens the title's page with
+  «Ask a Parent» in place of Play (`POST /api/requests`), then the state: waiting, approved, declined with the parent's
+  reason, or a button to the library's page once the title is there; an album has a page of its own. «My Requests»
+  (the profile's settings) lists them, newest first. The parents answer in the web app.
 - **Addon ways**: what the server's addons offer a title (docs/API.md §14), in the server's own
   words. A movie or show page shows the ways that watch as one pill with a chevron button beside
   it: with no Play of its own (a title the library lacks) the pill is «Play», else it carries the
@@ -271,6 +277,9 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   is the debug probe `player.skip`) and its test hooks (`/mock/events`,
   `/mock/reset`, `/mock/fail-progress/<id>`; see the script's header), none of which the
   main port has, so the screenshot tests keep seeing what they saw.
+- `testAKidAsksAParent` and `testAKidAsksForAnAlbum` need the mock with `--requests` (the kid profile may ask a parent
+  for titles; `POST /mock/decide/<id>/<status>` answers a request on the second port) and `TEST_RUNNER_ANTRESOL_MOCK_REQUESTS=1`;
+  they skip themselves otherwise.
 - `testAddonWays` needs the mock with `--addons` (two neutral addons: ways that watch and keep,
   a chooser, the chevron's menu of the ways, an input player that answers `202` first) and `TEST_RUNNER_ANTRESOL_MOCK_ADDONS=1`;
   it skips itself otherwise. `testSearchOpensATitleTheLibraryLacks` needs the same: it searches, opens a title the
