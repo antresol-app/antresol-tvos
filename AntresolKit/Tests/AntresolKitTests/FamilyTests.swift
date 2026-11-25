@@ -245,23 +245,36 @@ final class FamilyTests: XCTestCase {
     // MARK: the player's hold
 
     func testAPeekedPlaceIsNotSavedUntilItPlaysOn() {
-        let hold = FamilyHold(position: 600, target: 2000)
+        var hold = FamilyHold(position: 600, target: 2000, since: 100)
+        // the seek has not landed yet: the player still shows where it was
+        XCTAssertEqual(hold.saved(now: 600, clock: 100.2).position, 600)
+        XCTAssertFalse(hold.saved(now: 600, clock: 100.4).release)
+        XCTAssertFalse(hold.arrived)
         // at the target, and for five seconds after: the place from before the jump is saved
-        XCTAssertEqual(FamilyHold.held(hold, now: 2000).position, 600)
-        XCTAssertEqual(FamilyHold.held(hold, now: 1999.5).position, 600)
-        XCTAssertEqual(FamilyHold.held(hold, now: 2004.9).position, 600)
-        XCTAssertFalse(FamilyHold.held(hold, now: 2004.9).release)
+        XCTAssertEqual(hold.saved(now: 2000, clock: 101).position, 600)
+        XCTAssertTrue(hold.arrived)
+        XCTAssertEqual(hold.saved(now: 2004.9, clock: 106).position, 600)
+        XCTAssertFalse(hold.saved(now: 2004.9, clock: 106).release)
         // it played on there: the real position, and the hold is over
-        let played = FamilyHold.held(hold, now: 2005)
+        let played = hold.saved(now: 2005, clock: 106.2)
         XCTAssertEqual(played.position, 2005)
         XCTAssertTrue(played.release)
-        // the viewer went somewhere else first
-        let elsewhere = FamilyHold.held(hold, now: 900)
+    }
+
+    func testAPeekedPlaceIsLetGoWhenTheViewerGoesElsewhere() {
+        var hold = FamilyHold(position: 600, target: 2000, since: 0)
+        _ = hold.saved(now: 2000, clock: 1)
+        let elsewhere = hold.saved(now: 900, clock: 3)
         XCTAssertEqual(elsewhere.position, 900)
         XCTAssertTrue(elsewhere.release)
-        // no hold: as it is
-        XCTAssertEqual(FamilyHold.held(nil, now: 42).position, 42)
-        XCTAssertFalse(FamilyHold.held(nil, now: 42).release)
+    }
+
+    func testAPeekThePlayerNeverReachesIsGivenUp() {
+        var hold = FamilyHold(position: 600, target: 2000, since: 0)
+        XCTAssertFalse(hold.saved(now: 610, clock: 19).release)
+        let gaveUp = hold.saved(now: 612, clock: 21)
+        XCTAssertEqual(gaveUp.position, 612)
+        XCTAssertTrue(gaveUp.release)
     }
 
     func testTheClock() {
