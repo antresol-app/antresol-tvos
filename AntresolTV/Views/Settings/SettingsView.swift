@@ -123,7 +123,6 @@ private struct SettingsPage: View {
             NavigationLink {
                 SettingsChoiceView(
                     title: "Video Quality",
-                    footnote: "Auto plays the original file when Apple TV can, and converts it otherwise.",
                     options: VideoQuality.allCases.map { SettingsOption(value: $0, title: $0.displayName) },
                     selection: $quality
                 )
@@ -134,7 +133,6 @@ private struct SettingsPage: View {
             NavigationLink {
                 SettingsChoiceView(
                     title: "Audio Language",
-                    footnote: "Used when a video has a track in this language. Automatic plays the file's default track.",
                     options: [SettingsOption(value: String?.none, title: String(localized: "Automatic", bundle: .localized))]
                         + Self.mediaLanguages.map { SettingsOption<String?>(value: $0, title: languageName($0)) },
                     selection: $audioLanguage
@@ -146,7 +144,6 @@ private struct SettingsPage: View {
             NavigationLink {
                 SettingsChoiceView(
                     title: "Subtitles",
-                    footnote: "Subtitles in this language turn on by themselves when a video has them.",
                     options: [SettingsOption(value: String?.none, title: String(localized: "Off", bundle: .localized))]
                         + Self.mediaLanguages.map { SettingsOption<String?>(value: $0, title: languageName($0)) },
                     selection: $subtitleLanguage

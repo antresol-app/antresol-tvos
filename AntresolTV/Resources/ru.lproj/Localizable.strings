@@ -195,11 +195,8 @@
 /* Settings */
 "Playback" = "Воспроизведение";
 "Video Quality" = "Качество видео";
-"Auto plays the original file when Apple TV can, and converts it otherwise." = "«Авто» воспроизводит исходный файл, если Apple TV это умеет, а иначе конвертирует его.";
 "Audio Language" = "Язык аудио";
-"Used when a video has a track in this language. Automatic plays the file's default track." = "Используется, если у видео есть дорожка на этом языке. «Автоматически» — дорожка файла по умолчанию.";
 "Automatic" = "Автоматически";
-"Subtitles in this language turn on by themselves when a video has them." = "Субтитры на этом языке включаются сами, если они есть у видео.";
 "Autoplay Next Episode" = "Автовоспроизведение следующей серии";
 "Language" = "Язык";
 "Some text changes language the next time Antresol is opened." = "Часть текста сменит язык при следующем запуске Antresol.";
