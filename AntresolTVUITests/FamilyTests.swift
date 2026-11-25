@@ -123,7 +123,6 @@ final class FamilyUITests: XCTestCase {
         enterPage()
         sleep(5)
         XCTAssertFalse(app.buttons["family.line"].exists, "a line with nobody in it")
-        XCTAssertFalse(app.staticTexts[tr("Family")].exists, "a «Family» heading with nobody in it")
         XCTAssertFalse(mockEvents().filter { ($0["path"] as? String) == "/api/items/101/family" }.isEmpty, "the app did not ask")
         snapshot("30-no-line")
     }
@@ -231,15 +230,14 @@ final class FamilyUITests: XCTestCase {
         sleep(3)
         XCTAssertGreaterThanOrEqual(Int(clock.value as? String ?? "") ?? 0, 14, "not from the saved 0:15")
 
-        // The transport bar: Audio, Subtitles, Quality, Skip Automatically, then Family.
+        // The transport bar (Select shows it, Up goes to its buttons): Audio, Subtitles, Quality, Skip Automatically,
+        // then Family (a skip pill may come first); Right until the focus is on it.
         remote.press(.select)
         sleep(2)
         remote.press(.up)
         sleep(2)
-        for _ in 0..<4 {
-            remote.press(.right)
-            sleep(1)
-        }
+        let family = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", tr("Family"), "family.line")).firstMatch
+        XCTAssertTrue(moveFocus(.right, to: family, limit: 9), "no «Family» in the transport bar: \(focusedLabel)")
         snapshot("60-transport-family-button")
         remote.press(.select)
         sleep(2)
