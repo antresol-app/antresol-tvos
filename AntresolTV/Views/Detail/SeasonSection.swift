@@ -62,6 +62,7 @@ struct SeasonSection: View {
         if let card = episode.card {
             NavigationLink(value: Route.item(card.card)) {
                 EpisodeCardView(episode: card, state: marked ? .downloaded : nil, isNew: episode.isNew)
+                    .withFamily(model.family.filter { $0.itemId == card.id && !$0.finished })
                     .wayBusy(wayTarget(for: episode, inLibrary: true).map { addons.isRunning(for: $0) } ?? false)
             }
             .buttonStyle(CardButtonStyle())
@@ -168,6 +169,8 @@ struct EpisodeCardView: View {
     /// An addon's way plays this episode (it is not in the library): it is not dimmed.
     let playable: Bool
     var width: CGFloat = Theme.Layout.episodeWidth
+    /// The other profiles who are in this episode (small faces on its tile).
+    var family: [FamilyMember] = []
 
     @Environment(\.isCardFocused) private var isFocused
     @Environment(\.locale) private var locale
@@ -225,6 +228,7 @@ struct EpisodeCardView: View {
                 }
             }
             .frame(width: width, height: width * 9 / 16)
+            .overlay(alignment: .topTrailing) { FamilyFaces(members: family) }
             .watchedDimming(watched, width: width, isFocused: isFocused)
             .cardLift(isFocused: isFocused)
 
@@ -259,6 +263,14 @@ struct EpisodeCardView: View {
         .frame(width: width, alignment: .leading)
         .opacity(dimming)
         .accessibilityElement(children: .combine)
+        .accessibilityValue(Text(verbatim: family.map(\.name).joined(separator: ", ")))
+    }
+
+    /// The same tile with the family's faces on it.
+    func withFamily(_ members: [FamilyMember]) -> EpisodeCardView {
+        var copy = self
+        copy.family = members
+        return copy
     }
 
     /// Not downloaded is dimmer than downloaded (unless a way plays it); still to air is

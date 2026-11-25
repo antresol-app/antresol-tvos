@@ -19,7 +19,8 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
   server with LAN discovery), or "Enter Address with the Remote": a host, `host:port` or URL
   (port 8420 by default; a host away from the home network typed without a scheme is tried
   over https first, and plain http to one asks for a second press of Connect after a note that
-  the connection is not encrypted). Then "Sign in with your phone": a QR code and a
+  the connection is not encrypted; a name that does not resolve, or no network, is said at once as
+  "Couldn't reach the server", with no such note). Then "Sign in with your phone": a QR code and a
   6-character code that a signed-in phone approves (the Antresol app or the server's `/pair`
   page), renewed when it expires; or "Sign In with the Remote": the "Who's watching?" profile picker with avatar gradients, password entry for protected profiles,
   and kid profiles. Tokens are kept per server and profile in the Keychain (this device only), and the session is
@@ -88,6 +89,20 @@ your own server only. SwiftUI, tvOS 17+, English and Russian.
 - **Search**: across movies, shows and music, with browse tiles. Each server addon that searches
   adds its own section, under its own heading, after the library's results; a title the library
   has opens its page, any other opens a page of its own.
+- **Asking a parent**: a kid profile gets no ways and no addons; while the server has requests open (`canRequest`
+  of `/api/me`), Search adds an «Ask» shelf of what the library lacks (movies, shows and albums, from
+  `GET /api/requests/search`) with where each request stands on its card. A movie or show opens the title's page with
+  «Ask a Parent» in place of Play (`POST /api/requests`), then the state: waiting, approved, declined with the parent's
+  reason, or a button to the library's page once the title is there; an album has a page of its own. «My Requests»
+  (the profile's settings) lists them, newest first. The parents answer in the web app.
+- **Family**: where the other profiles are in a title (`GET /api/items/{id}/family`, as the web's «Семья»). Under the
+  actions of a movie, show or episode page a quiet line shows their faces in progress rings (a check when finished),
+  «Family» and who is where («Alex · S1, E2 · 17 min», «2 more»); Select opens the list: each profile's place, when they
+  were there, and «Continue from Their Place» (or «Play S1 E3» for an episode nobody has started), which takes their position as this profile's own
+  (`POST /api/progress/{id}/adopt`; theirs is never written) and plays from it. A profile whose next episode it is just
+  starts that one; a finished one has no button. Episode tiles carry the faces of those who are in them, and the player's
+  transport bar has a «Family» menu that goes to their place without saving it as this profile's until it plays on there
+  (5 s), with «Back to …». Nothing shows when nobody else has progress; a kid is not asked (the server lists nobody).
 - **Addon ways**: what the server's addons offer a title (docs/API.md §14), in the server's own
   words. A movie or show page shows the ways that watch as one pill with a chevron button beside
   it: with no Play of its own (a title the library lacks) the pill is «Play», else it carries the
@@ -257,7 +272,8 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   sign-in screens, the live player (every channel of the mock plays one short looped stream,
   `scripts/fixtures/live`), a transcoded song, a failed progress request with Try Again, a
   last channel far down the list, the guide's rows of two external channels with the same
-  programme ids, and the hero's auto-advance. The hero test expects the
+  programme ids, an external channel whose audio the server converts (`POST /mock/external-audio`:
+  it plays through the server's relay, the next one from its provider), and the hero's auto-advance. The hero test expects the
   hero to stay when the simulator has Reduce Motion on (`xcrun simctl spawn <udid> defaults
   write com.apple.Accessibility ReduceMotionEnabled -bool true`); CI runs it a second time
   that way, with `TEST_RUNNER_ANTRESOL_EXPECT_REDUCE_MOTION=1` so the run fails if the
@@ -269,9 +285,20 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   is the debug probe `player.skip`) and its test hooks (`/mock/events`,
   `/mock/reset`, `/mock/fail-progress/<id>`; see the script's header), none of which the
   main port has, so the screenshot tests keep seeing what they saw.
+- `testAKidAsksAParent` and `testAKidAsksForAnAlbum` need the mock with `--requests` (the kid profile may ask a parent
+  for titles; `POST /mock/decide/<id>/<status>` answers a request on the second port) and `TEST_RUNNER_ANTRESOL_MOCK_REQUESTS=1`;
+  they skip themselves otherwise.
+- `FamilyUITests` need the mock with `--family` (the other profiles' places in the film 19, the short clip 22, the
+  series 2 and the film 23 with names that must wrap; `POST /api/progress/{id}/adopt` copies one into the caller's own) and `TEST_RUNNER_ANTRESOL_MOCK_FAMILY=1`;
+  `TEST_RUNNER_SHOTS_DIR` also gets the pictures as PNG. They skip themselves otherwise.
 - `testAddonWays` needs the mock with `--addons` (two neutral addons: ways that watch and keep,
   a chooser, the chevron's menu of the ways, an input player that answers `202` first) and `TEST_RUNNER_ANTRESOL_MOCK_ADDONS=1`;
-  it skips itself otherwise.
+  it skips itself otherwise. `testSearchOpensATitleTheLibraryLacks` needs the same: it searches, opens a title the
+  library lacks from an addon's shelf (the ways, a show's seasons, Menu back to the card) and one the library has.
+- The address tests (`testAnAddressThatDoesNotResolveIsNotOfferedUnencrypted`, `testATypedAddressConnectsToTheServer`)
+  start on the setup screen with discovery off (`-AntresolNoDiscovery YES`, Debug) and press Select only on a control
+  they saw focused: they never connect to a server of the network. The first types a `.invalid` name, which never
+  resolves.
 - The tests run in Russian with `TEST_RUNNER_ANTRESOL_TEST_LANGUAGE=ru` (the app is launched in Russian, and
   `RuntimeTests` look labels up in `ru.lproj/Localizable.strings`). Build the tests signed (no
   `CODE_SIGNING_ALLOWED=NO`): an unsigned app has no Keychain, cannot keep the mock's address and lands on the server

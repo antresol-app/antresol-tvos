@@ -32,6 +32,9 @@ final class VideoDetailModel {
     /// when there are none.
     private(set) var trailers: [Trailer] = []
     @ObservationIgnored private var trailersLoaded = false
+    /// The other profiles' places in this title (`GET /api/items/{id}/family`): empty for a kid,
+    /// an older server, an error, and when nobody else has progress.
+    private(set) var family: [FamilyMember] = []
     /// Actions in flight, so their buttons can be disabled.
     private(set) var busy: Set<Action> = []
     /// The last action error, shown under the buttons.
@@ -127,6 +130,14 @@ final class VideoDetailModel {
         trailersLoaded = true
         // The best few, as the web's menu lists them.
         trailers = Array(list.prefix(TrailerList.maxOffered))
+    }
+
+    /// «Family»: asked for beside the detail, never holding the page up. A kid is not asked (the
+    /// server lists nobody for a kid); a failed refresh keeps what was shown.
+    func loadFamily(using appState: AppState) async {
+        guard let client = appState.client, appState.currentUser?.isKid != true, FamilyKind(card.kind) != nil else { return }
+        guard let members = try? await client.family(itemId: itemId), !Task.isCancelled else { return }
+        family = members
     }
 
     /// What the addons' ways are called for on this page: the movie or series, by its TMDB id.

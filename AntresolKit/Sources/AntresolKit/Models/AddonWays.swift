@@ -344,6 +344,8 @@ public struct TitleInfo: Decodable, Hashable, Sendable {
     public var rating: String?
     public var cast: [CastMember]
     public var seasons: [TitleSeason]
+    /// A kid's page: whether the title may be asked for and the profile's request of it (nil: not a kid).
+    public var kidRequest: RequestState?
 
     public struct TitleSeason: Decodable, Hashable, Sendable {
         public var number: Int
@@ -360,7 +362,7 @@ public struct TitleInfo: Decodable, Hashable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case tmdbId, kind, title, year, poster, backdrop, overview, inLibrary, libraryItemId
-        case originalTitle, genres, runtime, rating, cast, seasons
+        case originalTitle, genres, runtime, rating, cast, seasons, kidRequest
     }
 
     public init(from decoder: Decoder) throws {
@@ -381,6 +383,7 @@ public struct TitleInfo: Decodable, Hashable, Sendable {
         rating = c.optional(.rating)
         cast = c.value(.cast, default: [])
         seasons = c.value(.seasons, default: [])
+        kidRequest = c.optional(.kidRequest)
     }
 
     /// The target of its ways: it is off the library unless the server says otherwise.

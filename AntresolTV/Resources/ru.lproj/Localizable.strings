@@ -400,3 +400,32 @@
 /* The TV tab's programme card: what a press and a long press of the remote's button do */
 "Press" = "Нажать";
 "Hold" = "Удерживать";
+
+/* A kid asks a parent for what the library lacks */
+"Ask" = "Попросить";
+"Ask a Parent" = "Попросить у родителя";
+"My Requests" = "Мои запросы";
+"Requests" = "Запросы";
+"No requests yet" = "Запросов пока нет";
+"Find a movie or show in Search and ask for it." = "Найдите фильм или сериал в поиске и попросите его у родителя.";
+"Waiting for an answer" = "Ждёт ответа";
+"Approved — coming soon" = "Одобрено — скоро появится";
+"A parent said no" = "Родитель отказал";
+"Already in the library" = "Уже в медиатеке";
+"Couldn't send the request. Try again." = "Не получилось попросить. Попробуйте ещё раз.";
+"Not available for this profile" = "Недоступно для этого профиля";
+"“%@”" = "«%@»";
+
+/* Family: where the other profiles are in a title, and continuing from their place */
+"Family" = "Семья";
+"All watched" = "Всё просмотрено";
+"Up next: %@" = "Далее: %@";
+"%@ of %@" = "%1$@ из %2$@";
+"Continue from Their Place" = "Продолжить с их места";
+"S%lld E%lld" = "С%lld Э%lld";
+"Special %lld" = "Спецвыпуск %lld";
+"just now" = "только что";
+"%lld min ago" = "%lld мин назад";
+"%lld hr ago" = "%lld ч назад";
+"yesterday" = "вчера";
+"Back to %@" = "Вернуться к %@";

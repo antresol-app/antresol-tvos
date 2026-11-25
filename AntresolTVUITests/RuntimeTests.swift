@@ -39,6 +39,54 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-03-left-the-app")
     }
 
+    /// The setup screen's address field, reached with the remote and typed into. Discovery is off
+    /// (`-AntresolNoDiscovery`) so no server of the network can take focus from the control Select is
+    /// pressed on, and Select is pressed only on a control the test saw focused: a test never connects
+    /// to a server it was not given.
+    private func typeAddress(_ address: String) {
+        app.launchArguments += ["-AntresolResetSession", "YES", "-AntresolNoDiscovery", "YES", "-AppleLanguages", "(\(language))"]
+        app.launch()
+        let enter = app.buttons[tr("Enter Address with the Remote")]
+        XCTAssertTrue(enter.waitForExistence(timeout: 30), "no setup screen")
+        XCTAssertTrue(waitForFocus(enter), "focus is not on «Enter Address with the Remote»: \(focusedLabel)")
+        remote.press(.select)
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "no address field")
+        XCTAssertTrue(waitForFocus(field), "focus is not on the address field: \(focusedLabel)")
+        remote.press(.select)
+        sleep(1)
+        field.typeText(address + "\n")
+    }
+
+    /// A typed address whose name does not resolve (`.invalid` never does): the screen says the server
+    /// cannot be reached. It does not ask for a second press that would send a password over plain http
+    /// to a host that is not there.
+    func testAnAddressThatDoesNotResolveIsNotOfferedUnencrypted() {
+        continueAfterFailure = false
+        typeAddress("no-such-host.invalid")
+        // by the beginning of the text: a query by a long identifier is refused
+        func line(_ key: String) -> XCUIElement {
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", String(tr(key).prefix(30)))).firstMatch
+        }
+        let unreachable = line("Couldn't reach the server. Check the address and that the server is running.")
+        let unencrypted = line("This connection isn't encrypted: your password would cross the internet in the clear. Select Connect again to use it anyway.")
+        XCTAssertTrue(unreachable.waitForExistence(timeout: 60) || unencrypted.exists, "no answer: \(focusedLabel)")
+        sleep(1)
+        snapshot("rt-80-address-does-not-resolve")
+        XCTAssertTrue(unreachable.exists, "the screen does not say the server cannot be reached")
+        XCTAssertFalse(unencrypted.exists, "the viewer was asked to accept plain http to a host that does not resolve")
+    }
+
+    /// The address the viewer types reaches the mock (the home network's http, one attempt) and goes on to
+    /// the profile picker: what `ServerAddress.connect` hands `AppState.connect` is kept as the server.
+    func testATypedAddressConnectsToTheServer() {
+        continueAfterFailure = false
+        typeAddress(server)
+        XCTAssertTrue(app.staticTexts[tr("Who's watching?")].waitForExistence(timeout: 30), "no profile picker: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-81-typed-address-connected")
+    }
+
     /// The TV tab opens on the last channel; the player plays it, zaps, opens the options
     /// row and the audio list with focus where the viewer expects it, and Menu comes back
     /// to the channel's row.
@@ -92,6 +140,45 @@ final class RuntimeTests: XCTestCase {
         XCTAssertFalse(picture("3 · Драмы").exists, "Menu did not leave the player")
         XCTAssertTrue(waitForFocus(row), "back on the TV tab, focus is not on the channel's row: \(focusedLabel)")
         snapshot("rt-16-back-on-tv-tab")
+    }
+
+    /// A channel whose audio the Apple TV cannot decode (the mock's second port after
+    /// `POST /mock/external-audio`: the list says `remuxAudio` and offers the server's relay)
+    /// plays through the relay, with the media key on the playlist and on every link in it, and
+    /// the provider's own address is never asked; the next channel, which does not say, plays
+    /// from the provider as before and its relay is left alone.
+    func testAChannelWhoseAudioNeedsTheServerPlaysThroughTheRelay() {
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        XCTAssertNotNil(mock("POST", "/mock/external-audio"), "the mock does not know the external channels")
+        addTeardownBlock { _ = self.mock("POST", "/mock/reset") }
+        signInOnSecondPort()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        // the list opens on the last channel, the first of the two
+        let row = channelRow("Звук через сервер")
+        XCTAssertTrue(waitForFocus(row), "the list did not open on the channel: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(picture("200 · Звук через сервер").waitForExistence(timeout: 10), "not on channel 200")
+        snapshot("rt-96-live-relayed-banner")
+        let path = { (event: [String: Any]) in event["path"] as? String ?? "" }
+        let keyed = { (event: [String: Any]) in (event["query"] as? String ?? "").contains("mk=") }
+        // the player asks for the stream's rendition and its segments, each keyed: the mock
+        // answers 401 to a relay request without the key, so only a keyed chain plays
+        XCTAssertTrue(waitForEvent(timeout: 40) { path($0).hasPrefix("/api/channels/live/ext/200/0/relay/video-") && path($0).hasSuffix(".ts") && keyed($0) },
+                      "no segment through the relay")
+        XCTAssertTrue(app.staticTexts["Switch Channel"].waitForNonExistence(timeout: 30), "the relayed channel did not start playing")
+        snapshot("rt-96b-live-relayed-playing")
+        let relayed = mockEvents().filter { path($0).hasPrefix("/api/channels/live/ext/200/") }
+        XCTAssertTrue(relayed.allSatisfy(keyed), "a relay request without the media key: \(relayed.filter { !keyed($0) })")
+        XCTAssertFalse(mockEvents().contains { path($0).hasPrefix("/provider/200/") }, "the provider's own stream was asked for")
+
+        // the next channel plays from its provider
+        remote.press(.up)
+        XCTAssertTrue(picture("201 · Звук напрямую").waitForExistence(timeout: 10), "Up did not switch to channel 201")
+        snapshot("rt-97-live-direct-banner")
+        XCTAssertTrue(waitForEvent(timeout: 40) { path($0).hasPrefix("/provider/201/video-") && path($0).hasSuffix(".ts") }, "no segment from the provider")
+        XCTAssertTrue(app.staticTexts["Switch Channel"].waitForNonExistence(timeout: 30), "the direct channel did not start playing")
+        snapshot("rt-97b-live-direct-playing")
+        XCTAssertFalse(mockEvents().contains { path($0).hasPrefix("/api/channels/live/ext/201/") }, "channel 201 went through the relay")
     }
 
     /// A last channel far down the list (the mock's second port: the 18th of 24, off the
@@ -863,6 +950,91 @@ final class RuntimeTests: XCTestCase {
                       "the copy was not cancelled")
     }
 
+    /// Search finds what the library lacks (the mock with `--addons`; both addons answer a search with
+    /// titles of their own, whatever the text): their shelves come after the library's, each under the
+    /// heading its addon names. A title the library lacks opens its own page, with the ways the addons
+    /// offer it and a show's seasons; Menu comes back to the card it was opened from. A title the library
+    /// has opens the library's page.
+    func testSearchOpensATitleTheLibraryLacks() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_ADDONS"] != nil,
+                          "needs scripts/mock-server.py --addons and ANTRESOL_MOCK_ADDONS")
+        // A press after a failed step would land on whatever has focus: stop at the first failure.
+        continueAfterFailure = false
+        // The third profile (Family) is an adult; the kid is offered no ways.
+        signInToMovie(profilesToTheRight: 2, openingMovie: false)
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 40), "not signed in: \(focusedLabel)")
+        sleep(2)
+        XCTAssertTrue(openSection(tr("Search"), showing: app.searchFields.firstMatch), "no Search tab: \(focusedLabel)")
+        sleep(2)
+        app.searchFields.firstMatch.typeText("far")
+
+        func card(_ title: String) -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        }
+        // The addons' headings, after the library's shelves.
+        XCTAssertTrue(app.staticTexts["Find and add"].waitForExistence(timeout: 30), "no shelf of the addon that adds")
+        XCTAssertTrue(app.staticTexts["Find and watch"].exists, "no shelf of the addon that watches")
+        let far = card("Far Show")
+        XCTAssertTrue(far.exists, "the addon's title is not on its shelf")
+        sleep(2)
+        snapshot("rt-89-search-results")
+        // Down from the keyboard to the shelf, through the library's.
+        XCTAssertTrue(moveFocus(.down, to: far, limit: 14), "focus cannot reach the addon's title: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-90-search-addon-shelf")
+
+        // A show the library lacks: its page, the addons' ways, the seasons.
+        remote.press(.select)
+        let play = app.buttons["way-play"]
+        let keep = app.buttons["Add to server"]
+        XCTAssertTrue(play.waitForExistence(timeout: 30), "no title page with a way to watch: \(focusedLabel)")
+        XCTAssertTrue(app.buttons["way-menu"].exists, "no menu of the ways beside the pill")
+        XCTAssertTrue(keep.exists, "no round button for the way that keeps a copy")
+        XCTAssertTrue(app.staticTexts["Far Show"].exists, "no title on the page")
+        XCTAssertTrue(waitForFocus(play, seconds: 8), "focus did not start on the pill: \(focusedLabel)")
+        XCTAssertTrue(app.staticTexts["A show the library lacks."].waitForExistence(timeout: 10), "no overview")
+        sleep(3)
+        snapshot("rt-91-title-page-show")
+        // Down to the seasons and back up: the remote reaches every row.
+        remote.press(.down)
+        sleep(1)
+        XCTAssertFalse(play.hasFocus, "focus did not leave the buttons for the seasons: \(focusedLabel)")
+        snapshot("rt-92-title-page-seasons")
+        remote.press(.up)
+        XCTAssertTrue(waitForFocus(play), "focus did not come back to the buttons: \(focusedLabel)")
+        remote.press(.menu)
+        XCTAssertTrue(waitForFocus(far, seconds: 10), "Menu did not come back to the card: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-93-back-on-the-card")
+
+        // A film the library lacks, from the other addon's shelf: the ways of both addons in the menu.
+        let film = card("Sample Film")
+        XCTAssertTrue(moveFocus(.up, to: film, limit: 3), "focus cannot reach the film: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(play.waitForExistence(timeout: 30), "no title page for the film: \(focusedLabel)")
+        XCTAssertTrue(waitForFocus(play, seconds: 8), "focus did not start on the pill: \(focusedLabel)")
+        remote.press(.right)
+        sleep(1)
+        remote.press(.select)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Watch here")).firstMatch
+            .waitForExistence(timeout: 10), "the menu of the ways did not open: \(focusedLabel)")
+        snapshot("rt-94-title-page-film-ways")
+        remote.press(.menu)
+        sleep(1)
+        remote.press(.menu)
+        XCTAssertTrue(waitForFocus(film, seconds: 10), "Menu did not come back to the film's card: \(focusedLabel)")
+
+        // A title the library has (next to the film on the same shelf) opens the library's own page: it
+        // has its own buttons, and no pill of the addons for what the library lacks.
+        remote.press(.right)
+        sleep(1)
+        XCTAssertTrue(focusedLabel.contains("Test Show"), "focus is not on the title the library has: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons[tr("Mark as Watched")].waitForExistence(timeout: 30), "the library's title did not open its own page: \(focusedLabel)")
+        sleep(2)
+        snapshot("rt-95-library-title-page")
+    }
+
     /// A kid's profile is offered no ways, and the app does not even ask the addons for them.
     func testNoAddonWaysForAKid() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_ADDONS"] != nil,
@@ -876,6 +1048,136 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-69-movie-without-ways-for-a-kid")
         let asked = mockEvents().filter { ($0["path"] as? String)?.hasPrefix("/api/addons") == true }
         XCTAssertTrue(asked.isEmpty, "the addons were asked for a kid: \(asked)")
+    }
+
+    // MARK: A kid asks a parent
+
+    /// A kid profile finds a title the library lacks and asks a parent for it (the mock with `--requests`, and
+    /// `ANTRESOL_MOCK_REQUESTS` set): Search shows an «Ask» shelf under the library's, the card shows where a request stands,
+    /// a movie's page has «Ask a Parent» and then where the request stands, «My Requests» (the profile's settings) lists
+    /// it first, and what a parent answers shows when the page is opened again.
+    func testAKidAsksAParent() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_REQUESTS"] != nil,
+                          "needs scripts/mock-server.py --requests and ANTRESOL_MOCK_REQUESTS")
+        // A press after a failed step would land on whatever has focus: stop at the first failure.
+        continueAfterFailure = false
+        mock("POST", "/mock/reset")
+        // The second profile of the mock's second port is the kid.
+        signInToMovie(profilesToTheRight: 1, openingMovie: false)
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 40), "not signed in: \(focusedLabel)")
+        sleep(2)
+        XCTAssertTrue(openSection(tr("Search"), showing: app.searchFields.firstMatch), "no Search tab: \(focusedLabel)")
+        sleep(2)
+        app.searchFields.firstMatch.typeText("padd")
+
+        func card(_ title: String) -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        }
+        // The shelf of what the library lacks, under its own heading, with the state of each request on its card.
+        XCTAssertTrue(app.staticTexts[tr("Ask")].waitForExistence(timeout: 30), "no shelf to ask from")
+        let peru = card("Paddington in Peru")
+        XCTAssertTrue(peru.waitForExistence(timeout: 10), "no card of a title already asked for")
+        XCTAssertTrue(peru.label.contains(tr("Waiting for an answer")), "the card does not say it waits: \(peru.label)")
+        XCTAssertTrue(card("The Adventures of Paddington Bear").label.contains(tr("Approved — coming soon")), "no approval on the card")
+        XCTAssertTrue(card("Paddington Goes Too Far").label.contains(tr("A parent said no")), "no refusal on the card")
+        let paddington = card("Paddington, ")
+        XCTAssertTrue(paddington.exists, "the title not asked for yet is not on the shelf")
+        XCTAssertFalse(paddington.label.contains(tr("Waiting for an answer")))
+        sleep(2)
+        snapshot("kid-01-search-shelf")
+        XCTAssertTrue(moveFocus(.down, to: paddington, limit: 14), "focus cannot reach the shelf: \(focusedLabel)")
+        sleep(2)
+        snapshot("kid-02-search-card-focused")
+
+        // The movie's page: «Ask a Parent» in place of Play, focus on it; one press asks.
+        remote.press(.select)
+        let ask = app.buttons["request-ask"]
+        XCTAssertTrue(ask.waitForExistence(timeout: 30), "no «Ask a Parent» on the page: \(focusedLabel)")
+        XCTAssertEqual(ask.label, tr("Ask a Parent"))
+        XCTAssertTrue(waitForFocus(ask, seconds: 8), "focus did not start on the pill: \(focusedLabel)")
+        XCTAssertTrue(app.staticTexts["Paddington"].exists, "no title on the page")
+        sleep(3)
+        snapshot("kid-03-title-page")
+        remote.press(.select)
+        let status = app.buttons["request-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 15), "the page does not say the request was made: \(focusedLabel)")
+        XCTAssertEqual(status.label, tr("Waiting for an answer"))
+        XCTAssertFalse(ask.exists, "a second «Ask a Parent» after asking")
+        sleep(2)
+        snapshot("kid-04-title-page-asked")
+        let asked = mockEvents().filter { ($0["method"] as? String) == "POST" && ($0["path"] as? String) == "/api/requests" }
+        XCTAssertEqual(asked.count, 1, "the request was sent \(asked.count) times")
+        XCTAssertEqual(json(asked.first?["body"])?["tmdbId"] as? Int, 116149)
+        XCTAssertEqual(json(asked.first?["body"])?["kind"] as? String, "movie")
+
+        // Back on the shelf the card says the same.
+        remote.press(.menu)
+        XCTAssertTrue(waitForFocus(card("Paddington, "), seconds: 10), "Menu did not come back to the card: \(focusedLabel)")
+        XCTAssertTrue(card("Paddington, ").label.contains(tr("Waiting for an answer")), "the card does not follow the page")
+        sleep(1)
+        snapshot("kid-05-search-card-asked")
+
+        // «My Requests», in the profile's settings: the new request first.
+        remote.press(.menu)
+        XCTAssertTrue(openSection("Kiddo", prefix: true, showing: app.buttons["settings.myRequests"]), "no My Requests row: \(focusedLabel)")
+        sleep(2)
+        snapshot("kid-06-settings-row")
+        // Right from the profile column lands on the row beside it; the new section is the first of the list.
+        remote.press(.right)
+        XCTAssertTrue(moveFocus(.up, to: app.buttons["settings.myRequests"], limit: 6), "focus: \(focusedLabel)")
+        remote.press(.select)
+        let rows = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", tr("Waiting for an answer")))
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 20), "no list of requests")
+        XCTAssertTrue(app.staticTexts[tr("My Requests")].exists, "no title on the list")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Paddington, ")).firstMatch.exists, "the new request is not listed")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Maybe when you are older")).firstMatch.exists, "no reason of the refusal")
+        sleep(2)
+        snapshot("kid-07-my-requests")
+
+        // A parent answers; the list shows it when it is opened again.
+        remote.press(.menu)
+        mock("POST", "/mock/decide/11/approved")
+        mock("POST", "/mock/decide/21/declined?reason=Not%20today")
+        let row = app.buttons["settings.myRequests"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Menu did not come back to the settings: \(focusedLabel)")
+        if !waitForFocus(row, seconds: 3) {
+            remote.press(.right)
+            XCTAssertTrue(moveFocus(.up, to: row, limit: 6), "focus: \(focusedLabel)")
+        }
+        remote.press(.select)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Not today")).firstMatch.waitForExistence(timeout: 20),
+                      "the parent's answer did not reach the list")
+        sleep(2)
+        snapshot("kid-08-my-requests-answered")
+    }
+
+    /// An album a kid found has a page of its own (no TMDB title): «Ask a Parent» there asks for it.
+    func testAKidAsksForAnAlbum() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["ANTRESOL_MOCK_REQUESTS"] != nil,
+                          "needs scripts/mock-server.py --requests and ANTRESOL_MOCK_REQUESTS")
+        continueAfterFailure = false
+        mock("POST", "/mock/reset")
+        signInToMovie(profilesToTheRight: 1, openingMovie: false)
+        XCTAssertTrue(app.buttons[tr("Details")].waitForExistence(timeout: 40), "not signed in: \(focusedLabel)")
+        sleep(2)
+        XCTAssertTrue(openSection(tr("Search"), showing: app.searchFields.firstMatch), "no Search tab: \(focusedLabel)")
+        sleep(2)
+        app.searchFields.firstMatch.typeText("songs of")
+        let album = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Songs of Paddington")).firstMatch
+        XCTAssertTrue(album.waitForExistence(timeout: 30), "no album to ask for")
+        XCTAssertTrue(moveFocus(.down, to: album, limit: 8), "focus cannot reach the album: \(focusedLabel)")
+        remote.press(.select)
+        let ask = app.buttons["request-ask"]
+        XCTAssertTrue(ask.waitForExistence(timeout: 20), "no page of the album: \(focusedLabel)")
+        XCTAssertTrue(waitForFocus(ask, seconds: 8), "focus: \(focusedLabel)")
+        sleep(2)
+        snapshot("kid-09-album-page")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["request-status"].waitForExistence(timeout: 15), "the page does not say the request was made")
+        snapshot("kid-10-album-page-asked")
+        let asked = mockEvents().filter { ($0["method"] as? String) == "POST" && ($0["path"] as? String) == "/api/requests" }
+        XCTAssertEqual(json(asked.first?["body"])?["extId"] as? String, "mb-demo")
+        XCTAssertEqual(json(asked.first?["body"])?["kind"] as? String, "music")
     }
 
     // MARK: What the iPhone review found, as it shows on the Apple TV

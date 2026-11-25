@@ -124,7 +124,7 @@ public final class APIClient: Sendable {
             if let urlError = error as? URLError, urlError.code == .cancelled {
                 throw CancellationError()
             }
-            throw APIError.transport(error.localizedDescription)
+            throw APIError.transport(error.localizedDescription, hostUnreachable: (error as? URLError).map(APIError.isHostUnreachable) ?? false)
         }
         guard (200..<300).contains(response.statusCode) || accepted.contains(response.statusCode) else {
             throw APIClient.error(status: response.statusCode, data: data, response: response)

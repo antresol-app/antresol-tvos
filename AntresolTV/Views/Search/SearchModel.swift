@@ -20,6 +20,10 @@ final class SearchModel {
     private(set) var addonSections: [AddonSearchSection] = []
     /// An addon's search is still under way.
     private(set) var addonsSearching = false
+    /// A kid profile's titles to ask a parent for (what the library lacks), after the addons'.
+    private(set) var asks: [KidCandidate] = []
+    /// The kid's request search is still under way.
+    private(set) var asksSearching = false
 
     @ObservationIgnored private var generation = 0
 
@@ -34,6 +38,8 @@ final class SearchModel {
             state = .idle
             addonSections = []
             addonsSearching = false
+            asks = []
+            asksSearching = false
             return
         }
         try? await Task.sleep(nanoseconds: 300_000_000)
@@ -43,12 +49,30 @@ final class SearchModel {
         addonSections = []
         addonsSearching = !searches.isEmpty
         let addonTask = Task { await self.searchAddons(query, searches: searches, client: client, generation: mine) }
+        let asksTask = Task { await self.searchAsks(query, using: appState, client: client, generation: mine) }
         await withTaskCancellationHandler {
             await searchLibrary(query, using: appState, client: client)
             await addonTask.value
+            await asksTask.value
         } onCancel: {
             addonTask.cancel()
+            asksTask.cancel()
         }
+    }
+
+    /// A kid profile that may ask finds what the library lacks (movies, shows and albums) to ask a parent
+    /// for; the others ask nothing. A closed search finds nothing and says nothing.
+    private func searchAsks(_ query: String, using appState: AppState, client: APIClient, generation mine: Int) async {
+        asks = []
+        guard let user = appState.currentUser, user.isKid, user.canRequest else {
+            asksSearching = false
+            return
+        }
+        asksSearching = true
+        let found = await KidRequestBook.candidates { try await client.requestSearch(query, kind: $0) }
+        guard !Task.isCancelled, generation == mine else { return }
+        asks = found
+        asksSearching = false
     }
 
     private func searchLibrary(_ query: String, using appState: AppState, client: APIClient) async {
@@ -63,21 +87,12 @@ final class SearchModel {
         }
     }
 
-    /// Asks each addon that searches, all at once; whatever fails or finds nothing is left out
-    /// without a word.
+    /// Asks each addon that searches, all at once (`AddonSearching`); whatever fails or finds nothing is
+    /// left out without a word.
     private func searchAddons(_ query: String, searches: [AddonSearch], client: APIClient, generation mine: Int) async {
-        var found: [String: [AddonTitle]] = [:]
-        await withTaskGroup(of: (String, [AddonTitle]?).self) { group in
-            for search in searches {
-                group.addTask { (search.addonId, try? await client.addonTitles(addon: search.addonId, query: query)) }
-            }
-            for await (addon, titles) in group {
-                guard !Task.isCancelled, generation == mine else { continue }
-                if let titles, !titles.isEmpty { found[addon] = titles }
-                addonSections = searches.compactMap { search in
-                    found[search.addonId].map { AddonSearchSection(addonId: search.addonId, label: search.label, titles: $0) }
-                }
-            }
+        for await sections in AddonSearching.sections(for: searches, ask: { try await client.addonTitles(addon: $0.addonId, query: query) }) {
+            guard !Task.isCancelled, generation == mine else { break }
+            addonSections = sections
         }
         if generation == mine { addonsSearching = false }
     }

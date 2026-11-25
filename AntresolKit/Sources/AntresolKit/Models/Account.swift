@@ -80,6 +80,8 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
     /// The request came from outside the home network.
     public var remote: Bool
     public var libraryOnly: Bool
+    /// A kid profile may ask a parent for titles the library lacks (the server has requests open).
+    public var canRequest: Bool
     /// The separate history this device writes into («Отдельная история на этом
     /// устройстве»), nil for the profile's own. The person stays the one signed in; only
     /// progress, watched marks, Continue Watching and the family view go to the history.
@@ -88,7 +90,7 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
     public init(
         id: Int, name: String, avatar: String, photo: String = "", hasPassword: Bool = false, isAdmin: Bool = false,
         isKid: Bool = false, maxRating: String? = nil, remote: Bool = false, libraryOnly: Bool = true,
-        deviceHistory: HistoryRef? = nil
+        canRequest: Bool = false, deviceHistory: HistoryRef? = nil
     ) {
         self.id = id
         self.name = name
@@ -100,11 +102,12 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
         self.maxRating = maxRating
         self.remote = remote
         self.libraryOnly = libraryOnly
+        self.canRequest = canRequest
         self.deviceHistory = deviceHistory
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, avatar, photo, hasPassword, isAdmin, isKid, maxRating, remote, libraryOnly, deviceHistory
+        case id, name, avatar, photo, hasPassword, isAdmin, isKid, maxRating, remote, libraryOnly, canRequest, deviceHistory
     }
 
     public init(from decoder: Decoder) throws {
@@ -119,6 +122,7 @@ public struct User: Codable, Hashable, Identifiable, Sendable {
         maxRating = c.optional(.maxRating)
         remote = c.value(.remote, default: false)
         libraryOnly = c.value(.libraryOnly, default: true)
+        canRequest = c.value(.canRequest, default: false)
         deviceHistory = c.optional(.deviceHistory)
     }
 

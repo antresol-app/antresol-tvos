@@ -1477,3 +1477,101 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
   `Theme.Shadow`, `Theme.Colors.scrim`), see `docs/design-ref/DESIGN.md`. Card shadow: the faint resting one
   fades out as the lifted one fades in, neither changes its blur radius; resting and focused look as before.
 - Not done: TVQ-12 (font tokens, text under 23 pt), the way player's `TimedNotice` (player-core batch).
+
+## Round 25 November 2026
+
+- **Server address, the transport error**: `ServerAddress.connect(to:allowUnencrypted:attempt:)` (AntresolKit) is the
+  candidate loop `AppState.connect` had, with one rule more: a failure that shows the host cannot be reached at all
+  (`APIError.isHostUnreachable`: `cannotFindHost`, `dnsLookupFailed`, `notConnectedToInternet`, carried by
+  `APIError.transport(_, hostUnreachable:)`) is the answer, at once. The https attempt that failed that way is the
+  evidence that plain http fails too, so no plain-http request is sent before the viewer agrees, and the viewer
+  is not asked to agree to an unencrypted connection to a host that does not exist: the screen says «Couldn't reach
+  the server». A refused connection, a timeout or a failed handshake prove nothing about the host's other port and
+  still ask first (https on 443 may be closed while http on 8420 answers). After the viewer agreed, both schemes are
+  tried and the last failure is shown, as before. `UnencryptedConnection` moved to AntresolKit with it.
+- **UI-test hook**: `-AntresolNoDiscovery YES` (Debug) keeps the Bonjour browser from finding anything, so a server of
+  the network cannot take focus from the control a test is about to press Select on
+  (`testAnAddressThatDoesNotResolveIsNotOfferedUnencrypted`, which types a `.invalid` name: it never resolves).
+- **Search finds what the library lacks (checked end to end)**: it already did: the addons' `x/app` searches (the
+  server's one catalogue search: web's `searchBlocks` and the iPhone's addon sections ask the same call; the core's
+  kid-only «Найти и попросить» is not in any app) add a shelf per addon after the library's, and a title the library
+  lacks opens `TitleDetailView` (`GET /api/title/…`, the ways, a show's seasons), one it has opens the library's page.
+  What was missing was a run of it: `testSearchOpensATitleTheLibraryLacks` (mock with `--addons`, adult profile)
+  types a query, reaches each shelf with the remote, opens a show and a film the library lacks and one it has, checks
+  focus on arrival (the pill), down to the seasons and back, and that Menu returns to the card it came from.
+  The pure part of the search, asking every addon at once and showing a section per addon that found titles in the
+  order of the addons, moved to AntresolKit (`AddonSearching.sections`, tests with answers arriving in the wrong
+  order, failures, nothing found, and a consumer that stops).
+- **Trailers on that page**: none, as on the iPhone's. The server lists trailers by a library item
+  (`GET /api/items/{id}/trailers`); nothing gives them for a TMDB id the library lacks. A title page with a
+  Trailer button would need a server call by `kind` and `tmdbId`.
+- **A channel whose audio Apple TV cannot decode plays through the server** (round 25 November, second half): the
+  server's channel list says `stream.remuxAudio` (the provider's audio is not AAC or MP3: MP2, AC-3, DTS ...; the
+  provider's address plays without a sound) and offers `stream.relay`, a path that converts the audio to AAC.
+  `StreamSource.playing` turns such a source into the relay (a server path, so the player opens it with the media key
+  like the server's redirect, and sends none of the provider's headers: the relay sends the source's own);
+  `ChannelStream.playable(on:)` applies it, so the order of the sources, the fallbacks, the bad-source memory and the
+  silence check stay as they were. A server that does not say (older, or no relay) changes nothing: the field is read
+  as `false`. A relay on offer without the flag (every external channel has one for the web) is not taken. The banner
+  says «Via Antresol» for it. Known gap: the first tune-in of a channel the server has not looked at yet may still be
+  silent (the list the app holds says nothing yet); it is flagged from the list's next load.
+  The mock's second port got `POST /mock/external-audio` (two external channels, 200 flagged and 201 not; the relay
+  asks for the media key and writes it into every link of its playlists, as the server does) and
+  `testAChannelWhoseAudioNeedsTheServerPlaysThroughTheRelay` drives both from the remote.
+- **Only what Apple TV cannot decode goes through the relay** (round 25 November, third part): the server also says
+  `stream.audioCodec`, the first audio codec it converts (ffprobe's name: `mp2`, `ac3`, `eac3`, `dts` ...), with the
+  flag. Apple TV decodes AAC, MP3, AC-3 and E-AC-3 itself, so `StreamSource.playing` keeps such a source at the
+  provider's address (its own headers, no media key) and the server converts nothing for it; MP2, DTS, anything else
+  and a flag with no codec named (an older server) still go through the relay. Android keeps going by the flag alone.
+  The mock sends no codec, so its flagged channel is the older-server case and still plays through the relay.
+
+## A kid asks a parent (round 25 November, apple-kidreq)
+
+- A kid profile cannot search the addons (403), so the app asks the server's own kid flow, the same calls the web makes:
+  `GET /api/requests/search?q=&kind=video|music` (the app has no books), `POST /api/requests`, `GET /api/requests/mine`, the
+  `kidRequest` of `/api/title/…`, and `canRequest` of `/api/me` (set for a kid while requests are open; the app asks
+  nothing without it). Models, the request book (`KidRequestBook`: by kind and key, newest first, what the server refused
+  with its words) and the search of every kind at once (`KidRequestBook.candidates`) are in AntresolKit; the app has
+  `KidRequests` (the book as an environment object, reset when the profile changes).
+- Search: an «Ask» shelf after the library's and the addons', cards with the state of the request on them; failures and a
+  closed search leave no shelf and say nothing (as the addons'). A movie or show opens `TitleDetailView`, whose actions
+  are `RequestActions` for a kid; an album opens `RequestPageView`. «My Requests» is a row of the profile's settings
+  (kids who may ask), a list of rows (newest first, a request opens its title page or the library's).
+- The state pills that do nothing (waiting, approved, declined) are buttons that do nothing: a page without a focusable
+  control would give the remote nothing to land on.
+- Refreshing: the list is read when «My Requests» opens, and the book is kept (an ask puts its answer in at once). The app
+  has no event stream, so an answer from a parent shows the next time the list or a page is opened.
+- Not done: a parent's own side (approve and decline) stays in the web app.
+
+## Family: where the others are in a title (round 25 November, apple-family)
+
+- The web's «Семья» (FamilyProgress), on the title pages and in the player. The server lists the other profiles'
+  places in an item (`GET /api/items/{id}/family`: an adult sees every profile that does not hide its progress, a kid
+  sees nobody, so the app does not even ask a kid) and `POST /api/progress/{id}/adopt {"userId"}` copies one's
+  unfinished position into the caller's own progress row (404 when they are not in the family view or have none).
+- AntresolKit has the model (`FamilyMember`, tolerant like the rest; an entry without ids is dropped), the places
+  (`FamilyPlace`, `FamilyJump`, `FamilyWhen`: the numbers, never sentences: the words are the app's, in
+  `FamilyText`), `FamilyLine` (the folded line: four faces, who is first, how many more, nil when nobody) and
+  `FamilyHold`. `family(itemId:)` answers an empty list for a server without it (400/404/405); any other error is the
+  caller's (the page keeps what it showed).
+- The app: `VideoDetailModel.family` (asked beside the detail, again when a player closes), `FamilyLineLabel` under the
+  action row, `FamilySheetView` (a sheet like the addons' chooser: rows in `ListRowButtonStyle`, Menu closes it),
+  faces on the episode tiles. A row adopts first and plays only if the server took it (a refusal stays in the sheet, in
+  red under the list); the sheet closes and the player comes up 0.6 s later (a cover does not come up over a sheet that is
+  still closing). The player asks for the saved position of the item after the adopt, so it starts exactly there
+  (the app keeps no queued position of its own). A next episode (or one not started) plays from its start and takes nothing.
+- The player's transport bar has «Family» (after Audio, Subtitles, Quality and «Skip Automatically»), only for a film
+  or episode someone else is in. A row seeks there (`seekFile`, so a growing playlist gets a new session); while the player
+  is only looking, the position saved stays the one before the jump (`FamilyHold`: from the target on, five seconds of
+  playing there make it this profile's own; going elsewhere, or never arriving in 20 s, ends the hold), and «Back to 12:40»
+  seeks back. The player has «arrived» after two readings in a row at the target: a seek in flight reports the target and
+  then the old place again before it lands (seen on the simulator), and one reading was taken for «went elsewhere».
+  The menu rows carry the profile's gradient and initial (the photo is not loaded for a menu).
+- A season's page is its series': a series' member sits at an episode (`itemId`), «Up next» (`next`) at the one after the
+  last finished. The server omits `season` when it is 0, so a special shows as «S0, E3», as on the web.
+- The list has no explanatory note (owner: minimal text). Its rows never cut a word: the name and the place wrap, the
+  button keeps its natural width («Continue from Their Place» / «Продолжить с их места», no time: the place is on the
+  row's line). The film 23 of the mock has a long title and 64-character names to see that.
+- The mock's `--family`: the film 19 (four profiles), the clip 22 (positions inside its 60 s, to play from), the film 23
+  (long names), the series 2 and its episodes 4, 5 and 12; `POST /api/progress/{id}/adopt` keeps the copy, which `GET /api/progress/{id}` then answers
+  until `/mock/reset`; the second port records the adopt's body. `FamilyUITests` drive all of it.

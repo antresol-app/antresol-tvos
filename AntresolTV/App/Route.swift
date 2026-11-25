@@ -14,6 +14,8 @@ enum Route: Hashable {
     case shelf(id: String, title: String)
     /// A movie or show the library does not have, by its TMDB id (a result of an addon's search).
     case title(TitleRef)
+    /// An album a kid found and may ask a parent for (a movie or show opens `title`).
+    case request(KidCandidate)
 }
 
 /// Pushes a route onto the current tab's navigation stack, for places that cannot use a

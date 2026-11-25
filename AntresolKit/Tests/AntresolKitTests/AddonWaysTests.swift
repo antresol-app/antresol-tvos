@@ -516,4 +516,94 @@ final class AddonWaysTests: XCTestCase {
     func testAPageOffersTheBestThreeTrailers() {
         XCTAssertEqual(TrailerList.maxOffered, 3)
     }
+
+    // MARK: The addons' searches of the Search tab
+
+    /// Reads a whole stream.
+    private func read(_ stream: AsyncStream<[AddonSearchSection]>) async -> [[AddonSearchSection]] {
+        var snapshots: [[AddonSearchSection]] = []
+        for await snapshot in stream { snapshots.append(snapshot) }
+        return snapshots
+    }
+
+    func testSearchSectionsComeInTheOrderOfTheSearchesNotOfTheAnswers() async {
+        let gate = AsyncGate()
+        let alpha = AddonSearch(addonId: "alpha", label: "Find and watch")
+        let beta = AddonSearch(addonId: "beta", label: "Find and add")
+        // alpha answers after beta
+        let stream = AddonSearching.sections(for: [alpha, beta]) { search in
+            if search.addonId == "alpha" { await gate.wait() }
+            return search.addonId == "alpha" ? found(1, 2) : found(3)
+        }
+        var seen: [[AddonSearchSection]] = []
+        for await snapshot in stream {
+            seen.append(snapshot)
+            if seen.count == 1 { await gate.open() }
+        }
+        XCTAssertEqual(seen.map { $0.map(\.addonId) }, [["beta"], ["alpha", "beta"]], "the first answer shows at once, then the sections are in the searches' order")
+        XCTAssertEqual(seen.last?.map(\.label), ["Find and watch", "Find and add"], "each under the heading its addon names")
+        XCTAssertEqual(seen.last?.first?.titles.map(\.tmdbId), [1, 2])
+    }
+
+    func testAnAddonThatFailsOrFindsNothingHasNoSection() async {
+        struct Down: Error {}
+        let searches = ["a", "b", "c"].map { AddonSearch(addonId: $0, label: "Label \($0)") }
+        let snapshots = await read(AddonSearching.sections(for: searches) { search in
+            switch search.addonId {
+            case "a": throw Down()
+            case "b": return []
+            default: return found(7)
+            }
+        })
+        XCTAssertEqual(snapshots.map { $0.map(\.addonId) }, [["c"]], "one snapshot, only for the addon that found titles")
+    }
+
+    func testNothingFoundMeansNoSnapshotAndTheStreamEnds() async {
+        let none = await read(AddonSearching.sections(for: [AddonSearch(addonId: "a", label: "A")]) { _ in [] })
+        XCTAssertTrue(none.isEmpty)
+        let noSearches = await read(AddonSearching.sections(for: []) { _ in XCTFail("asked"); return [] })
+        XCTAssertTrue(noSearches.isEmpty)
+    }
+
+    func testACancelledConsumerCancelsTheQuestionsStillOut() async {
+        let cancelled = expectation(description: "the slow addon's question was cancelled")
+        let seenOne = AsyncGate()
+        let searches = [AddonSearch(addonId: "fast", label: "F"), AddonSearch(addonId: "slow", label: "S")]
+        let stream = AddonSearching.sections(for: searches) { search in
+            if search.addonId == "fast" { return found(1) }
+            // never answers by itself: ends only when the question is cancelled
+            while !Task.isCancelled { try? await Task.sleep(nanoseconds: 10_000_000) }
+            cancelled.fulfill()
+            throw CancellationError()
+        }
+        // the Search tab's own search task, cancelled by the next keystroke
+        let consumer = Task {
+            for await _ in stream { await seenOne.open() }
+        }
+        await seenOne.wait()
+        consumer.cancel()
+        await fulfillment(of: [cancelled], timeout: 10)
+    }
+}
+
+/// Movies with these TMDB ids, as an addon's search finds them.
+private func found(_ ids: Int...) -> [AddonTitle] {
+    ids.map { AddonTitle(kind: "movie", tmdbId: $0, title: "Title \($0)") }
+}
+
+/// Holds a task until the test opens it.
+private actor AsyncGate {
+    private var isOpen = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        waiting.forEach { $0.resume() }
+        waiting = []
+    }
 }

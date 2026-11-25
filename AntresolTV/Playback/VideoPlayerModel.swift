@@ -67,6 +67,9 @@ final class VideoPlayerModel {
     private var metadata: [AVMetadataItem] = []
     private var upNext: UpNextOffer?
     private var upNextDeclined = false
+    /// «Family»: a place of another profile the player was sent to; until it plays on there the
+    /// position saved is the one before the jump.
+    private var familyHold: FamilyHold?
     /// The skip state of the current file.
     private var skip = SkipTracker(segments: [])
     /// The pill of the segment playing, as of the last position tick.
@@ -177,7 +180,7 @@ final class VideoPlayerModel {
 
     /// Saves the position now (pause, app going to the background).
     func flushProgress() {
-        guard let reporter, let position = currentFilePosition else { return }
+        guard let reporter, let position = positionToSave() else { return }
         let durationMs = Int(durationSec * 1000)
         Task {
             await reporter.update(positionMs: Int(position * 1000), durationMs: durationMs)
@@ -299,6 +302,7 @@ final class VideoPlayerModel {
             }
             item = detail
             self.file = file
+            loadFamily(for: detail, client: client)
             card = detail.card
             durationSec = Double(file.durationMs ?? 0) / 1000
             metadata = Self.metadata(for: detail)
@@ -515,7 +519,9 @@ final class VideoPlayerModel {
             }),
             quality: VideoQuality(rawValue: response.quality.selected) ?? options.quality ?? .auto,
             appliedQuality: response.quality.applied,
-            autoSkip: menuAutoSkip
+            autoSkip: menuAutoSkip,
+            family: menus.family,
+            familyReturn: menus.familyReturn
         )
     }
 
@@ -652,6 +658,59 @@ final class VideoPlayerModel {
             await finishCurrent(atEnd: true)
             didFinish = true
         }
+    }
+
+    // MARK: - Family
+
+    /// The other profiles who are somewhere in this movie or episode, for the transport bar's
+    /// «Family» (a kid is not asked: the server lists nobody for a kid).
+    private func loadFamily(for item: ItemDetail, client: APIClient) {
+        familyHold = nil
+        menus.family = []
+        menus.familyReturn = nil
+        guard item.kind == .movie || item.kind == .episode, appState?.currentUser?.isKid != true else { return }
+        let task = Task { [weak self] in
+            guard let members = try? await client.family(itemId: item.id), !Task.isCancelled,
+                  let self, self.item?.id == item.id
+            else { return }
+            self.menus.family = members.filter { $0.hasPlace(in: item.id) }
+        }
+        sideTasks.append(task)
+    }
+
+    /// «Family» → a profile: the player goes to where it is. Until it plays on there this profile
+    /// keeps the position it came from (it is what is saved), and «Back to …» returns to it.
+    func peek(at member: FamilyMember) {
+        guard state == .playing, !isSwitching, let now = currentFilePosition else { return }
+        let target = Double(member.positionMs) / 1000
+        // from one peek to another: the place before the first one stays the one to go back to
+        let before = familyHold?.position ?? now
+        familyHold = FamilyHold(position: before, target: target, since: ProcessInfo.processInfo.systemUptime)
+        menus.familyReturn = PlaybackTime.clock(before)
+        seekFile(to: target)
+    }
+
+    /// «Back to 12:40»: to the place before the peek, which is the one that was saved all along.
+    func returnFromFamily() {
+        guard let hold = familyHold else { return }
+        familyHold = nil
+        menus.familyReturn = nil
+        seekFile(to: hold.position)
+    }
+
+    /// The position this profile saves: the player's own, or while a peeked place is held the
+    /// one before it.
+    private func positionToSave() -> Double? {
+        guard let now = currentFilePosition else { return nil }
+        guard var hold = familyHold else { return now }
+        let saved = hold.saved(now: now, clock: ProcessInfo.processInfo.systemUptime)
+        if saved.release {
+            familyHold = nil
+            menus.familyReturn = nil
+        } else {
+            familyHold = hold
+        }
+        return saved.position
     }
 
     // MARK: - Skip segments
@@ -918,7 +977,7 @@ final class VideoPlayerModel {
 
     /// Hands the current file position to the progress reporter.
     private func recordPosition() {
-        guard let reporter, let position = currentFilePosition else { return }
+        guard let reporter, let position = positionToSave() else { return }
         let durationMs = Int(durationSec * 1000)
         Task { await reporter.update(positionMs: Int(position * 1000), durationMs: durationMs) }
     }
@@ -930,7 +989,7 @@ final class VideoPlayerModel {
         let durationMs = Int(durationSec * 1000)
         if atEnd, durationMs > 0 {
             await reporter.update(positionMs: durationMs, durationMs: durationMs)
-        } else if let position = currentFilePosition {
+        } else if let position = positionToSave() {
             await reporter.update(positionMs: Int(position * 1000), durationMs: durationMs)
         }
         await reporter.stop()
@@ -1032,6 +1091,10 @@ struct PlayerMenuState: Equatable {
     var appliedQuality: String = "original"
     /// «Пропускать сам», nil when the menu is not offered.
     var autoSkip: AutoSkip?
+    /// «Family»: the other profiles with a place in what plays (empty: no menu).
+    var family: [FamilyMember] = []
+    /// «Back to 12:40» while a peeked place is held: the place before the peek.
+    var familyReturn: String?
 }
 
 /// The skip pills over the video: a skip pill or «Вернуть» (one contextual action of the
