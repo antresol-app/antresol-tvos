@@ -57,6 +57,12 @@ and `GET /api/requests/mine`, and the title pages of those titles carry the kid'
 Three requests are answered to start with (waiting, approved, declined with a reason); on the second
 port `POST /mock/decide/<id>/<status>?reason=` answers one, as a parent would, until the next reset.
 
+With `--family` the other profiles of the family have places in some titles (`GET /api/items/{id}/family`, as the web
+and the apps read it; a kid gets nobody): the film 19 (four profiles: a film's 34 minutes of 1 h 50 min, one finished, one
+in a device's account), the short clip 22 (positions inside its 60 s, to play from), the series 2 and its episodes 4, 5, 12.
+`POST /api/progress/{id}/adopt` copies a profile's unfinished position into the caller's own (the second port keeps its
+body, `{"userId": N}`), and `GET /api/progress/{id}` answers that copy until the next `/mock/reset`.
+
 Its play answers carry skip segments: the film (file 12) an intro at 0:18–0:30 and credits
 running to its end from 0:44, the episode (file 2, a 60 s file there) credits from 0:18;
 `PUT /api/me/playback-prefs/auto-skip` is kept (the event has its `body`) and the playback
@@ -679,6 +685,70 @@ def requests_request(server, method, path, query, body, kid):
     return None
 
 
+# «Family», with `--family`: the other profiles' places. Names are the mock's own, no real people.
+FAMILY_PEOPLE = {
+    11: {"name": "Alex", "avatar": "grad-3"},
+    12: {"name": "Sam", "avatar": "grad-2"},
+    13: {"name": "Kim", "avatar": "grad-5"},
+    14: {"name": "Living Room", "ownerName": "Alex", "avatar": "grad-6"},
+}
+MINUTE = 60_000
+
+
+def family_members(item_id, now):
+    """What `GET /api/items/{id}/family` answers for the adult profiles (newest first), as family.go builds it."""
+    def ago(seconds):
+        return (now - datetime.timedelta(seconds=seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def member(user, item, ago_s, position=0, duration=0, finished=False, **extra):
+        fraction = 1 if finished else (position / duration if duration else 0)
+        return dict(FAMILY_PEOPLE[user], userId=user, isKid=False, itemId=item, positionMs=position, durationMs=duration,
+                    fraction=round(fraction, 4), finished=finished, updatedAt=ago(ago_s), **extra)
+
+    if item_id == 19:
+        return [member(11, 19, 2 * 3600, 34 * MINUTE, 110 * MINUTE),
+                member(14, 19, 5 * 3600, 71 * MINUTE + 5000, 110 * MINUTE),
+                member(12, 19, 30 * 3600, 110 * MINUTE, 110 * MINUTE, finished=True),
+                member(13, 19, 5 * 86400, 10 * MINUTE, 110 * MINUTE)]
+    if item_id == 22:
+        return [member(11, 22, 90, 25_000, 60_046), member(13, 22, 3 * 3600, 12_000, 60_046)]
+    if item_id == 2:
+        return [member(11, 5, 2 * 3600, 17 * MINUTE, 45 * MINUTE, season=1, episode=2, title="Episode 2", done=1, total=3),
+                member(12, 12, 28 * 3600, season=2, episode=1, title="Episode 1", next=True, done=2, total=3),
+                member(13, 12, 4 * 86400, 45 * MINUTE, 45 * MINUTE, finished=True, season=2, episode=1, title="Episode 1", done=3, total=3)]
+    if item_id == 5:
+        return [member(11, 5, 2 * 3600, 17 * MINUTE, 45 * MINUTE, season=1, episode=2, title="Episode 2")]
+    if item_id == 4:
+        return [member(13, 4, 26 * 3600, 20 * MINUTE, 20 * MINUTE, finished=True, season=1, episode=1, title="Episode 1")]
+    return []
+
+
+def family_request(server, method, path, body, kid):
+    """(status, payload) of the family calls and of the progress an adopt copied; None for other paths."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    state = server.family_state
+    match = re.fullmatch(r"/api/items/(\d+)/family", path)
+    if method == "GET" and match:
+        return 200, {"members": [] if kid else family_members(int(match.group(1)), now)}
+    match = re.fullmatch(r"/api/progress/(\d+)/adopt", path)
+    if method == "POST" and match:
+        item_id = int(match.group(1))
+        if kid:
+            return 404, {"error": "Not found"}
+        asked = json.loads(body or b"{}").get("userId")
+        found = next((m for m in family_members(item_id, now) if m["userId"] == asked and m["itemId"] == item_id
+                      and not m["finished"] and m["positionMs"] > 0), None)
+        if found is None:
+            return 404, {"error": "Not found"}
+        state["adopted"][item_id] = {"positionMs": found["positionMs"], "durationMs": found["durationMs"], "finished": False,
+                                     "locator": "", "fraction": found["fraction"], "updatedAt": now.strftime("%Y-%m-%dT%H:%M:%SZ")}
+        return 200, state["adopted"][item_id]
+    match = re.fullmatch(r"/api/progress/(\d+)", path)
+    if method == "GET" and match and int(match.group(1)) in state["adopted"]:
+        return 200, state["adopted"][int(match.group(1))]
+    return None
+
+
 def movie_grid(query):
     """The recorded movies plus generated ones, so the grid has rows to scroll."""
     page = json.loads((SAMPLES / "items-movies.json").read_text())
@@ -943,6 +1013,10 @@ class Handler(BaseHTTPRequestHandler):
             answer = requests_request(self.server, method, path, query, body, kid=KID_TOKEN in authorization)
             if answer is not None:
                 return self.send(answer[0], json.dumps(answer[1]).encode(), "application/json")
+        if getattr(self.server, "family", False) and (path.startswith("/api/items/") or path.startswith("/api/progress/")):
+            answer = family_request(self.server, method, path, body, kid=KID_TOKEN in authorization)
+            if answer is not None:
+                return self.send(answer[0], json.dumps(answer[1]).encode(), "application/json")
         if getattr(self.server, "addons", False) and (path.startswith("/api/addons/") or path.startswith("/api/title/")
                                                        or path.startswith("/api/play/input/") or path == "/api/tracking/series/5555/episodes"):
             if KID_TOKEN in authorization and path.startswith("/api/addons/"):
@@ -1129,6 +1203,7 @@ class Handler(BaseHTTPRequestHandler):
                     server.channels = new_channel_state()
                     server.addon_state = new_addon_state()
                     server.request_state = new_request_state()
+                    server.family_state = new_family_state()
                     payload = b"{}"
                 elif method == "POST" and path == "/mock/external-audio":
                     server.channels["externalAudio"] = True
@@ -1160,7 +1235,8 @@ class Handler(BaseHTTPRequestHandler):
             self.event["positionMs"] = self.progress_write
         if method == "PUT" and path in ("/api/me/playback-prefs/auto-skip", "/api/me/devices/current/history"):
             self.event["body"] = self.request_body.decode("utf-8", "replace")
-        if method in ("POST", "PUT") and ("/x/app/" in path or path.startswith("/api/play/input/") or path == "/api/requests"):
+        if method in ("POST", "PUT") and ("/x/app/" in path or path.startswith("/api/play/input/") or path == "/api/requests"
+                                          or path.endswith("/adopt")):
             self.event["body"] = self.request_body.decode("utf-8", "replace")
         match = re.fullmatch(r"/api/progress/(\d+)", path)
         with server.hooks_lock:
@@ -1227,6 +1303,11 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+def new_family_state():
+    """The progress an adopt copied into the caller's own, by item."""
+    return {"adopted": {}}
+
+
 def new_channel_state():
     """The second port's channel choices: the sample's favourite (3) and «favourites first»
     on, as a profile has them by default."""
@@ -1254,6 +1335,7 @@ def main():
     parser.add_argument("--port", type=int, default=8421)
     parser.add_argument("--addons", action="store_true", help="serve the addons' x/app protocol and the input player")
     parser.add_argument("--requests", action="store_true", help="the kid profile may ask a parent for titles the library lacks")
+    parser.add_argument("--family", action="store_true", help="the other profiles of the family have places in some titles (and adopting one works)")
     parser.add_argument("--channels", type=int, default=0, help="the main port's channel list has this many channels (for screenshots)")
     args = parser.parse_args()
     pairing = ThreadingHTTPServer(("127.0.0.1", args.port + 1), Handler)
@@ -1264,12 +1346,14 @@ def main():
     pairing.channels = new_channel_state()
     pairing.addons, pairing.addon_state = args.addons, new_addon_state()
     pairing.requests, pairing.request_state = args.requests, new_request_state()
+    pairing.family, pairing.family_state = args.family, new_family_state()
     threading.Thread(target=pairing.serve_forever, daemon=True).start()
     main_server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     main_server.auto_skip = {}
     main_server.channel_count = args.channels
     main_server.addons, main_server.addon_state = args.addons, new_addon_state()
     main_server.requests, main_server.request_state = args.requests, new_request_state()
+    main_server.family, main_server.family_state = args.family, new_family_state()
     main_server.history = new_history_state()
     main_server.serve_forever()
 
