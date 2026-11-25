@@ -203,7 +203,7 @@
 "System" = "Системный";
 "Antresol for Apple TV" = "Antresol для Apple TV";
 "Acknowledgements" = "Благодарности и лицензии";
-"This Apple TV is removed from the profile's devices. You can sign in again from the profile picker." = "Этот Apple TV будет удалён из устройств профиля. Войти снова можно на экране выбора профиля.";
+"This Apple TV is removed from the profile's devices." = "Этот Apple TV будет удалён из устройств профиля.";
 "The Apple TV app for the Antresol home media server. It is built only on Apple's system frameworks (SwiftUI, AVKit, MediaPlayer, TVServices) and contains no third-party code." = "Приложение для Apple TV к домашнему медиасерверу Antresol. Оно построено только на системных фреймворках Apple (SwiftUI, AVKit, MediaPlayer, TVServices) и не содержит стороннего кода.";
 "Your library" = "Ваша медиатека";
 "Films, shows, music, artwork and descriptions all come from your own Antresol server. Nothing is sent anywhere else." = "Фильмы, сериалы, музыка, обложки и описания приходят с вашего собственного сервера Antresol. Никуда больше ничего не отправляется.";

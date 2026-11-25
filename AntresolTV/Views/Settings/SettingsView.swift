@@ -69,7 +69,7 @@ private struct SettingsPage: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This Apple TV is removed from the profile's devices. You can sign in again from the profile picker.")
+            Text("This Apple TV is removed from the profile's devices.")
         }
     }
 
