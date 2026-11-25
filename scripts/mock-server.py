@@ -723,10 +723,30 @@ def family_members(item_id, now):
     return []
 
 
+# The episodes of the series 2 (season, number): the sample's own item answers every id with its own, so a page
+# opened by a link would be another item's.
+FAMILY_EPISODES = {4: (1, 1), 5: (1, 2), 12: (2, 1)}
+
+
+def family_item(item_id):
+    """The page of an item of the family fixtures with its own id; None for the ones the samples have right."""
+    if item_id in FAMILY_EPISODES:
+        season, number = FAMILY_EPISODES[item_id]
+        item = json.loads((SAMPLES / "item-episode.json").read_text())
+        return dict(item, id=item_id, title=f"Episode {number}", subtitle=f"Test Show · Season {season}, Episode {number}")
+    if item_id in (2, 3, 11, 19):
+        return None
+    item = item_with_extras(item_id, "item-movie.json")
+    return dict(item, id=item_id) if item_id != 22 else dict(item, id=22)
+
+
 def family_request(server, method, path, body, kid):
     """(status, payload) of the family calls and of the progress an adopt copied; None for other paths."""
     now = datetime.datetime.now(datetime.timezone.utc)
     state = server.family_state
+    match = re.fullmatch(r"/api/items/(\d+)", path)
+    if method == "GET" and match and family_item(int(match.group(1))):
+        return 200, family_item(int(match.group(1)))
     match = re.fullmatch(r"/api/items/(\d+)/family", path)
     if method == "GET" and match:
         return 200, {"members": [] if kid else family_members(int(match.group(1)), now)}

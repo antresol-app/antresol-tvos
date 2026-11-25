@@ -95,9 +95,12 @@ final class FamilyUITests: XCTestCase {
         remote.press(.menu)
         XCTAssertTrue(waitForFocus(line, seconds: 8), "focus: \(focusedLabel)")
 
-        // the episode Alex is in carries his face on its tile
+        // the episode Alex is in carries his face on its tile: down to the season's tiles, then along to it
+        let first = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Episode 1")).firstMatch
+        XCTAssertTrue(moveFocus(.down, to: first, limit: 4), "focus cannot reach the episodes: \(focusedLabel)")
         let tile = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND value CONTAINS %@", "Episode 2", "Alex")).firstMatch
-        XCTAssertTrue(moveFocus(.down, to: tile, limit: 3), "no tile with a face on it: \(focusedLabel)")
+        XCTAssertTrue(tile.exists, "no tile with Alex's face on it")
+        XCTAssertTrue(moveFocus(.right, to: tile, limit: 2), "focus: \(focusedLabel)")
         sleep(2)
         snapshot("12-series-tile-faces")
     }
@@ -218,7 +221,7 @@ final class FamilyUITests: XCTestCase {
     /// at the position saved stays the one before it; «Back to …» goes back.
     func testThePlayersFamilyMenu() throws {
         signIn(opening: 22)
-        let play = app.buttons[tr("Resume")].exists ? app.buttons[tr("Resume")] : app.buttons[tr("Play")]
+        let play = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", tr("Resume"), tr("Play"))).firstMatch
         XCTAssertTrue(play.waitForExistence(timeout: 30), "no Play: \(focusedLabel)")
         enterPage()
         XCTAssertTrue(waitForFocus(play, seconds: 10), "focus: \(focusedLabel)")
