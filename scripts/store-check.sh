@@ -7,6 +7,8 @@
 #   STORE_CHECK_WORDS=<words file> scripts/store-check.sh [--hard-only] [PATH]
 #
 #   PATH           .xcarchive | .ipa | .app (default: build/Antresol.xcarchive)
+#   STORE_CHECK_APP_SYMBOL   the app's own entry type as the symbol check demangles it,
+#                  a regex (default AntresolTV\.AntresolTVApp; Vault\.VaultApp for the iOS app)
 #   --hard-only    skip the soft words (for an app whose code legitimately has many
 #                  identifiers with them; the iOS app, say)
 #
@@ -65,6 +67,7 @@ WEB_ONLY_SYMBOLS=$(kind symbols)
 # The music library (ITMS-90683): symbols are demangled first. MediaPlayer's library
 # classes (not MPMediaItemProperty*/MPMediaItemArtwork, which now playing uses) and
 # anything of MusicKit.
+APP_SYMBOL=${STORE_CHECK_APP_SYMBOL:-'AntresolTV\.AntresolTVApp'}
 MUSIC_LIBRARY_SYMBOLS='MPMedia(Query|Library|Playlist|ItemCollection|PropertyPredicate)|MusicKit\.|MusicLibraryRequest|MusicAuthorization'
 
 failures=0
@@ -173,7 +176,7 @@ done
 seen_app=0
 for bin in ${syms_from[@]+"${syms_from[@]}"}; do
 	names=$(xcrun nm "$bin" 2>/dev/null | xcrun swift-demangle)
-	grep -q 'AntresolTV\.AntresolTVApp' <<< "$names" && seen_app=1
+	grep -q "$APP_SYMBOL" <<< "$names" && seen_app=1
 	if [ -n "$WEB_ONLY_SYMBOLS" ]; then
 		syms=$(grep -E "$WEB_ONLY_SYMBOLS" <<< "$names" | head -n 5)
 		[ -z "$syms" ] || fail "$(basename "$bin") carries a web-only feature:
@@ -183,7 +186,7 @@ done
 if [ $seen_app -eq 1 ]; then
 	[ $failures -eq $before ] && note "binaries: no music library, no web-only feature types (symbols read from ${#syms_from[@]} file(s))"
 else
-	echo "warn: no AntresolTV.AntresolTVApp symbol in the binaries (stripped, no dSYM): the type-name check saw nothing; run it on the .xcarchive"
+	echo "warn: no symbol of the app's entry type ($APP_SYMBOL) in the binaries (stripped, no dSYM): the type-name check saw nothing; run it on the .xcarchive"
 fi
 
 # --- 5. words --------------------------------------------------------------------------
