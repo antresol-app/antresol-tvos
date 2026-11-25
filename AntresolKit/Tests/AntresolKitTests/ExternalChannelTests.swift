@@ -92,6 +92,32 @@ final class ExternalChannelTests: XCTestCase {
         XCTAssertEqual(playable[0].playing, playable[0])
     }
 
+    // The server names the codec it converts. Apple TV decodes AAC, MP3, AC-3 and E-AC-3 itself and
+    // plays those from the provider as they are; MP2, DTS, any other codec, and a flagged stream
+    // whose codec the server did not name (an older server) go through the relay.
+    func testACodecTheDeviceDecodesPlaysAsItIsAndTheRestThroughTheRelay() throws {
+        let stream = try JSONDecoder().decode(ChannelStream.self, from: Data("""
+        {"url":"http://p1.example.test/a.m3u8","userAgent":"Agent/1.0","relay":"/api/channels/live/ext/61/0/relay",
+         "remuxAudio":true,"audioCodec":"ac3","unsupported":["web"],
+         "fallbacks":[{"url":"http://p2.example.test/b.m3u8","relay":"/api/channels/live/ext/61/1/relay","remuxAudio":true,"audioCodec":"mp2","unsupported":["web"]},
+                      {"url":"http://p3.example.test/c.m3u8","relay":"/api/channels/live/ext/61/2/relay","remuxAudio":true,"unsupported":["web"]}]}
+        """.utf8))
+        XCTAssertEqual(stream.primary.audioCodec, "ac3")
+        XCTAssertEqual(stream.fallbacks.map(\.audioCodec), ["mp2", ""])
+        let playable = stream.playable(on: ChannelStream.tvOSTags)
+        XCTAssertEqual(playable.map(\.url), ["http://p1.example.test/a.m3u8", "/api/channels/live/ext/61/1/relay", "/api/channels/live/ext/61/2/relay"])
+        XCTAssertEqual(playable[0].headers, ["User-Agent": "Agent/1.0"])
+        XCTAssertTrue(playable[1].headers.isEmpty)
+        func playing(_ codec: String) -> StreamSource {
+            StreamSource(url: "http://p.example.test/a.m3u8", relay: "/api/channels/live/ext/9/0/relay", remuxAudio: true, audioCodec: codec).playing
+        }
+        for codec in ["aac", "mp3", "ac3", "eac3", "AC3", "EAC3"] { XCTAssertFalse(playing(codec).isServerPath, codec) }
+        for codec in ["mp2", "dts", "aac_latm", "truehd", "unknown", ""] { XCTAssertTrue(playing(codec).isServerPath, codec) }
+        // a codec of any name does not turn a stream the server did not flag into a relayed one
+        let plain = StreamSource(url: "http://p.example.test/a.m3u8", relay: "/api/channels/live/ext/9/0/relay", audioCodec: "mp2")
+        XCTAssertEqual(plain.playing, plain)
+    }
+
     func testAnOlderServerThatDoesNotSayChangesNothing() throws {
         let sources = try XCTUnwrap(try list().channels.first { $0.id == 50 }?.stream)
         XCTAssertTrue(sources.sources.allSatisfy { !$0.remuxAudio })

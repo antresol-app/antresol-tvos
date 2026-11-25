@@ -1518,3 +1518,9 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
   The mock's second port got `POST /mock/external-audio` (two external channels, 200 flagged and 201 not; the relay
   asks for the media key and writes it into every link of its playlists, as the server does) and
   `testAChannelWhoseAudioNeedsTheServerPlaysThroughTheRelay` drives both from the remote.
+- **Only what Apple TV cannot decode goes through the relay** (round 25 November, third part): the server also says
+  `stream.audioCodec`, the first audio codec it converts (ffprobe's name: `mp2`, `ac3`, `eac3`, `dts` ...), with the
+  flag. Apple TV decodes AAC, MP3, AC-3 and E-AC-3 itself, so `StreamSource.playing` keeps such a source at the
+  provider's address (its own headers, no media key) and the server converts nothing for it; MP2, DTS, anything else
+  and a flag with no codec named (an older server) still go through the relay. Android keeps going by the flag alone.
+  The mock sends no codec, so its flagged channel is the older-server case and still plays through the relay.
