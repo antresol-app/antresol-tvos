@@ -113,7 +113,7 @@ struct ServerEntryView: View {
                         .foregroundStyle(Theme.Colors.label)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(setup.status == .unavailable
-                         ? "Apple TV isn't connected to a home network, so the phone can't reach it. Choose a server below or enter its address with the remote."
+                         ? "Apple TV isn't connected to a home network, so the phone can't reach it."
                          : "Scan the code with your phone's camera or in the Antresol app.")
                         .font(Theme.Typography.body)
                         .foregroundStyle(Theme.Colors.label2)
@@ -173,10 +173,6 @@ struct ServerEntryView: View {
                 Text("Connect to your server")
                     .font(Theme.Typography.pageTitle)
                     .foregroundStyle(Theme.Colors.label)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420.")
-                    .font(Theme.Typography.body)
-                    .foregroundStyle(Theme.Colors.label2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(width: 720, alignment: .leading)
@@ -248,7 +244,7 @@ struct ServerEntryView: View {
 
     private var manualEntry: some View {
         VStack(alignment: .leading, spacing: 36) {
-            TextField("Server address", text: $address)
+            TextField("Server address", text: $address, prompt: Text(verbatim: "192.168.1.10"))
                 .textContentType(.URL)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)

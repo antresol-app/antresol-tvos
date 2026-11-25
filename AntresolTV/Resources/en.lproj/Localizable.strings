@@ -5,7 +5,6 @@
 
 /* Server address */
 "Connect to your server" = "Connect to your server";
-"Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420." = "Choose a server found on your network, or enter the address of the computer running Antresol, for example 192.168.1.10 or nas.local. The port defaults to 8420.";
 "Server address" = "Server address";
 "Connect" = "Connect";
 "Cancel" = "Cancel";
@@ -327,7 +326,7 @@
 /* Set up with a phone */
 "Set up with your phone" = "Set up with your phone";
 "Scan the code with your phone's camera or in the Antresol app." = "Scan the code with your phone's camera or in the Antresol app.";
-"Apple TV isn't connected to a home network, so the phone can't reach it. Choose a server below or enter its address with the remote." = "Apple TV isn't connected to a home network, so the phone can't reach it. Choose a server below or enter its address with the remote.";
+"Apple TV isn't connected to a home network, so the phone can't reach it." = "Apple TV isn't connected to a home network, so the phone can't reach it.";
 "Enter Address with the Remote" = "Enter Address with the Remote";
 
 /* Trailers */
