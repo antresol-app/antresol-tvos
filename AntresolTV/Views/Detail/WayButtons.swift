@@ -26,7 +26,7 @@ extension WayHint {
     var text: String {
         switch self {
         case .startsRightAway: return String(localized: "Starts right away", bundle: .localized)
-        case .playsWhileDownloading: return String(localized: "Plays while downloading", bundle: .localized)
+        case .startsAfterWait: return String(localized: "Starts after a short wait", bundle: .localized)
         }
     }
 }

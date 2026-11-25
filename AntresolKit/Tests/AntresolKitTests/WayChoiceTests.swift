@@ -55,7 +55,7 @@ final class WayChoiceTests: XCTestCase {
         let menu = try XCTUnwrap(WayMenu(ways: [way("online", icon: .globe), way("stream")], remembered: nil))
         XCTAssertEqual(menu.defaultWay.way.id, "online")
         XCTAssertEqual(menu.rows.map(\.isDefault), [true, false])
-        XCTAssertEqual(menu.rows.map(\.hint), [.startsRightAway, .playsWhileDownloading])
+        XCTAssertEqual(menu.rows.map(\.hint), [.startsRightAway, .startsAfterWait])
     }
 
     func testPlayRunsTheRememberedWayWhileItIsOffered() throws {
@@ -84,7 +84,7 @@ final class WayChoiceTests: XCTestCase {
 
     func testHintsComeFromTheGlyphOnly() {
         XCTAssertEqual(way("a", icon: .globe).hint, .startsRightAway)
-        XCTAssertEqual(way("a", icon: .play).hint, .playsWhileDownloading)
+        XCTAssertEqual(way("a", icon: .play).hint, .startsAfterWait)
         XCTAssertNil(way("a", icon: .download).hint)
         XCTAssertNil(way("a", icon: .list).hint)
     }

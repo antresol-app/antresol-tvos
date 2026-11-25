@@ -1374,7 +1374,7 @@ The owner found three problems on the iPhone; the same fixes are here (the iPhon
   runs it) is as bright as a library one; a card nothing plays stays dimmed, one still to air greyed
   (`GuideEpisode.State.opacity(isFocused:playable:)`).
 - **Hints** come from the way's glyph, not from an addon or its words (the protocol has no hint): a globe is
-  «Starts right away», a play triangle «Plays while downloading», a download or list glyph none (`AddonWay.hint`,
+  «Starts right away», a play triangle «Starts after a short wait», a download or list glyph none (`AddonWay.hint`,
   worded in the app's strings). That is a guess at what the real addons mean by their glyphs; a `hint` field of
   the protocol would replace it.
 - **Player**: `WayPlayerModel.current` is what plays (the request the player opened with stays the
