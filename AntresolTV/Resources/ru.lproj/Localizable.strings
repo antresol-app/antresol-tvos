@@ -298,7 +298,6 @@
 
 /* Round 4: the profile's interface language */
 "Interface Language" = "Язык интерфейса";
-"As the Profile" = "Как у профиля";
 "Also the language the server uses for titles, channels and descriptions." = "На этом же языке сервер показывает названия, каналы и описания.";
 "This channel won’t open right now" = "Канал сейчас не открывается";
 "This channel doesn’t play on Apple TV" = "Этот канал не играет на Apple TV";

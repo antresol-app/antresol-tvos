@@ -210,7 +210,7 @@ private struct SettingsPage: View {
     // MARK: Language
 
     /// «Язык интерфейса»: kept for the profile on the server, so every device of the
-    /// profile shows the same language. "As the Profile" follows the profile's audio
+    /// profile shows the same language. "Automatic" follows the profile's audio
     /// languages, then the household's.
     private var languageSection: some View {
         SettingsSection("Language") {
@@ -234,7 +234,7 @@ private struct SettingsPage: View {
         switch code {
         case "ru": return "Русский"
         case "en": return "English"
-        default: return String(localized: "As the Profile", bundle: .localized)
+        default: return String(localized: "Automatic", bundle: .localized)
         }
     }
 
