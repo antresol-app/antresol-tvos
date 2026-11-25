@@ -225,6 +225,12 @@ command line (CI uses the run number, `github.run_number`).
 
    `destination: upload` in the export options sends the build straight to App Store Connect.
    Xcode's Organizer (Window > Organizer > Distribute App > App Store Connect) does the same.
+   Run the store check on the archive before the export command:
+   `STORE_CHECK_WORDS=<words file> scripts/store-check.sh build/Antresol.xcarchive` (it also takes an `.ipa` or
+   an `.app`). It fails on a banned word anywhere in the bundle (string tables, resources, binaries, the Top
+   Shelf extension), on fixtures or sample media, on a web-only feature type, and on a broken plist or
+   privacy-manifest invariant. The words are a private list, so the file comes from the project that builds
+   the apps. `scripts/store-check_test.sh` tests the check itself on a synthetic bundle.
 3. Export compliance is answered by `ITSAppUsesNonExemptEncryption = NO` in `Info.plist` (the app
    uses only the system's HTTPS), so the build goes to TestFlight without a question.
 4. TestFlight: when the build finishes processing, add it to an internal testing group. Testers

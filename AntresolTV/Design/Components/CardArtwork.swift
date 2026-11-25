@@ -15,7 +15,7 @@ struct CardArtwork: View {
 
     var body: some View {
         ZStack(alignment: placeholderAlignment) {
-            Theme.Gradients.placeholder(seed: title)
+            Theme.Gradients.placeholder(key: title)
             if showsPlaceholderTitle {
                 Text(verbatim: title)
                     .font(Theme.Typography.overlayTitle)

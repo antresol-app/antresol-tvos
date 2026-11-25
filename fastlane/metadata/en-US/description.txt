@@ -22,6 +22,6 @@ TOP SHELF
 PRIVACY
 The app connects only to your server. The developer provides and sells no content and receives none of your data. There are no ads, analytics or tracking.
 
-You need an Antresol server on your computer or NAS, version 0.3.0 or newer. Install guide: https://sidun-av.github.io/antresol/install.html
+You need an Antresol server on your computer or NAS, version 0.8.29 or newer. Install guide: https://sidun-av.github.io/antresol/install.html
 
 Only add media you have the rights to.

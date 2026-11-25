@@ -71,8 +71,8 @@ public struct WayRunGate: Hashable, Sendable {
 public enum WayHint: String, Hashable, Sendable {
     /// A globe: a stream of the web, which opens at once.
     case startsRightAway
-    /// A play triangle: a source that plays as it comes in.
-    case playsWhileDownloading
+    /// A play triangle: a source that starts after a short wait.
+    case startsAfterWait
 }
 
 extension AddonWay {
@@ -80,7 +80,7 @@ extension AddonWay {
     public var hint: WayHint? {
         switch icon {
         case .globe: return .startsRightAway
-        case .play: return .playsWhileDownloading
+        case .play: return .startsAfterWait
         case .download, .list: return nil
         }
     }

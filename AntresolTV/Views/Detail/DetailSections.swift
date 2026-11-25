@@ -34,7 +34,7 @@ private struct CastCell: View {
     var body: some View {
         VStack(spacing: 14) {
             ZStack {
-                Circle().fill(Theme.Gradients.placeholder(seed: member.name))
+                Circle().fill(Theme.Gradients.placeholder(key: member.name))
                 Text(verbatim: initials)
                     .font(Theme.Typography.avatarInitial(size: size * 0.8))
                     .foregroundStyle(.white)

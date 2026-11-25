@@ -1,1 +1,6 @@
-First release for Apple TV: films, TV shows and music from your own Antresol server, with profiles, Top Shelf and English and Russian.
+• Live TV: round-the-clock channels made from your own library, with a programme card, a guide, categories and favourites, and channel up and down on the remote.
+• Family: on a title's page, see where other profiles are and continue from their place.
+• Kid profiles can ask a parent for a title the library doesn't have.
+• Skip Recap, Intro and Credits with one press, or let Antresol skip them for you.
+• Profile photos, a separate watch history for this Apple TV, and simpler settings with a choice of interface language.
+• Subtitles follow the system caption style. Steadier playback and faster pictures.
