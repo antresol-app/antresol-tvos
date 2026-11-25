@@ -142,6 +142,45 @@ final class RuntimeTests: XCTestCase {
         snapshot("rt-16-back-on-tv-tab")
     }
 
+    /// A channel whose audio the Apple TV cannot decode (the mock's second port after
+    /// `POST /mock/external-audio`: the list says `remuxAudio` and offers the server's relay)
+    /// plays through the relay, with the media key on the playlist and on every link in it, and
+    /// the provider's own address is never asked; the next channel, which does not say, plays
+    /// from the provider as before and its relay is left alone.
+    func testAChannelWhoseAudioNeedsTheServerPlaysThroughTheRelay() {
+        XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
+        XCTAssertNotNil(mock("POST", "/mock/external-audio"), "the mock does not know the external channels")
+        addTeardownBlock { _ = self.mock("POST", "/mock/reset") }
+        signInOnSecondPort()
+        XCTAssertTrue(openTV(), "no TV tab: \(focusedLabel)")
+        // the list opens on the last channel, the first of the two
+        let row = channelRow("Звук через сервер")
+        XCTAssertTrue(waitForFocus(row), "the list did not open on the channel: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(picture("200 · Звук через сервер").waitForExistence(timeout: 10), "not on channel 200")
+        snapshot("rt-96-live-relayed-banner")
+        let path = { (event: [String: Any]) in event["path"] as? String ?? "" }
+        let keyed = { (event: [String: Any]) in (event["query"] as? String ?? "").contains("mk=") }
+        // the player asks for the stream's rendition and its segments, each keyed: the mock
+        // answers 401 to a relay request without the key, so only a keyed chain plays
+        XCTAssertTrue(waitForEvent(timeout: 40) { path($0).hasPrefix("/api/channels/live/ext/200/0/relay/video-") && path($0).hasSuffix(".ts") && keyed($0) },
+                      "no segment through the relay")
+        XCTAssertTrue(app.staticTexts["Switch Channel"].waitForNonExistence(timeout: 30), "the relayed channel did not start playing")
+        snapshot("rt-96b-live-relayed-playing")
+        let relayed = mockEvents().filter { path($0).hasPrefix("/api/channels/live/ext/200/") }
+        XCTAssertTrue(relayed.allSatisfy(keyed), "a relay request without the media key: \(relayed.filter { !keyed($0) })")
+        XCTAssertFalse(mockEvents().contains { path($0).hasPrefix("/provider/200/") }, "the provider's own stream was asked for")
+
+        // the next channel plays from its provider
+        remote.press(.up)
+        XCTAssertTrue(picture("201 · Звук напрямую").waitForExistence(timeout: 10), "Up did not switch to channel 201")
+        snapshot("rt-97-live-direct-banner")
+        XCTAssertTrue(waitForEvent(timeout: 40) { path($0).hasPrefix("/provider/201/video-") && path($0).hasSuffix(".ts") }, "no segment from the provider")
+        XCTAssertTrue(app.staticTexts["Switch Channel"].waitForNonExistence(timeout: 30), "the direct channel did not start playing")
+        snapshot("rt-97b-live-direct-playing")
+        XCTAssertFalse(mockEvents().contains { path($0).hasPrefix("/api/channels/live/ext/201/") }, "channel 201 went through the relay")
+    }
+
     /// A last channel far down the list (the mock's second port: the 18th of 24, off the
     /// first screen): the TV tab scrolls to it and puts focus on it.
     func testTVTabOpensOnAFarLastChannel() {

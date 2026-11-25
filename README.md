@@ -258,7 +258,8 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   sign-in screens, the live player (every channel of the mock plays one short looped stream,
   `scripts/fixtures/live`), a transcoded song, a failed progress request with Try Again, a
   last channel far down the list, the guide's rows of two external channels with the same
-  programme ids, and the hero's auto-advance. The hero test expects the
+  programme ids, an external channel whose audio the server converts (`POST /mock/external-audio`:
+  it plays through the server's relay, the next one from its provider), and the hero's auto-advance. The hero test expects the
   hero to stay when the simulator has Reduce Motion on (`xcrun simctl spawn <udid> defaults
   write com.apple.Accessibility ReduceMotionEnabled -bool true`); CI runs it a second time
   that way, with `TEST_RUNNER_ANTRESOL_EXPECT_REDUCE_MOTION=1` so the run fails if the

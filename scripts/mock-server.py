@@ -27,6 +27,14 @@ The second port also keeps what it was asked, for the UI tests (never on the mai
     GET  /mock/events              the requests so far (time, method, path, query, client;
                                    `positionMs` of a progress write, `answered` of the slow one)
     POST /mock/reset               forgets them, and the failures still armed
+    POST /mock/external-audio      the channel list gets two external channels (200, 201) until
+                                   the next reset: 200 says its audio is one an Apple device
+                                   cannot decode and offers the server's relay of it, 201 offers
+                                   a relay too but does not say. Both play the live clip, from
+                                   `/provider/<id>/…` (the provider's own address) or
+                                   `/api/channels/live/ext/<id>/0/relay/…` (the relay, which asks
+                                   for the media key and carries it into every link of its
+                                   playlists, as the server does)
     POST /mock/fail-progress/<id>  the next `GET /api/progress/<id>` answers 503, once
 
 «Отдельная история на этом устройстве»: `GET`/`POST /api/me/managed` and
@@ -57,6 +65,7 @@ import struct
 import sys
 import threading
 import time
+import urllib.parse
 import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -736,6 +745,38 @@ def live_playlist(kind):
     return "\n".join(lines + [""]).encode()
 
 
+def relinked(playlist, prefix, key=None):
+    """A playlist with every link under `prefix` (a path), each carrying the media key `key`
+    when there is one: what the server's relay writes."""
+    suffix = f"?mk={urllib.parse.quote(key, safe='')}" if key else ""
+    lines = []
+    for line in playlist.decode().split("\n"):
+        if line.startswith("#"):
+            line = re.sub(r'URI="([^"]+)"', lambda m: f'URI="{prefix}/{m.group(1)}{suffix}"', line)
+        elif line:
+            line = f"{prefix}/{line}{suffix}"
+        lines.append(line)
+    return "\n".join(lines).encode()
+
+
+# After `POST /mock/external-audio`: (id and number, name, the audio is one the device cannot decode).
+EXTERNAL_AUDIO_ROWS = [(200, "Звук через сервер", True), (201, "Звук напрямую", False)]
+
+
+def with_external_audio(data, port):
+    """Two external channels at the end of the list, the last one watched the first of them.
+    Both offer the server's relay (every external channel has one, for the web); only the first
+    says its audio needs it (`remuxAudio`, and so «web» is unsupported there, as the server writes it)."""
+    for number, name, remux in EXTERNAL_AUDIO_ROWS:
+        stream = {"url": f"http://127.0.0.1:{port}/provider/{number}/index.m3u8", "userAgent": "Agent/1.0", "format": "hls",
+                  "relay": f"/api/channels/live/ext/{number}/0/relay", "fallbacks": [], "unsupported": []}
+        if remux:
+            stream.update(remuxAudio=True, unsupported=["web"])
+        data["channels"].append({"id": number, "number": number, "name": name, "category": "", "favorite": False,
+                                 "external": True, "stream": stream})
+    data["lastChannel"] = EXTERNAL_AUDIO_ROWS[0][0]
+
+
 def pairing_code(port):
     """`POST /api/auth/pair/start`: a code nobody approves (the poll stays pending)."""
     expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5)
@@ -894,6 +935,8 @@ class Handler(BaseHTTPRequestHandler):
             channels = on_air_now("channels.json")
             if getattr(self.server, "pairing", False):
                 many_channels(channels)
+                if self.server.channels["externalAudio"]:
+                    with_external_audio(channels, self.server.server_port)
                 with_channel_state(channels, self.server.channels)
                 channels["favoritesFirst"] = self.server.channels["favoritesFirst"]
             elif getattr(self.server, "channel_count", None):
@@ -930,6 +973,22 @@ class Handler(BaseHTTPRequestHandler):
             if extension == "m3u8" and kind in ("index", "video", "audio"):
                 playlist = live_master() if kind == "index" else live_playlist(kind)
                 return self.send(200, playlist, "application/vnd.apple.mpegurl")
+        # The external channels of `POST /mock/external-audio`: the provider's own stream, and the
+        # server's relay of it (it wants the media key, on the playlist and on everything in it).
+        external = re.fullmatch(r"/provider/(\d+)/(.+)", path) or re.fullmatch(r"/api/channels/live/ext/(\d+)/0/relay(?:/(.+))?", path)
+        if method == "GET" and external and getattr(self.server, "pairing", False):
+            number, name = external.group(1), external.group(2) or "index.m3u8"
+            relay = path.startswith("/api/")
+            key = urllib.parse.parse_qs(query).get("mk", [""])[0]
+            if relay and not key:
+                return self.send(401, json.dumps({"error": "Нужно войти"}).encode(), "application/json")
+            live = re.fullmatch(r"([a-z]+)(?:-(\d+))?\.(m3u8|ts)", name)
+            if live and live.group(3) == "ts" and live.group(1) in ("video", "audio") and live.group(2):
+                return self.send_file(LIVE / f"{live.group(1)}-{int(live.group(2)) % LIVE_SEGMENTS}.ts", "video/mp2t")
+            if live and live.group(3) == "m3u8" and live.group(1) in ("index", "video", "audio"):
+                playlist = live_master() if live.group(1) == "index" else live_playlist(live.group(1))
+                prefix = f"/api/channels/live/ext/{number}/0/relay" if relay else f"/provider/{number}"
+                return self.send(200, relinked(playlist, prefix, key if relay else None), "application/vnd.apple.mpegurl")
         if method == "PUT" and path == "/api/me/playback-prefs/auto-skip":
             change = json.loads(body or b"{}")
             self.server.auto_skip.update({k: bool(v) for k, v in change.items() if k in ("recap", "intro", "credits")})
@@ -970,6 +1029,9 @@ class Handler(BaseHTTPRequestHandler):
                     server.history = new_history_state()
                     server.channels = new_channel_state()
                     server.addon_state = new_addon_state()
+                    payload = b"{}"
+                elif method == "POST" and path == "/mock/external-audio":
+                    server.channels["externalAudio"] = True
                     payload = b"{}"
                 elif method == "POST" and match:
                     server.fail_progress.add(int(match.group(1)))
@@ -1061,7 +1123,7 @@ class Handler(BaseHTTPRequestHandler):
 def new_channel_state():
     """The second port's channel choices: the sample's favourite (3) and «favourites first»
     on, as a profile has them by default."""
-    return {"favorites": {3}, "favoritesFirst": True}
+    return {"favorites": {3}, "favoritesFirst": True, "externalAudio": False}
 
 
 # The second port's logos: channel 2's uploaded logo does not load (404), so its guide icon

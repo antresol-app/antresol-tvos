@@ -1505,4 +1505,16 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
 - **Trailers on that page**: none, as on the iPhone's. The server lists trailers by a library item
   (`GET /api/items/{id}/trailers`); nothing gives them for a TMDB id the library lacks. A title page with a
   Trailer button would need a server call by `kind` and `tmdbId`.
-
+- **A channel whose audio Apple TV cannot decode plays through the server** (round 25 November, second half): the
+  server's channel list says `stream.remuxAudio` (the provider's audio is not AAC or MP3: MP2, AC-3, DTS ...; the
+  provider's address plays without a sound) and offers `stream.relay`, a path that converts the audio to AAC.
+  `StreamSource.playing` turns such a source into the relay (a server path, so the player opens it with the media key
+  like the server's redirect, and sends none of the provider's headers: the relay sends the source's own);
+  `ChannelStream.playable(on:)` applies it, so the order of the sources, the fallbacks, the bad-source memory and the
+  silence check stay as they were. A server that does not say (older, or no relay) changes nothing: the field is read
+  as `false`. A relay on offer without the flag (every external channel has one for the web) is not taken. The banner
+  says «Via Antresol» for it. Known gap: the first tune-in of a channel the server has not looked at yet may still be
+  silent (the list the app holds says nothing yet); it is flagged from the list's next load.
+  The mock's second port got `POST /mock/external-audio` (two external channels, 200 flagged and 201 not; the relay
+  asks for the media key and writes it into every link of its playlists, as the server does) and
+  `testAChannelWhoseAudioNeedsTheServerPlaysThroughTheRelay` drives both from the remote.
