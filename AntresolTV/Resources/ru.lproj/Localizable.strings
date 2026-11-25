@@ -364,7 +364,7 @@
 "Move to My Profile" = "Перенести в мой профиль";
 "Keep Apart" = "Оставить";
 "Couldn’t switch the history" = "Не удалось переключить историю";
-"A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in." = "Своя история для общего устройства: «Продолжить», просмотренное и «Семья смотрит» не смешиваются с вашими. Доступ и ограничения — как у профиля, отдельного входа нет.";
+"Its Continue Watching, watched marks and Family Is Watching stay apart from yours." = "«Продолжить», просмотренное и «Семья смотрит» не смешиваются с вашими.";
 "Favourite Channels First" = "Избранные каналы первыми";
 "Channel Number" = "Номер канала";
 "Channel %@" = "Канал %@";

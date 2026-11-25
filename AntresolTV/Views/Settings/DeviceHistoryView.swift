@@ -89,7 +89,7 @@ struct DeviceHistoryView: View {
                 .padding(.leading, 8)
                 .frame(minHeight: 44)
 
-                Text("A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in.")
+                Text("Its Continue Watching, watched marks and Family Is Watching stay apart from yours.")
                     .font(Theme.Typography.cardMeta)
                     .foregroundStyle(Theme.Colors.label3)
                     .padding(.leading, 8)

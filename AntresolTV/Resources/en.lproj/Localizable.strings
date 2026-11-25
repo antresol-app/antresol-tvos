@@ -364,7 +364,7 @@
 "Move to My Profile" = "Move to My Profile";
 "Keep Apart" = "Keep Apart";
 "Couldn’t switch the history" = "Couldn’t switch the history";
-"A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in." = "A history of its own for a shared device: its Continue, watched marks and Family Is Watching stay apart from yours. Access and limits are the profile’s; there is no separate sign-in.";
+"Its Continue Watching, watched marks and Family Is Watching stay apart from yours." = "Its Continue Watching, watched marks and Family Is Watching stay apart from yours.";
 "Favourite Channels First" = "Favourite Channels First";
 "Channel Number" = "Channel Number";
 "Channel %@" = "Channel %@";
