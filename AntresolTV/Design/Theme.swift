@@ -58,9 +58,9 @@ enum Theme {
         }
 
         /// Placeholder artwork for items without an image: a dark two-tone gradient whose
-        /// hue is derived from `seed` (usually the title), stable across launches.
-        static func placeholder(seed: String) -> LinearGradient {
-            let tint = Theme.tint(for: seed)
+        /// hue is derived from `key` (usually the title), stable across launches.
+        static func placeholder(key: String) -> LinearGradient {
+            let tint = Theme.tint(for: key)
             return LinearGradient(
                 colors: [tint.opacity(0.95), tint.opacity(0.35)],
                 startPoint: .top,
@@ -217,11 +217,11 @@ enum Theme {
         static let title = Lift(opacity: 0.35, radius: 12, y: 0)
     }
 
-    /// A saturated mid-dark colour derived from `seed`, used for placeholders and hero tints.
-    static func tint(for seed: String) -> Color {
+    /// A saturated mid-dark colour derived from `key`, used for placeholders and hero tints.
+    static func tint(for key: String) -> Color {
         // FNV-1a: `hashValue` is randomised per launch, this is not.
         var hash: UInt32 = 2_166_136_261
-        for byte in seed.utf8 {
+        for byte in key.utf8 {
             hash = (hash ^ UInt32(byte)) &* 16_777_619
         }
         let hue = Double(hash % 360) / 360
