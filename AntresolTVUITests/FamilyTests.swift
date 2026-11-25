@@ -31,6 +31,7 @@ final class FamilyUITests: XCTestCase {
         XCTAssertTrue(value.hasPrefix("Alex · "), "the line does not start with the newest profile: \(value)")
         XCTAssertTrue(value.contains(language == "ru" ? "34 мин из 1 ч 50 мин" : "34 min of 1 h 50 min"), "no place in the line: \(value)")
         XCTAssertTrue(value.contains(language == "ru" ? "ещё 3" : "3 more"), "no count of the others in the line: \(value)")
+        enterPage()
         XCTAssertFalse(line.hasFocus, "the line took the focus from Play")
         sleep(3)
         snapshot("01-film-line")
@@ -74,6 +75,7 @@ final class FamilyUITests: XCTestCase {
         XCTAssertTrue(line.waitForExistence(timeout: 30), "no «Family» line on the series page: \(focusedLabel)")
         let value = line.value as? String ?? ""
         XCTAssertTrue(value.hasPrefix(language == "ru" ? "Alex · С1 Э2 · 17 мин" : "Alex · S1, E2 · 17 min"), "the line: \(value)")
+        enterPage()
         sleep(3)
         snapshot("10-series-line")
 
@@ -106,6 +108,7 @@ final class FamilyUITests: XCTestCase {
         let line = app.buttons["family.line"]
         XCTAssertTrue(line.waitForExistence(timeout: 30), "no line on the episode's page: \(focusedLabel)")
         XCTAssertTrue((line.value as? String ?? "").contains(language == "ru" ? "17 мин из 45 мин" : "17 min of 45 min"), line.value as? String ?? "")
+        enterPage()
         sleep(2)
         snapshot("20-episode-line")
     }
@@ -114,6 +117,7 @@ final class FamilyUITests: XCTestCase {
     func testNothingIsShownWhenNobodyHasProgress() {
         signIn(opening: 101)
         XCTAssertTrue(app.buttons[tr("Resume")].waitForExistence(timeout: 30) || app.buttons[tr("Play")].waitForExistence(timeout: 5), "the page did not open")
+        enterPage()
         sleep(5)
         XCTAssertFalse(app.buttons["family.line"].exists, "a line with nobody in it")
         XCTAssertFalse(app.staticTexts[tr("Family")].exists, "a «Family» heading with nobody in it")
@@ -138,6 +142,7 @@ final class FamilyUITests: XCTestCase {
         signIn(opening: 22)
         let line = app.buttons["family.line"]
         XCTAssertTrue(line.waitForExistence(timeout: 30), "no line: \(focusedLabel)")
+        enterPage()
         XCTAssertTrue(moveFocus(.down, to: line, limit: 3), "focus: \(focusedLabel)")
         remote.press(.select)
         let alex = app.buttons["family.row.11"]
@@ -186,6 +191,7 @@ final class FamilyUITests: XCTestCase {
         signIn(opening: 2)
         let line = app.buttons["family.line"]
         XCTAssertTrue(line.waitForExistence(timeout: 30), "no line: \(focusedLabel)")
+        enterPage()
         XCTAssertTrue(moveFocus(.down, to: line, limit: 3), "focus: \(focusedLabel)")
         remote.press(.select)
         let sam = app.buttons["family.row.12"]
@@ -214,6 +220,7 @@ final class FamilyUITests: XCTestCase {
         signIn(opening: 22)
         let play = app.buttons[tr("Resume")].exists ? app.buttons[tr("Resume")] : app.buttons[tr("Play")]
         XCTAssertTrue(play.waitForExistence(timeout: 30), "no Play: \(focusedLabel)")
+        enterPage()
         XCTAssertTrue(waitForFocus(play, seconds: 10), "focus: \(focusedLabel)")
         remote.press(.select)
         let clock = app.descendants(matching: .any).matching(identifier: "player.position").firstMatch
@@ -271,6 +278,15 @@ final class FamilyUITests: XCTestCase {
         sleep(2)
         for _ in 0..<profilesToTheRight { remote.press(.right) }
         remote.press(.select)
+    }
+
+    /// A page opened by a link starts with the focus in the sidebar: Right goes into the page.
+    private func enterPage() {
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        for _ in 0..<3 where !focused.exists || focused.frame.minX < 20 {
+            remote.press(.right)
+            sleep(1)
+        }
     }
 
     private func tr(_ key: String) -> String {
