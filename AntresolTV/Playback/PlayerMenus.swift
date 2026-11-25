@@ -1,4 +1,5 @@
 import AntresolKit
+import SwiftUI
 import UIKit
 
 /// The Audio, Subtitles, Quality and «Пропускать сам» menus of the player's transport bar.
@@ -17,7 +18,39 @@ enum PlayerMenus {
         if let autoSkip = state.autoSkip {
             menus.append(autoSkipMenu(autoSkip, model: model))
         }
+        if !state.family.isEmpty {
+            menus.append(familyMenu(state, model: model))
+        }
         return menus
+    }
+
+    /// «Family»: where the other profiles are in what plays; a row takes the player there, and
+    /// «Back to 12:40» (while the place before it is the one saved) returns.
+    private static func familyMenu(_ state: PlayerMenuState, model: VideoPlayerModel) -> UIMenu {
+        var children: [UIMenuElement] = []
+        if let back = state.familyReturn {
+            let action = UIAction(title: String(localized: "Back to \(back)", bundle: .localized), image: UIImage(systemName: "arrow.uturn.backward")) { [weak model] _ in
+                MainActor.assumeIsolated { model?.returnFromFamily() }
+            }
+            children.append(UIMenu(options: .displayInline, children: [action]))
+        }
+        let rows: [UIMenuElement] = state.family.map { member in
+            let clock = PlaybackTime.clock(Double(member.positionMs) / 1000)
+            let action = UIAction(title: member.listName, image: avatar(of: member)) { [weak model] _ in
+                MainActor.assumeIsolated { model?.peek(at: member) }
+            }
+            action.subtitle = [clock, FamilyWhen.since(member.updatedAt).map(FamilyText.when)].compactMap { $0 }.joined(separator: " · ")
+            return action
+        }
+        children.append(UIMenu(options: .displayInline, children: rows))
+        return UIMenu(title: String(localized: "Family", bundle: .localized), image: UIImage(systemName: "person.2"), children: children)
+    }
+
+    /// The profile's avatar (its gradient and initial) for a menu row.
+    private static func avatar(of member: FamilyMember) -> UIImage? {
+        let renderer = ImageRenderer(content: AvatarView(name: member.name, preset: member.avatarPreset, size: 44))
+        renderer.scale = 2
+        return renderer.uiImage?.withRenderingMode(.alwaysOriginal)
     }
 
     /// «Пропускать сам»: each row turns its kind on or off (the profile's, on every device).
