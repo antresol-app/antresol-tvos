@@ -63,21 +63,12 @@ final class SearchModel {
         }
     }
 
-    /// Asks each addon that searches, all at once; whatever fails or finds nothing is left out
-    /// without a word.
+    /// Asks each addon that searches, all at once (`AddonSearching`); whatever fails or finds nothing is
+    /// left out without a word.
     private func searchAddons(_ query: String, searches: [AddonSearch], client: APIClient, generation mine: Int) async {
-        var found: [String: [AddonTitle]] = [:]
-        await withTaskGroup(of: (String, [AddonTitle]?).self) { group in
-            for search in searches {
-                group.addTask { (search.addonId, try? await client.addonTitles(addon: search.addonId, query: query)) }
-            }
-            for await (addon, titles) in group {
-                guard !Task.isCancelled, generation == mine else { continue }
-                if let titles, !titles.isEmpty { found[addon] = titles }
-                addonSections = searches.compactMap { search in
-                    found[search.addonId].map { AddonSearchSection(addonId: search.addonId, label: search.label, titles: $0) }
-                }
-            }
+        for await sections in AddonSearching.sections(for: searches, ask: { try await client.addonTitles(addon: $0.addonId, query: query) }) {
+            guard !Task.isCancelled, generation == mine else { break }
+            addonSections = sections
         }
         if generation == mine { addonsSearching = false }
     }
