@@ -247,6 +247,8 @@ final class FamilyUITests: XCTestCase {
         leavePlayer(clock)
         let writes = clipWrites()
         XCTAssertTrue(writes.allSatisfy { $0 >= 18_000 }, "a position from before the film was written: \(writes)")
+        // looking at their place (0:25 to 0:30) saved nothing of it: the place before, then the real position from 0:30 on
+        XCTAssertTrue(writes.allSatisfy { $0 < 22_000 || $0 >= 30_000 }, "the place was saved before it was played on: \(writes)")
         print("progress writes of the clip (positionMs): \(writes)")
     }
 

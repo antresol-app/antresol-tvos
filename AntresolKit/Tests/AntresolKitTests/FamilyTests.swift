@@ -252,6 +252,7 @@ final class FamilyTests: XCTestCase {
         XCTAssertFalse(hold.arrived)
         // at the target, and for five seconds after: the place from before the jump is saved
         XCTAssertEqual(hold.saved(now: 2000, clock: 101).position, 600)
+        XCTAssertEqual(hold.saved(now: 2000.25, clock: 101.25).position, 600)
         XCTAssertTrue(hold.arrived)
         XCTAssertEqual(hold.saved(now: 2004.9, clock: 106).position, 600)
         XCTAssertFalse(hold.saved(now: 2004.9, clock: 106).release)
@@ -261,9 +262,30 @@ final class FamilyTests: XCTestCase {
         XCTAssertTrue(played.release)
     }
 
+    func testASeekInFlightThatShowsTheOldPlaceAgainDoesNotEndTheHold() {
+        // the player says the target the moment the seek is asked for, then the old place until it lands
+        var hold = FamilyHold(position: 600, target: 2000, since: 100)
+        XCTAssertEqual(hold.saved(now: 2000, clock: 100).position, 600)
+        let flipped = hold.saved(now: 600, clock: 100.75)
+        XCTAssertEqual(flipped.position, 600)
+        XCTAssertFalse(flipped.release, "the old place is not «went elsewhere» before the player has arrived")
+        // it lands: two readings at the target in a row, and the hold is on
+        XCTAssertEqual(hold.saved(now: 2000, clock: 101).position, 600)
+        XCTAssertEqual(hold.saved(now: 2000.25, clock: 101.25).position, 600)
+        XCTAssertTrue(hold.arrived)
+        XCTAssertFalse(hold.saved(now: 2003, clock: 104).release)
+    }
+
+    func testAPlayerThatLeavesRightAfterThePeekSavesTheOldPlace() {
+        // one reading at the target (paused there), then the player closes: the place before the jump
+        var hold = FamilyHold(position: 600, target: 2000, since: 100)
+        XCTAssertEqual(hold.saved(now: 2000, clock: 102).position, 600)
+    }
+
     func testAPeekedPlaceIsLetGoWhenTheViewerGoesElsewhere() {
         var hold = FamilyHold(position: 600, target: 2000, since: 0)
         _ = hold.saved(now: 2000, clock: 1)
+        _ = hold.saved(now: 2000.25, clock: 1.25)
         let elsewhere = hold.saved(now: 900, clock: 3)
         XCTAssertEqual(elsewhere.position, 900)
         XCTAssertTrue(elsewhere.release)

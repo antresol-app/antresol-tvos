@@ -263,6 +263,9 @@ public struct FamilyHold: Equatable, Sendable {
     /// How long the player may take to get to the target (a seek, or a new session) before the
     /// hold is given up.
     public static let arriveSeconds: Double = 20
+    /// How many readings in a row at the target make the player «arrived»: a seek in flight can
+    /// report the target and then the old place again before it lands.
+    public static let arriveReadings = 2
 
     /// The position before the jump (saved meanwhile).
     public var position: Double
@@ -272,6 +275,7 @@ public struct FamilyHold: Equatable, Sendable {
     public var since: Double
     /// The player has been seen at the target.
     public private(set) var arrived = false
+    private var near = 0
 
     public init(position: Double, target: Double, since: Double = 0) {
         self.position = position
@@ -281,17 +285,15 @@ public struct FamilyHold: Equatable, Sendable {
 
     /// The position to save when the player is at `now` (file seconds) on `clock` (the same
     /// clock as `since`). Until the player has got to the target the position stays the old one
-    /// (a seek takes a moment, and the player still shows where it was); then, for
+    /// (a seek takes a moment, and the player may still show where it was); then, for
     /// `playSeconds` there, too. `release` says the hold is over: the real position is saved from now on
     /// (it played on there, the viewer went elsewhere, or the target was never reached).
     public mutating func saved(now: Double, clock: Double) -> (position: Double, release: Bool) {
         if !arrived {
-            if abs(now - target) <= 1.5 {
-                arrived = true
-            } else if clock - since > Self.arriveSeconds {
-                return (now, true)
-            } else {
-                return (position, false)
+            near = abs(now - target) <= 1.5 ? near + 1 : 0
+            arrived = near >= Self.arriveReadings
+            if !arrived {
+                return clock - since > Self.arriveSeconds ? (now, true) : (position, false)
             }
         }
         if now >= target - 1.5, now < target + Self.playSeconds { return (position, false) }
