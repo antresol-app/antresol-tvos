@@ -775,7 +775,7 @@ final class RuntimeTests: XCTestCase {
         sleep(3)
 
         openSeparateHistory()
-        XCTAssertTrue(setting("Separate History on This Device").label.hasSuffix("Off"), setting("Separate History on This Device").label)
+        XCTAssertTrue(setting("Separate History").label.hasSuffix("Off"), setting("Separate History").label)
         snapshot("rt-history-01-row")
         remote.press(.select)
         let livingRoom = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Living Room")).firstMatch
@@ -796,7 +796,7 @@ final class RuntimeTests: XCTestCase {
         XCTAssertEqual(json(events[put]["body"]) as NSDictionary?, ["accountId": 20, "separate": true] as NSDictionary)
 
         openSeparateHistory()
-        XCTAssertTrue(setting("Separate History on This Device").label.hasSuffix("Living Room"), setting("Separate History on This Device").label)
+        XCTAssertTrue(setting("Separate History").label.hasSuffix("Living Room"), setting("Separate History").label)
         remote.press(.select)
         XCTAssertTrue(livingRoom.waitForExistence(timeout: 10))
         sleep(2)
@@ -837,7 +837,7 @@ final class RuntimeTests: XCTestCase {
         let made = mockEvents()
         XCTAssertTrue(made.contains { ($0["method"] as? String) == "POST" && ($0["path"] as? String) == "/api/me/managed" }, "no history made")
         openSeparateHistory()
-        XCTAssertTrue(setting("Separate History on This Device").label.hasSuffix("Kitchen"), setting("Separate History on This Device").label)
+        XCTAssertTrue(setting("Separate History").label.hasSuffix("Kitchen"), setting("Separate History").label)
         snapshot("rt-history-06-new-on")
     }
 
@@ -1411,7 +1411,7 @@ final class RuntimeTests: XCTestCase {
         remote.press(.down)
         sleep(1)
         moveFocus(.right, to: setting("Video Quality"), limit: 3)
-        XCTAssertTrue(moveFocus(.down, to: setting("Separate History on This Device"), limit: 8), "focus: \(focusedLabel)")
+        XCTAssertTrue(moveFocus(.down, to: setting("Separate History"), limit: 8), "focus: \(focusedLabel)")
     }
 
     /// Whether `element` gets focus within `seconds`, without a press.

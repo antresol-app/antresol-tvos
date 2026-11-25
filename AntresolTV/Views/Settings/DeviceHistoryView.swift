@@ -29,7 +29,7 @@ struct DeviceHistoryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Separate History on This Device")
+                Text("Separate History")
                     .font(Theme.Typography.pageTitle)
                     .foregroundStyle(Theme.Colors.label)
                     .padding(.leading, 8)
@@ -43,14 +43,6 @@ struct DeviceHistoryView: View {
                 .focused($focused, equals: .off)
                 .accessibilityAddTraits(current == nil ? .isSelected : [])
 
-                Text("Separate Histories")
-                    .font(Theme.Typography.eyebrow)
-                    .tracking(2)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Theme.Colors.label3)
-                    .padding(.leading, 8)
-                    .padding(.top, 30)
-                    .accessibilityAddTraits(.isHeader)
                 ForEach(accounts ?? []) { account in
                     Button {
                         guard account.id != current?.id else { return }

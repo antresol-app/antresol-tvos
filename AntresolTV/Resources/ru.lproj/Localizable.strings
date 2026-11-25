@@ -354,8 +354,8 @@
 "Credits" = "Титры";
 
 /* Separate history on this device (the web's wording) */
-"Separate Histories" = "Отдельные истории";
-"Separate History on This Device" = "Отдельная история на этом устройстве";
+"This Apple TV" = "Этот Apple TV";
+"Separate History" = "Отдельная история";
 "New History…" = "Новая история…";
 "Name" = "Название";
 "For example, Living Room" = "Например, Гостиная";

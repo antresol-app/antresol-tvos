@@ -195,12 +195,12 @@ private struct SettingsPage: View {
     /// «Отдельная история на этом устройстве» (`DeviceHistoryView`); a kid's is an
     /// administrator's to change, so a kid profile has no row.
     private var historySection: some View {
-        SettingsSection("Separate Histories") {
+        SettingsSection("This Apple TV") {
             NavigationLink {
                 DeviceHistoryView(current: user.deviceHistory)
             } label: {
                 SettingsRowLabel(
-                    "Separate History on This Device",
+                    "Separate History",
                     value: user.deviceHistory?.name ?? String(localized: "Off", bundle: .localized)
                 )
             }
