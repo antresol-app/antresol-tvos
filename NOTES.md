@@ -1592,3 +1592,17 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
   their position anyway) and starts there, in their episode when that is another one. The rows have no verb: a name cannot
   be declined in Russian. The mock's `--family`: the films 30 (no own progress, one profile), 31 (own 34:10, four
   profiles) and 33 (adopt answers 404).
+
+## CI: `testSkipPills` failed in the full run (2026-11-26)
+
+`RuntimeTests.testSkipPills` passed alone and failed on CI in every full run since «Separate History» arrived (five
+failures: «no resume prompt», «the player did not start», no Skip Intro ...). The tests run in alphabetical order on one
+mock: `testSeparateHistoryOnThisDevice` ends on a new separate history, and the mock answers `/api/home` for a device on
+a separate history with another Continue Watching (Plain Clip only). `testSkipPills` signed in first and reset the mock
+second, so Home had been loaded with that row already: Big Buck Demo's card was not there, `moveFocus(.down)` ended on the
+Recently Played shelf and Select opened an album. Reproduced locally with the four tests in a row
+(`testSeparateHistoryOnThisDevice`, `testSettingsOnOnePage`, `testSignInMenu`, `testSkipPills`: five failures, the same as
+CI), and gone with the fix. `RuntimeTests.setUp` now resets the mock, so a test starts from the mock's own state, and
+`testSkipPills` stops at its first failed step (`continueAfterFailure = false`). The CI step that lists the failures
+printed the first 80 lines matching `error:|failed|Test Case`, which the Test Case lines of the skipped tests filled: it
+now prints the `: error: ` lines and the failed Test Cases first.
