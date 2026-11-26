@@ -15,6 +15,7 @@ final class PlaybackCoordinator {
         case resume
         case beginning
         /// Offer "Resume from …" or "Start Over" when there is a saved position.
+        /// (Every start that is not `.beginning` also offers other profiles' places, when there are any.)
         case ask
     }
 
@@ -25,6 +26,9 @@ final class PlaybackCoordinator {
         let start: StartPoint
         /// The version (file) to play; nil plays the item's first file.
         var fileId: Int?
+        /// The resume prompt may offer other profiles' places. Not after the viewer has just
+        /// picked one themselves («Continue from Their Place»).
+        var offersFamily = true
     }
 
     /// A live channel to watch: the whole list, and the filter it was opened from (channel
@@ -85,8 +89,8 @@ final class PlaybackCoordinator {
     private var mediaKeys: MediaKeyStore?
     private var mediaKeyToken: String?
 
-    func play(_ card: Card, from start: StartPoint = .resume, fileId: Int? = nil) {
-        presented = Request(card: card, start: start, fileId: fileId)
+    func play(_ card: Card, from start: StartPoint = .resume, fileId: Int? = nil, offersFamily: Bool = true) {
+        presented = Request(card: card, start: start, fileId: fileId, offersFamily: offersFamily)
     }
 
     /// Opens the live player on `channel`; channel up / down moves through the channels of

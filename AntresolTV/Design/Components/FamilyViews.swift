@@ -71,6 +71,21 @@ enum FamilyText {
         return at.isEmpty ? line.first.name : "\(line.first.name) · \(at)"
     }
 
+    /// A row of the resume prompt: «Alex · 1:12:40», and in another episode than the one about to play
+    /// «Alex · S1 E5 · 12:40» (its title when the server did not number it).
+    static func promptRow(_ member: FamilyMember, playing itemId: Int) -> String {
+        var parts = [member.listName]
+        if member.itemId != itemId {
+            if member.season != nil || member.episode != nil {
+                parts.append(code(member.code))
+            } else if !member.title.isEmpty {
+                parts.append(member.title)
+            }
+        }
+        parts.append(PlaybackTime.clock(Double(member.positionMs) / 1000))
+        return parts.joined(separator: " · ")
+    }
+
     /// «34 min of 1 h 50 min · 2 hr ago».
     static func placeAndWhen(_ member: FamilyMember, kind: FamilyKind) -> String {
         var parts = [place(member.place(kind))]

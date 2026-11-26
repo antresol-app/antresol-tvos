@@ -236,6 +236,199 @@ final class FamilyUITests: XCTestCase {
         }
     }
 
+    // MARK: the resume prompt
+
+    /// No place of its own and one profile at 1:12:40: «Play» first, their row, and no «Start Over».
+    func testFirstTimeWithOnePlaceOffered() {
+        signIn(opening: 30)
+        openPrompt()
+        let own = app.buttons["resume.own"]
+        XCTAssertEqual(own.label, tr("Play"), "the first row")
+        let alex = app.buttons["resume.family.11"]
+        XCTAssertEqual(alex.label, "Alex · 1:12:40", "their row")
+        XCTAssertFalse(app.buttons["resume.startOver"].exists, "«Start Over» with nothing to start over from")
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'resume.'")).count, 2)
+        XCTAssertTrue(waitForFocus(own), "the prompt does not start on the viewer's own row: \(focusedLabel)")
+        sleep(2)
+        snapshot("resume-first-time")
+
+        // Play: from the start, taking nothing
+        remote.press(.select)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "no playback after «Play»")
+        XCTAssertTrue(adoptEvents().isEmpty, "something was adopted by «Play»")
+        leaveEverything()
+    }
+
+    /// The viewer is at 34:10: «Resume from 34:10», the two places that are far from it (newest first; the one 20 s from
+    /// it and the finished one are not offered), «Start Over»; a row adopts and plays.
+    func testResumeWithTwoPlacesOffered() {
+        signIn(opening: 31)
+        openPrompt()
+        XCTAssertEqual(app.buttons["resume.own"].label, language == "ru" ? "Продолжить с 34:10" : "Resume from 34:10")
+        XCTAssertEqual(app.buttons["resume.family.11"].label, "Alex · 1:12:40")
+        XCTAssertEqual(app.buttons["resume.family.13"].label, "Kim · 51:00")
+        XCTAssertFalse(app.buttons["resume.family.14"].exists, "a place 20 s from the viewer's")
+        XCTAssertFalse(app.buttons["resume.family.12"].exists, "a profile that finished it")
+        XCTAssertTrue(app.buttons["resume.startOver"].exists, "no «Start Over»")
+        XCTAssertTrue(waitForFocus(app.buttons["resume.own"]), "focus: \(focusedLabel)")
+        sleep(2)
+        snapshot("resume-two-members")
+
+        // the order of the rows on the screen: own, Alex, Kim, Start Over
+        let ys = ["resume.own", "resume.family.11", "resume.family.13", "resume.startOver"].map { app.buttons[$0].frame.minY }
+        XCTAssertEqual(ys, ys.sorted(), "the rows are not in order: \(ys)")
+
+        let alex = app.buttons["resume.family.11"]
+        XCTAssertTrue(moveFocus(.down, to: alex, limit: 2), "focus: \(focusedLabel)")
+        sleep(1)
+        snapshot("resume-two-members-focused")
+        remote.press(.select)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "no playback after the row")
+        let events = mockEvents()
+        let adopts = adoptEvents(events)
+        XCTAssertEqual(adopts.count, 1, "adopt was asked \(adopts.count) times")
+        XCTAssertEqual(adopts.first?["path"] as? String, "/api/progress/31/adopt")
+        XCTAssertEqual(json(adopts.first?["body"]) as? [String: Int], ["userId": 11])
+        let adoptAt = events.firstIndex { ($0["path"] as? String)?.hasSuffix("/adopt") == true } ?? Int.max
+        let playAt = events.firstIndex { ($0["method"] as? String) == "POST" && ($0["path"] as? String)?.hasPrefix("/api/play/") == true } ?? -1
+        XCTAssertGreaterThan(playAt, adoptAt, "playback began before the place was taken")
+        // never anything of theirs is written
+        XCTAssertTrue(events.filter { ($0["method"] as? String) == "PUT" }.allSatisfy { ($0["path"] as? String) == "/api/progress/31" })
+        leaveEverything()
+    }
+
+    /// «Start Over» and «Resume from» on a prompt with rows: no adopt for either.
+    func testStartOverAndResumeTakeNothing() {
+        signIn(opening: 31)
+        openPrompt()
+        let startOver = app.buttons["resume.startOver"]
+        XCTAssertTrue(moveFocus(.down, to: startOver, limit: 4), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "no playback after «Start Over»")
+        XCTAssertTrue(adoptEvents().isEmpty, "something was adopted")
+        leaveEverything()
+    }
+
+    /// A series whose next episode is S1 E1: a profile in S1 E2 is offered with its episode, and the row plays THAT
+    /// episode (the server's adopt names it).
+    func testASeriesOffersAPlaceInAnotherEpisode() {
+        signIn(opening: 2)
+        openPrompt()
+        let alex = app.buttons["resume.family.11"]
+        let label = alex.label
+        XCTAssertTrue(label.hasPrefix("Alex · "), label)
+        XCTAssertTrue(label.hasSuffix(" · 17:00"), label)
+        XCTAssertTrue(["S1 E2", "S1, E2", "С1 Э2", "С1, Э2"].contains { label.contains($0) }, "no episode in the row: \(label)")
+        // Sam is next (not started) and Kim finished it all: neither is offered
+        XCTAssertFalse(app.buttons["resume.family.12"].exists || app.buttons["resume.family.13"].exists)
+        XCTAssertTrue(waitForFocus(app.buttons["resume.own"]), "focus: \(focusedLabel)")
+        sleep(2)
+        snapshot("resume-series-episode")
+
+        XCTAssertTrue(moveFocus(.down, to: alex, limit: 2), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "no playback after the row")
+        let events = mockEvents()
+        let adopts = adoptEvents(events)
+        XCTAssertEqual(adopts.first?["path"] as? String, "/api/progress/5/adopt", "the place of the other episode was not taken there")
+        XCTAssertEqual(json(adopts.first?["body"]) as? [String: Int], ["userId": 11])
+        XCTAssertTrue(events.contains { ($0["method"] as? String) == "GET" && ($0["path"] as? String) == "/api/items/5" }, "the other episode was not opened")
+        leaveEverything()
+    }
+
+    /// The server refuses to adopt (404): no dialog, playback still starts, nothing of theirs is taken.
+    func testARefusedAdoptStillPlays() {
+        signIn(opening: 33)
+        openPrompt()
+        let alex = app.buttons["resume.family.11"]
+        XCTAssertTrue(moveFocus(.down, to: alex, limit: 2), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "no playback after a refused adopt")
+        XCTAssertEqual(adoptEvents().count, 1, "adopt was not tried")
+        XCTAssertFalse(app.alerts.firstMatch.exists, "a dialog after a refused adopt")
+        XCTAssertFalse(app.staticTexts[tr("Try Again")].exists || app.buttons[tr("Try Again")].exists, "an error screen")
+        leaveEverything()
+    }
+
+    /// Nobody is far from the viewer's place (the clip: the viewer at 0:15, the others at 0:25 and 0:12): the
+    /// player starts as before, with no prompt, and the server was asked about the family.
+    func testNoPromptWhenNobodyIsFarFromTheViewersPlace() {
+        signIn(opening: 22)
+        let play = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", tr("Resume"), tr("Play"))).firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 30), "no Play: \(focusedLabel)")
+        enterPage()
+        XCTAssertTrue(waitForFocus(play, seconds: 10), "focus: \(focusedLabel)")
+        remote.press(.select)
+        let clock = app.descendants(matching: .any).matching(identifier: "player.position").firstMatch
+        XCTAssertTrue(clock.waitForExistence(timeout: 40), "the player did not start by itself: \(focusedLabel)")
+        XCTAssertFalse(app.buttons["resume.own"].exists, "a prompt with nobody to offer")
+        XCTAssertFalse(mockEvents().filter { ($0["path"] as? String) == "/api/items/22/family" }.isEmpty, "the app did not ask")
+        leavePlayer(clock)
+    }
+
+    /// A kid is not asked: «Resume» plays at once (at 34:10 of the 60 s clip, so the player may be gone by itself
+    /// before it is looked at: the mock's play request is the sign), and the server is never asked about the family.
+    func testAKidGetsNoPromptAndIsNotAsked() {
+        signIn(opening: 31, profilesToTheRight: 1)
+        let play = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", tr("Resume"), tr("Play"))).firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 30), "no Play: \(focusedLabel)")
+        enterPage()
+        XCTAssertTrue(waitForFocus(play, seconds: 10), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "no playback: \(focusedLabel)")
+        XCTAssertFalse(app.buttons["resume.own"].exists, "a prompt for a kid")
+        XCTAssertTrue(mockEvents().filter { ($0["path"] as? String)?.hasSuffix("/family") == true }.isEmpty, "a kid's app asked about the family")
+        leaveEverything()
+    }
+
+    /// «Continue from Their Place» on the page has chosen already: no prompt after it, whoever else is far away.
+    func testContinuingFromTheFamilyListDoesNotAskAgain() {
+        signIn(opening: 31)
+        let line = app.buttons["family.line"]
+        XCTAssertTrue(line.waitForExistence(timeout: 30), "no line: \(focusedLabel)")
+        enterPage()
+        XCTAssertTrue(moveFocus(.down, to: line, limit: 3), "focus: \(focusedLabel)")
+        remote.press(.select)
+        let alex = app.buttons["family.row.11"]
+        XCTAssertTrue(alex.waitForExistence(timeout: 10), "the list did not open")
+        XCTAssertTrue(waitForFocus(alex), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "no playback: \(focusedLabel)")
+        XCTAssertFalse(app.buttons["resume.own"].exists, "the prompt came after the viewer had chosen")
+        XCTAssertEqual(adoptEvents().count, 1)
+        leaveEverything()
+    }
+
+    /// Presses Play / Resume on the page and waits for the prompt.
+    private func openPrompt() {
+        // a series' button names the episode: «Play S1 E1»
+        let play = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", tr("Resume"), tr("Play"))).firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 30), "no Play: \(focusedLabel)")
+        enterPage()
+        XCTAssertTrue(waitForFocus(play, seconds: 10), "focus: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(app.buttons["resume.own"].waitForExistence(timeout: 40), "no resume prompt: \(focusedLabel)")
+    }
+
+    private func adoptEvents(_ events: [[String: Any]]? = nil) -> [[String: Any]] {
+        (events ?? mockEvents()).filter { ($0["method"] as? String) == "POST" && ($0["path"] as? String)?.hasSuffix("/adopt") == true }
+    }
+
+    private func playRequests() -> [[String: Any]] {
+        mockEvents().filter { ($0["method"] as? String) == "POST" && ($0["path"] as? String)?.hasPrefix("/api/play/") == true }
+    }
+
+    /// Menu until the player is gone (a position past the clip's end closes it by itself), and a moment for its last write.
+    private func leaveEverything() {
+        let clock = app.descendants(matching: .any).matching(identifier: "player.position").firstMatch
+        sleep(2)
+        for _ in 0..<4 where clock.exists {
+            remote.press(.menu)
+            sleep(2)
+        }
+        sleep(1)
+    }
+
     // MARK: the player
 
     /// «Family» in the transport bar: a row takes the player to their place, and while it is only looked

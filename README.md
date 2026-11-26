@@ -295,7 +295,7 @@ xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV -destination 'pla
   for titles; `POST /mock/decide/<id>/<status>` answers a request on the second port) and `TEST_RUNNER_ANTRESOL_MOCK_REQUESTS=1`;
   they skip themselves otherwise.
 - `FamilyUITests` need the mock with `--family` (the other profiles' places in the film 19, the short clip 22, the
-  series 2 and the film 23 with names that must wrap; `POST /api/progress/{id}/adopt` copies one into the caller's own) and `TEST_RUNNER_ANTRESOL_MOCK_FAMILY=1`;
+  series 2 and the film 23 with names that must wrap, the films 30, 31, 33 for the resume prompt; `POST /api/progress/{id}/adopt` copies one into the caller's own) and `TEST_RUNNER_ANTRESOL_MOCK_FAMILY=1`;
   `TEST_RUNNER_SHOTS_DIR` also gets the pictures as PNG. They skip themselves otherwise.
 - `testAddonWays` needs the mock with `--addons` (two neutral addons: ways that watch and keep,
   a chooser, the chevron's menu of the ways, an input player that answers `202` first) and `TEST_RUNNER_ANTRESOL_MOCK_ADDONS=1`;

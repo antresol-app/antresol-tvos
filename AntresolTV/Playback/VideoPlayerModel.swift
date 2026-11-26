@@ -16,8 +16,9 @@ import UIKit
 final class VideoPlayerModel {
     enum State: Equatable {
         case preparing
-        /// Waiting for "Resume from …" or "Start Over".
-        case resumePrompt(positionSec: Double)
+        /// Waiting for "Resume from …" / "Play" and "Start Over", and the places of other profiles
+        /// (`family`: «Дарья · 1:12:40»; empty: as before).
+        case resumePrompt(positionSec: Double, family: [FamilyMember])
         case playing
         case failed(String)
     }
@@ -70,6 +71,9 @@ final class VideoPlayerModel {
     /// «Family»: a place of another profile the player was sent to; until it plays on there the
     /// position saved is the one before the jump.
     private var familyHold: FamilyHold?
+    /// The prompt may offer other profiles' places: for what the viewer started from a page or a shelf,
+    /// not for the episode that follows by itself, and not again after the prompt has been shown.
+    private var offersFamily: Bool
     /// The skip state of the current file.
     private var skip = SkipTracker(segments: [])
     /// The pill of the segment playing, as of the last position tick.
@@ -112,6 +116,7 @@ final class VideoPlayerModel {
     init(request: PlaybackCoordinator.Request) {
         self.request = request
         self.card = request.card
+        self.offersFamily = request.offersFamily
     }
 
     // MARK: - Lifecycle
@@ -145,8 +150,27 @@ final class VideoPlayerModel {
 
     /// The answer to the resume prompt.
     func choose(resume: Bool) async {
-        guard case .resumePrompt(let position) = state else { return }
+        guard case .resumePrompt(let position, _) = state else { return }
         await begin(at: resume ? position : 0)
+    }
+
+    /// The prompt's row of another profile: their place becomes this profile's own (the server
+    /// copies it, theirs is never written) and playback starts there, in their episode when that is
+    /// another one. A refused adopt (404: they are not in the family view, or have no place there
+    /// any more) is no error: playback still starts at their position, taking nothing.
+    func chooseFamily(_ member: FamilyMember) async {
+        guard case .resumePrompt = state, let client else { return }
+        state = .preparing
+        do {
+            _ = try? await client.adoptProgress(itemId: member.itemId, userId: member.userId)
+            if member.itemId != item?.id {
+                let episode = try await client.item(id: member.itemId)
+                try setItem(episode, client: client)
+            }
+            await begin(at: Double(member.positionMs) / 1000)
+        } catch {
+            fail(error)
+        }
     }
 
     /// Writes the final position and releases the server session. Safe to call twice.
@@ -224,6 +248,8 @@ final class VideoPlayerModel {
         // state must not step meanwhile («Skip Credits» there would end the player).
         isSwitching = true
         resetSkip(SkipTracker(segments: []))
+        // The next episode follows the one just watched: it starts by itself, with no prompt.
+        offersFamily = false
         Task {
             await finishCurrent(atEnd: false)
             await open(offer.episode.card, from: .resume)
@@ -295,18 +321,10 @@ final class VideoPlayerModel {
         do {
             async let early: PlaybackProgress? = asksEarly ? client.progress(itemId: target.id) : nil
             let detail = try await playableItem(for: target, client: client)
-            // The chosen version applies to the requested item, not to later episodes.
-            let chosen = detail.id == request.card.id ? request.fileId : nil
-            guard let file = detail.files.first(where: { $0.id == chosen }) ?? detail.primaryFile else {
-                throw PlayerError.nothingToPlay
-            }
-            item = detail
-            self.file = file
-            loadFamily(for: detail, client: client)
-            card = detail.card
-            durationSec = Double(file.durationMs ?? 0) / 1000
-            metadata = Self.metadata(for: detail)
-            loadArtwork(for: detail, client: client)
+            // The other profiles' places in it (the prompt may offer them), asked beside the
+            // saved position; they never hold playback up for long.
+            async let others: [FamilyMember] = otherPlaces(of: detail, start: start, client: client)
+            try setItem(detail, client: client)
             var position: Double = 0
             if start != .beginning {
                 // A failed request is not "no progress" (the server answers that with an
@@ -318,9 +336,11 @@ final class VideoPlayerModel {
                     position = ResumePolicy.videoStartSec(try await client.progress(itemId: detail.id))
                 }
             }
-            if start == .ask, position >= 5 {
+            let offers = FamilyResume.offers(await others, playing: detail.id, ownMs: Int(position * 1000))
+            if FamilyResume.showsPrompt(asksForOwn: start == .ask, ownSec: position, offers: offers) {
                 isSwitching = false
-                state = .resumePrompt(positionSec: position)
+                offersFamily = false
+                state = .resumePrompt(positionSec: position, family: offers)
                 return
             }
             await begin(at: position)
@@ -328,6 +348,46 @@ final class VideoPlayerModel {
             fail(error)
         }
     }
+
+    /// Makes `detail` the item being played: its file (the chosen version for the requested item),
+    /// title, artwork and the transport bar's «Family».
+    private func setItem(_ detail: ItemDetail, client: APIClient) throws {
+        let chosen = detail.id == request.card.id ? request.fileId : nil
+        guard let file = detail.files.first(where: { $0.id == chosen }) ?? detail.primaryFile else {
+            throw PlayerError.nothingToPlay
+        }
+        item = detail
+        self.file = file
+        loadFamily(for: detail, client: client)
+        card = detail.card
+        durationSec = Double(file.durationMs ?? 0) / 1000
+        metadata = Self.metadata(for: detail)
+        loadArtwork(for: detail, client: client)
+    }
+
+    /// The other profiles' places in what is about to play, and in the other episodes of its series,
+    /// for the resume prompt. Nothing for a start from the beginning, for the episode that follows
+    /// by itself, after the prompt has been shown, for a kid (the server lists nobody for a kid),
+    /// on an older server, offline, or when the server is slow: the answer is not worth a wait.
+    private func otherPlaces(of detail: ItemDetail, start: PlaybackCoordinator.StartPoint, client: APIClient) async -> [FamilyMember] {
+        guard start != .beginning, offersFamily, appState?.currentUser?.isKid != true,
+              detail.kind == .movie || detail.kind == .episode
+        else { return [] }
+        let asked = FamilyResume.askedItem(itemId: detail.id, kind: detail.kind, seriesId: detail.seriesId)
+        return await withTaskGroup(of: [FamilyMember]?.self) { group in
+            group.addTask { try? await client.family(itemId: asked) }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(Self.familyPatience))
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first ?? []
+        }
+    }
+
+    /// How long the prompt waits for the family's answer before it goes on without it.
+    private nonisolated static let familyPatience: Double = 3
 
     /// Starts a server session for the current file at `position` (file seconds).
     private func begin(at position: Double) async {

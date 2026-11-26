@@ -23,10 +23,12 @@ struct VideoPlayerView: View {
             switch model.state {
             case .preparing:
                 PreparingView(card: model.card)
-            case .resumePrompt(let position):
-                ResumePromptView(card: model.card, positionSec: position, durationSec: model.durationSec) { resume in
-                    Task { await model.choose(resume: resume) }
-                }
+            case .resumePrompt(let position, let family):
+                ResumePromptView(
+                    card: model.card, positionSec: position, durationSec: model.durationSec, family: family,
+                    chooseOwn: { resume in Task { await model.choose(resume: resume) } },
+                    chooseFamily: { member in Task { await model.chooseFamily(member) } }
+                )
             case .playing:
                 PlayerViewController(model: model, subtitle: model.subtitleText, subtitleRaised: model.isPaused, menus: model.menus, skip: model.skipOverlay)
                     .ignoresSafeArea()
@@ -259,14 +261,27 @@ struct PreparingView: View {
     }
 }
 
-/// "Resume from 12:34" or "Start Over", over the item's artwork.
+/// "Resume from 12:34" or "Start Over", over the item's artwork; with the places of other
+/// profiles (`family`) one row each between them: «Дарья · 1:12:40» (the avatar, the name, the
+/// place, and the episode when it is another one). Without a place of its own the first row is
+/// «Play» and there is no «Start Over».
 private struct ResumePromptView: View {
     let card: Card
     let positionSec: Double
     let durationSec: Double
-    let choose: (Bool) -> Void
+    let family: [FamilyMember]
+    let chooseOwn: (Bool) -> Void
+    let chooseFamily: (FamilyMember) -> Void
 
-    @FocusState private var focused: Bool?
+    private enum Choice: Hashable {
+        case own
+        case startOver
+        case member(Int)
+    }
+
+    @FocusState private var focused: Choice?
+
+    private var hasOwnPlace: Bool { FamilyResume.hasOwnPlace(positionSec) }
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -282,7 +297,7 @@ private struct ResumePromptView: View {
                     .foregroundStyle(Theme.Colors.label)
                     .lineLimit(2)
                     .minimumScaleFactor(0.6)
-                if durationSec > 0 {
+                if hasOwnPlace, durationSec > 0 {
                     HStack(spacing: 20) {
                         ProgressBar(value: min(1, positionSec / durationSec), height: 8)
                             .frame(width: 420)
@@ -292,26 +307,12 @@ private struct ResumePromptView: View {
                     }
                 }
                 GlassGroup(spacing: 28) {
-                HStack(spacing: 28) {
-                    Button {
-                        choose(true)
-                    } label: {
-                        Label {
-                            Text("Resume from \(PlaybackTime.clock(positionSec))")
-                        } icon: {
-                            Image(systemName: "play.fill")
-                        }
+                    if family.isEmpty {
+                        HStack(spacing: 28) { choices }
+                    } else {
+                        VStack(alignment: .leading, spacing: 22) { choices }
+                            .frame(maxWidth: 760, alignment: .leading)
                     }
-                    .buttonStyle(PillButtonStyle(kind: .primary))
-                    .focused($focused, equals: true)
-                    Button {
-                        choose(false)
-                    } label: {
-                        Label("Start Over", systemImage: "arrow.counterclockwise")
-                    }
-                    .buttonStyle(PillButtonStyle(kind: .glass))
-                    .focused($focused, equals: false)
-                }
                 }
                 .padding(.top, 20)
                 .focusSection()
@@ -319,7 +320,67 @@ private struct ResumePromptView: View {
             .padding(.horizontal, Theme.Layout.margin)
             .padding(.bottom, 110)
         }
-        .defaultFocus($focused, true)
+        .defaultFocus($focused, .own)
+    }
+
+    @ViewBuilder
+    private var choices: some View {
+        Button {
+            chooseOwn(true)
+        } label: {
+            Label {
+                if hasOwnPlace {
+                    Text("Resume from \(PlaybackTime.clock(positionSec))")
+                } else {
+                    Text("Play")
+                }
+            } icon: {
+                Image(systemName: "play.fill")
+            }
+            .rowWidth(!family.isEmpty)
+        }
+        .buttonStyle(PillButtonStyle(kind: .primary))
+        .focused($focused, equals: .own)
+        .accessibilityIdentifier("resume.own")
+        ForEach(family) { member in
+            Button {
+                chooseFamily(member)
+            } label: {
+                Label {
+                    Text(verbatim: FamilyText.promptRow(member, playing: card.id))
+                } icon: {
+                    AvatarView(name: member.name, preset: member.avatarPreset, photo: member.photo, size: 48)
+                }
+                .rowWidth(true)
+            }
+            .buttonStyle(PillButtonStyle(kind: .glass))
+            .focused($focused, equals: .member(member.userId))
+            .accessibilityHint(Text("Continue from Their Place"))
+            .accessibilityIdentifier("resume.family.\(member.userId)")
+        }
+        if hasOwnPlace {
+            Button {
+                chooseOwn(false)
+            } label: {
+                Label("Start Over", systemImage: "arrow.counterclockwise")
+                    .rowWidth(!family.isEmpty)
+            }
+            .buttonStyle(PillButtonStyle(kind: .glass))
+            .focused($focused, equals: .startOver)
+            .accessibilityIdentifier("resume.startOver")
+        }
+    }
+}
+
+private extension View {
+    /// The rows of a list of choices are as wide as each other, their words at the leading edge.
+    @ViewBuilder
+    func rowWidth(_ full: Bool) -> some View {
+        if full {
+            frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            self
+        }
     }
 }
 

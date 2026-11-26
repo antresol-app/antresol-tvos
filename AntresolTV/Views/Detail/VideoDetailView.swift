@@ -233,7 +233,7 @@ struct VideoDetailView: View {
         showsFamily = false
         // a player does not come up over a sheet that is still closing
         try? await Task.sleep(for: .milliseconds(600))
-        playback.play(familyCard(member), from: member.adopts ? .resume : .beginning)
+        playback.play(familyCard(member), from: member.adopts ? .resume : .beginning, offersFamily: false)
     }
 
     /// What the member's place plays: this page's movie or episode, or the series' episode they are at.

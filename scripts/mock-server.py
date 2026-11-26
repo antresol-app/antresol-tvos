@@ -63,6 +63,9 @@ in a device's account), the short clip 22 (positions inside its 60 s, to play fr
 (a long title, profile names of 40+ characters: nothing in the list may be cut).
 `POST /api/progress/{id}/adopt` copies a profile's unfinished position into the caller's own (the second port keeps its
 body, `{"userId": N}`), and `GET /api/progress/{id}` answers that copy until the next `/mock/reset`.
+For the resume prompt: the film 30 (the viewer has no progress of their own; one profile is at 1:12:40), the film 31 (the
+viewer is at 34:10; three profiles with a place, one of them 20 s from the viewer's, one finished) and the film 33 (as 31,
+but adopt answers 404); the series 2's episodes carry `seriesId` 2 and the series fixture places a profile in its episode 5.
 
 Its play answers carry skip segments: the film (file 12) an intro at 0:18–0:30 and credits
 running to its end from 0:44, the episode (file 2, a 60 s file there) credits from 0:18;
@@ -697,6 +700,11 @@ FAMILY_PEOPLE = {
     16: {"name": "Living Room Projector Upstairs", "ownerName": "Alexandria Konstantinopolskaya-Vishnevskaya", "avatar": "grad-1"},
 }
 LONG_TITLE_ITEM = 23
+# The resume prompt's films: the viewer has no place of their own in the first (one profile has); the second has
+# the viewer at 34:10 and four profiles around; in the third the server refuses to adopt (404).
+FIRST_TIME_ITEM = 30
+TWO_MEMBERS_ITEM = 31
+ADOPT_REFUSED_ITEM = 33
 MINUTE = 60_000
 
 
@@ -725,6 +733,15 @@ def family_members(item_id, now):
         return [member(11, 5, 2 * 3600, 17 * MINUTE, 45 * MINUTE, season=1, episode=2, title="Episode 2", done=1, total=3),
                 member(12, 12, 28 * 3600, season=2, episode=1, title="Episode 1", next=True, done=2, total=3),
                 member(13, 12, 4 * 86400, 45 * MINUTE, 45 * MINUTE, finished=True, season=2, episode=1, title="Episode 1", done=3, total=3)]
+    if item_id == FIRST_TIME_ITEM:
+        return [member(11, item_id, 3 * 3600, 72 * MINUTE + 40_000, 110 * MINUTE)]
+    if item_id == TWO_MEMBERS_ITEM:
+        return [member(11, item_id, 2 * 3600, 72 * MINUTE + 40_000, 110 * MINUTE),
+                member(14, item_id, 3 * 3600, 34 * MINUTE + 30_000, 110 * MINUTE),  # 20 s from the viewer's own place: not offered
+                member(13, item_id, 5 * 3600, 51 * MINUTE, 110 * MINUTE),
+                member(12, item_id, 30 * 3600, 110 * MINUTE, 110 * MINUTE, finished=True)]
+    if item_id == ADOPT_REFUSED_ITEM:
+        return [member(11, item_id, 3600, 40 * MINUTE, 110 * MINUTE)]
     if item_id == 5:
         return [member(11, 5, 2 * 3600, 17 * MINUTE, 45 * MINUTE, season=1, episode=2, title="Episode 2")]
     if item_id == 4:
@@ -746,6 +763,9 @@ def family_item(item_id):
     if item_id in (2, 3, 11, 19):
         return None
     item = item_with_extras(item_id, "item-movie.json")
+    if item_id in (FIRST_TIME_ITEM, TWO_MEMBERS_ITEM, ADOPT_REFUSED_ITEM):
+        # a feature film's length for the prompt's bar (the clip that plays is still the 60 s one)
+        item["files"] = [dict(f, durationMs=110 * MINUTE) if n == 0 else f for n, f in enumerate(item["files"])]
     if item_id == LONG_TITLE_ITEM:
         return dict(item, id=item_id, title="The Extraordinarily Long Title of a Quiet Film About Family Evenings, Part Two")
     return dict(item, id=item_id)
@@ -764,7 +784,7 @@ def family_request(server, method, path, body, kid):
     match = re.fullmatch(r"/api/progress/(\d+)/adopt", path)
     if method == "POST" and match:
         item_id = int(match.group(1))
-        if kid:
+        if kid or item_id == ADOPT_REFUSED_ITEM:
             return 404, {"error": "Not found"}
         asked = json.loads(body or b"{}").get("userId")
         found = next((m for m in family_members(item_id, now) if m["userId"] == asked and m["itemId"] == item_id
@@ -777,6 +797,13 @@ def family_request(server, method, path, body, kid):
     match = re.fullmatch(r"/api/progress/(\d+)", path)
     if method == "GET" and match and int(match.group(1)) in state["adopted"]:
         return 200, state["adopted"][int(match.group(1))]
+    if method == "GET" and match and int(match.group(1)) == FIRST_TIME_ITEM:
+        # no progress yet: the server answers an empty one (no updatedAt)
+        return 200, {"positionMs": 0, "durationMs": 0, "finished": False, "locator": "", "fraction": 0}
+    if method == "GET" and match and int(match.group(1)) in (TWO_MEMBERS_ITEM, ADOPT_REFUSED_ITEM):
+        position = 34 * MINUTE + 10_000
+        return 200, {"positionMs": position, "durationMs": 110 * MINUTE, "finished": False, "locator": "",
+                     "fraction": round(position / (110 * MINUTE), 4), "updatedAt": now.strftime("%Y-%m-%dT%H:%M:%SZ")}
     return None
 
 
