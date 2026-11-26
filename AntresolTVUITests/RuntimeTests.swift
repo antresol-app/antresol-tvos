@@ -11,6 +11,12 @@ final class RuntimeTests: XCTestCase {
 
     override func setUp() {
         continueAfterFailure = true
+        // Every test starts from the mock's own state. What an earlier test left on the second port
+        // (the device's separate history, which gives Home another Continue Watching, a saved
+        // auto-skip, a failure still armed) must not decide what Home loads: a reset after the
+        // sign-in comes too late for that, the shell has shown Home by then. A port that does not
+        // answer (a run without the second port) is left to the test that needs it.
+        mock("POST", "/mock/reset")
     }
 
     /// The QR sign-in screen is the root of the sign-in flow: Menu on the server screen
@@ -619,6 +625,9 @@ final class RuntimeTests: XCTestCase {
     /// contextual actions, outside the app's accessibility tree: the debug probe
     /// `player.skip` says which one is over the video (with the transport bar hidden).
     func testSkipPills() {
+        // A press after a failed step would land on whatever has focus (a card of another shelf):
+        // stop at the first failure, whose message then says what was missing.
+        continueAfterFailure = false
         signInOnSecondPort()
         XCTAssertNotNil(mock("POST", "/mock/reset"), "no answer from the mock's second port")
         let clock = app.descendants(matching: .any).matching(identifier: "player.position").firstMatch
