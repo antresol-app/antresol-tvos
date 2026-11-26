@@ -127,11 +127,72 @@ final class FamilyResumeTests: XCTestCase {
         XCTAssertTrue(FamilyResume.hasOwnPlace(5))
     }
 
+    // MARK: the episode the viewer picked, and the place already chosen
+
+    /// Playing episode 10 (S1 E3) that the viewer picked from the list: Alex is at 12:40 of E5 (a different
+    /// episode), Kim at 40:00 of E3 itself, Sam finished E3.
+    private var picked: [FamilyMember] {
+        [
+            member(1, item: 12, position: 12 * minute + 40_000, ago: 10, season: 1, episode: 5),
+            member(2, item: 10, position: 40 * minute, ago: 20, season: 1, episode: 3),
+            member(3, item: 10, position: 45 * minute, finished: true, ago: 30, season: 1, episode: 3),
+        ]
+    }
+
+    func testAnEpisodeTheAppChoseOffersTheOthersInOtherEpisodesToo() {
+        XCTAssertEqual(FamilyResume.offers(picked, playing: 10, ownMs: 5 * minute, scope: .series).map(\.userId), [1, 2])
+        XCTAssertEqual(FamilyResume.offers(picked, playing: 10, ownMs: 5 * minute).map(\.userId), [1, 2], "series is the default")
+    }
+
+    func testAnEpisodeTheViewerPickedOffersOnlyThoseInThatEpisode() {
+        XCTAssertEqual(FamilyResume.offers(picked, playing: 10, ownMs: 5 * minute, scope: .sameItem).map(\.userId), [2])
+        // nobody there: no rows, however many are elsewhere
+        let elsewhere = [member(1, item: 12, position: 12 * minute, ago: 10), member(2, item: 11, position: 30 * minute, ago: 20)]
+        XCTAssertEqual(FamilyResume.offers(elsewhere, playing: 10, ownMs: 0, scope: .sameItem), [])
+        XCTAssertFalse(FamilyResume.showsPrompt(asksForOwn: false, ownSec: 0, offers: FamilyResume.offers(elsewhere, playing: 10, ownMs: 0, scope: .sameItem)))
+    }
+
+    func testTheSameRulesApplyInThatEpisode() {
+        // within two minutes of the viewer's place, finished and next entries do not count there either
+        let there = [member(1, item: 10, position: 6 * minute, ago: 10), member(2, item: 10, position: 0, next: true, ago: 20)]
+        XCTAssertEqual(FamilyResume.offers(there, playing: 10, ownMs: 5 * minute, scope: .sameItem), [])
+    }
+
+    func testNothingIsOfferedWhenThePlaceWasChosen() {
+        XCTAssertEqual(FamilyResume.offers(picked, playing: 10, ownMs: 0, scope: .none), [])
+        XCTAssertEqual(FamilyResume.offers([member(1, position: 72 * minute)], playing: 10, ownMs: 0, scope: .none), [])
+    }
+
+    func testWhatAStartMayOffer() {
+        // the series' Play / Continue: the app picked the episode
+        XCTAssertEqual(FamilyResume.scope(requested: .series, fromBeginning: false, cardIsSeries: false, kid: false), .series)
+        // a series' card is resolved to an episode by the app
+        XCTAssertEqual(FamilyResume.scope(requested: .sameItem, fromBeginning: false, cardIsSeries: true, kid: false), .series)
+        // an episode from the list, a film
+        XCTAssertEqual(FamilyResume.scope(requested: .sameItem, fromBeginning: false, cardIsSeries: false, kid: false), .sameItem)
+    }
+
+    func testNoPromptWhenWhereToStartWasChosenAlready() {
+        // «from the beginning» (Restart, Play from Beginning): whatever else is asked
+        for requested in [FamilyOffer.none, .sameItem, .series] {
+            XCTAssertEqual(FamilyResume.scope(requested: requested, fromBeginning: true, cardIsSeries: true, kid: false), .none)
+        }
+        // a family jump from the title page, the next episode that follows by itself: the caller says none
+        XCTAssertEqual(FamilyResume.scope(requested: .none, fromBeginning: false, cardIsSeries: true, kid: false), .none)
+        // a kid is never offered anything (the server lists nobody for a kid)
+        XCTAssertEqual(FamilyResume.scope(requested: .series, fromBeginning: false, cardIsSeries: true, kid: true), .none)
+        // and nothing offered means no prompt unless Continue Watching asks for its own place
+        XCTAssertFalse(FamilyResume.showsPrompt(asksForOwn: false, ownSec: 2050, offers: FamilyResume.offers(picked, playing: 10, ownMs: 0, scope: .none)))
+    }
+
     // MARK: what is asked
 
     func testAnEpisodeAsksAboutItsSeriesAndAFilmAboutItself() {
         XCTAssertEqual(FamilyResume.askedItem(itemId: 5, kind: .episode, seriesId: 2), 2)
         XCTAssertEqual(FamilyResume.askedItem(itemId: 5, kind: .episode, seriesId: nil), 5)
         XCTAssertEqual(FamilyResume.askedItem(itemId: 19, kind: .movie, seriesId: nil), 19)
+        // an episode the viewer picked asks about itself: its own list names everyone who has progress in it
+        XCTAssertEqual(FamilyResume.askedItem(itemId: 5, kind: .episode, seriesId: 2, scope: .sameItem), 5)
+        XCTAssertEqual(FamilyResume.askedItem(itemId: 5, kind: .episode, seriesId: 2, scope: .series), 2)
     }
 }

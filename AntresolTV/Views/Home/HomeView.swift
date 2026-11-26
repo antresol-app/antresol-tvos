@@ -62,12 +62,12 @@ struct HomeView: View {
                     // press offers the details page or a fresh start.
                     ShelfRow(title: shelf.title, items: shelf.cards, id: \.uniqueKey) { card in
                         Button {
-                            playback.play(card, from: .ask)
+                            playback.play(card, from: .ask, familyOffer: .series)
                         } label: {
                             WideCard(card: card)
                         }
                         .buttonStyle(CardButtonStyle())
-                        .playsOnPlayPause(card)
+                        .playsOnPlayPause(card, familyOffer: .series)
                         .contextMenu {
                             Button {
                                 openRoute(.item(card))

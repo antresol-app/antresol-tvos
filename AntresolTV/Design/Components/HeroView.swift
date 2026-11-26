@@ -109,7 +109,7 @@ struct HeroView: View {
         GlassGroup(spacing: 20) {
             HStack(spacing: 20) {
                 Button {
-                    playback.play(seriesEpisode?.card ?? card, from: .resume)
+                    playback.play(seriesEpisode?.card ?? card, from: .resume, familyOffer: .series)
                 } label: {
                     Label {
                         Text(verbatim: playTitle)

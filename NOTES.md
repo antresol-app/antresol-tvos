@@ -1575,14 +1575,20 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
 - The mock's `--family`: the film 19 (four profiles), the clip 22 (positions inside its 60 s, to play from), the film 23
   (long names), the series 2 and its episodes 4, 5 and 12; `POST /api/progress/{id}/adopt` keeps the copy, which `GET /api/progress/{id}` then answers
   until `/mock/reset`; the second port records the adopt's body. `FamilyUITests` drive all of it.
-- The resume prompt offers the others' places («Дарья · 1:12:40»). When a film or an episode starts from a page, a shelf or
-  the hero (not `.beginning`, not the episode that follows by itself, not after «Continue from Their Place», not for a kid),
-  the player asks `GET /api/items/{id}/family` beside the saved position (an episode asks about its SERIES, which also
-  places the profiles in other episodes; the answer is waited for 3 s at most). `FamilyResume` (kit, pure) picks the
-  members: not finished, not `next`, a position, and either in another episode or more than two minutes from this profile's
-  own place; newest first, three at most. With any, the prompt is shown for every start: «Resume from 34:10» (or «Play»
-  without a place of its own, and then no «Start Over»), a row per profile (avatar, name, the episode when it is another
-  one, the place), «Start Over». With none, nothing changes (the prompt only for «Continue Watching» with a place).
-  A row adopts (`POST /api/progress/{theirItemId}/adopt`; a refusal is no error: it plays from their position anyway) and
-  starts there, in their episode when that is another one. The rows have no verb: a name cannot be declined in Russian.
-  The mock's `--family`: the films 30 (no own progress, one profile), 31 (own 34:10, four profiles) and 33 (adopt answers 404).
+- The resume prompt offers the others' places («Дарья · 1:12:40»). When a film or an episode starts, the player asks
+  `GET /api/items/{id}/family` beside the saved position (waited for 3 s at most) and `FamilyResume` (kit, pure) picks the
+  members: not finished, not `next`, a position, and either in another episode or more than two minutes from this
+  profile's own place; newest first, three at most. What a start may offer is `FamilyOffer`, set by whoever starts it:
+  `.series` when the APP picked the episode (the series page's Play, the hero, Continue Watching, a Top Shelf link, a
+  series card): the member of any episode, and an episode asks about its SERIES; `.sameItem` (the default) when the viewer
+  picked a film or an episode (the episode list, an episode's page): only those in that very item, asked about the item;
+  `.none` when where to start is chosen already: «Restart» / «Play from Beginning» (`.beginning`), «Continue from Their
+  Place» on the page (the sheet adopts and plays), the episode that follows by itself (Up Next), a kid, and a Try Again
+  after the prompt was shown. A jump in the player's own Family menu is a seek, not a start. With any member the prompt
+  is shown for every start: «Resume from 34:10» (or «Play» without a place of its own, and then no «Start Over»), a row per
+  profile (avatar, name, the episode when it is another one, the place), «Start Over»; as a list only the focused row is lit
+  (all `.glass`; the two-button prompt keeps its lit first button). With none, nothing changes (the prompt only for Continue
+  Watching with a place). A row adopts (`POST /api/progress/{theirItemId}/adopt`; a refusal is no error: it plays from
+  their position anyway) and starts there, in their episode when that is another one. The rows have no verb: a name cannot
+  be declined in Russian. The mock's `--family`: the films 30 (no own progress, one profile), 31 (own 34:10, four
+  profiles) and 33 (adopt answers 404).

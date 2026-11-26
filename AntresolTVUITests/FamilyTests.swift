@@ -399,6 +399,68 @@ final class FamilyUITests: XCTestCase {
         leaveEverything()
     }
 
+    /// An episode the viewer picked from the list is just that episode: Alex is in S1 E2 (and the series' Play offers
+    /// him there, see above), so nothing is offered on S1 E1, which nobody else is in: it starts at once.
+    func testAnEpisodePickedFromTheListIsNotOfferedOtherEpisodes() {
+        signIn(opening: 2)
+        let tile = focusEpisodeTile("Episode 1")
+        XCTAssertTrue(tile.exists)
+        remote.press(.playPause)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "the episode did not start by itself: \(focusedLabel)")
+        XCTAssertFalse(app.buttons["resume.own"].exists, "a prompt on an episode nobody else is in")
+        XCTAssertTrue(adoptEvents().isEmpty)
+        leaveEverything()
+    }
+
+    /// ...and an episode somebody is in offers them there, as «Alex · 17:00» (the same episode: no code).
+    func testAnEpisodePickedFromTheListOffersThoseInIt() {
+        signIn(opening: 2)
+        focusEpisodeTile("Episode 2")
+        remote.press(.playPause)
+        let alex = app.buttons["resume.family.11"]
+        XCTAssertTrue(alex.waitForExistence(timeout: 40), "no prompt on the episode Alex is in: \(focusedLabel)")
+        XCTAssertEqual(alex.label, "Alex · 17:00", "the row of somebody in the very episode names no episode")
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'resume.family.'")).count, 1)
+        sleep(1)
+        snapshot("resume-episode-picked")
+    }
+
+    /// «Restart» is a place chosen already: no prompt, nothing offered, nothing adopted.
+    func testStartingFromTheBeginningHasNoPrompt() {
+        signIn(opening: 31)
+        let play = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", tr("Resume"), tr("Play"))).firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 30), "no Resume: \(focusedLabel)")
+        enterPage()
+        XCTAssertTrue(waitForFocus(play, seconds: 10), "focus: \(focusedLabel)")
+        let restart = app.buttons[tr("Restart")]
+        XCTAssertTrue(moveFocus(.right, to: restart, limit: 2), "no Restart: \(focusedLabel)")
+        remote.press(.select)
+        XCTAssertTrue(wait(40) { self.playRequests().count > 0 }, "no playback after Restart")
+        XCTAssertFalse(app.buttons["resume.own"].exists, "a prompt after Restart")
+        XCTAssertTrue(adoptEvents().isEmpty)
+        leaveEverything()
+    }
+
+    /// The next episode that follows by itself (Up Next) starts by itself, though Alex is far from the viewer in it
+    /// (S1 E2, 17:00 against 0:15): no prompt, nothing adopted.
+    func testTheNextEpisodeThatFollowsByItselfHasNoPrompt() {
+        signIn(opening: 2)
+        openPrompt()
+        // the series' Continue offered Alex in S1 E2; the viewer goes on with S1 E1 from 0:15 (the clip's credits are at 0:18)
+        XCTAssertTrue(app.buttons["resume.family.11"].exists)
+        remote.press(.select)
+        let next = app.buttons["player.upNext.next"]
+        XCTAssertTrue(next.waitForExistence(timeout: 40), "no Next Episode at the credits: \(focusedLabel)")
+        XCTAssertTrue(wait(25) { self.mockEvents().contains { ($0["method"] as? String) == "GET" && ($0["path"] as? String) == "/api/items/5" } },
+                      "the next episode did not open by itself")
+        let clock = app.descendants(matching: .any).matching(identifier: "player.position").firstMatch
+        XCTAssertTrue(wait(30) { self.playRequests().count >= 2 }, "the next episode did not start by itself: \(focusedLabel)")
+        XCTAssertFalse(app.buttons["resume.own"].exists, "a prompt on the episode that follows by itself")
+        XCTAssertTrue(clock.waitForExistence(timeout: 20) || playRequests().count >= 2)
+        XCTAssertTrue(adoptEvents().isEmpty, "something was adopted")
+        leaveEverything()
+    }
+
     /// Presses Play / Resume on the page and waits for the prompt.
     private func openPrompt() {
         // a series' button names the episode: «Play S1 E1»
@@ -408,6 +470,19 @@ final class FamilyUITests: XCTestCase {
         XCTAssertTrue(waitForFocus(play, seconds: 10), "focus: \(focusedLabel)")
         remote.press(.select)
         XCTAssertTrue(app.buttons["resume.own"].waitForExistence(timeout: 40), "no resume prompt: \(focusedLabel)")
+    }
+
+    /// Down from the series page's actions to the tile of an episode ("Episode 1"), along to it when it is not the first.
+    @discardableResult
+    private func focusEpisodeTile(_ title: String) -> XCUIElement {
+        let line = app.buttons["family.line"]
+        XCTAssertTrue(line.waitForExistence(timeout: 30), "no line on the series page: \(focusedLabel)")
+        enterPage()
+        let first = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Episode 1")).firstMatch
+        XCTAssertTrue(moveFocus(.down, to: first, limit: 5), "focus cannot reach the episodes: \(focusedLabel)")
+        let tile = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
+        XCTAssertTrue(moveFocus(.right, to: tile, limit: 3), "focus cannot reach \(title): \(focusedLabel)")
+        return tile
     }
 
     private func adoptEvents(_ events: [[String: Any]]? = nil) -> [[String: Any]] {
@@ -506,6 +581,8 @@ final class FamilyUITests: XCTestCase {
         // the newest profile first (Alex, 0:25); a press goes there
         remote.press(.select)
         XCTAssertTrue(wait(10) { (Int(clock.value as? String ?? "") ?? 0) >= 24 }, "the player did not go to their place: \(clock.value as? String ?? "")")
+        // a jump in the player's own menu is a place chosen: no prompt comes up over it
+        XCTAssertFalse(app.buttons["resume.own"].exists, "a prompt after a jump from the player's menu")
         return clock
     }
 

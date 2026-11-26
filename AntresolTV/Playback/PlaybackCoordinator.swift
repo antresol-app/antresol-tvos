@@ -26,9 +26,10 @@ final class PlaybackCoordinator {
         let start: StartPoint
         /// The version (file) to play; nil plays the item's first file.
         var fileId: Int?
-        /// The resume prompt may offer other profiles' places. Not after the viewer has just
-        /// picked one themselves («Continue from Their Place»).
-        var offersFamily = true
+        /// Which other profiles' places the resume prompt may offer: `.none` once the viewer has chosen where to
+        /// start («Continue from Their Place»); `.series` when the app picked the episode (the series' Play /
+        /// Continue); else only those in this very film or episode.
+        var familyOffer = FamilyOffer.sameItem
     }
 
     /// A live channel to watch: the whole list, and the filter it was opened from (channel
@@ -89,8 +90,8 @@ final class PlaybackCoordinator {
     private var mediaKeys: MediaKeyStore?
     private var mediaKeyToken: String?
 
-    func play(_ card: Card, from start: StartPoint = .resume, fileId: Int? = nil, offersFamily: Bool = true) {
-        presented = Request(card: card, start: start, fileId: fileId, offersFamily: offersFamily)
+    func play(_ card: Card, from start: StartPoint = .resume, fileId: Int? = nil, familyOffer: FamilyOffer = .sameItem) {
+        presented = Request(card: card, start: start, fileId: fileId, familyOffer: familyOffer)
     }
 
     /// Opens the live player on `channel`; channel up / down moves through the channels of
@@ -152,18 +153,19 @@ final class PlaybackCoordinator {
 extension View {
     /// The remote's Play/Pause on a focused movie, show or episode card starts it (with
     /// resume), as in the TV app. Other cards keep the shell's handler (music).
-    func playsOnPlayPause(_ card: Card) -> some View {
-        modifier(PlayOnPlayPause(card: card))
+    func playsOnPlayPause(_ card: Card, familyOffer: FamilyOffer = .sameItem) -> some View {
+        modifier(PlayOnPlayPause(card: card, familyOffer: familyOffer))
     }
 }
 
 private struct PlayOnPlayPause: ViewModifier {
     let card: Card
+    let familyOffer: FamilyOffer
     @Environment(PlaybackCoordinator.self) private var playback
 
     func body(content: Content) -> some View {
         if card.kind.isVideo {
-            content.onPlayPauseCommand { playback.play(card, from: .resume) }
+            content.onPlayPauseCommand { playback.play(card, from: .resume, familyOffer: familyOffer) }
         } else {
             content
         }

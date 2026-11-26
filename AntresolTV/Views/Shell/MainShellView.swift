@@ -273,7 +273,8 @@ struct MainShellView: View {
         }
         showsNowPlaying = false
         if case .play = link, card.kind.isVideo, playback.presented == nil {
-            playback.play(card, from: .resume)
+            // a Top Shelf / URL link continues the title, as Continue Watching does
+            playback.play(card, from: .resume, familyOffer: .series)
             return
         }
         selection = .home

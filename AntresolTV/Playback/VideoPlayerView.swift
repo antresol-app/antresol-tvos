@@ -339,7 +339,9 @@ private struct ResumePromptView: View {
             }
             .rowWidth(!family.isEmpty)
         }
-        .buttonStyle(PillButtonStyle(kind: .primary))
+        // Two buttons: the first is the lit one, as it always was. A list: only the focused row is lit,
+        // so it is clear which one has the focus.
+        .buttonStyle(PillButtonStyle(kind: family.isEmpty ? .primary : .glass))
         .focused($focused, equals: .own)
         .accessibilityIdentifier("resume.own")
         ForEach(family) { member in

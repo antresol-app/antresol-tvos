@@ -71,9 +71,9 @@ final class VideoPlayerModel {
     /// «Family»: a place of another profile the player was sent to; until it plays on there the
     /// position saved is the one before the jump.
     private var familyHold: FamilyHold?
-    /// The prompt may offer other profiles' places: for what the viewer started from a page or a shelf,
-    /// not for the episode that follows by itself, and not again after the prompt has been shown.
-    private var offersFamily: Bool
+    /// Which other profiles' places the prompt may offer (`FamilyOffer`): what the start asked for, and
+    /// nothing for the episode that follows by itself or once the prompt has been shown.
+    private var familyOffer: FamilyOffer
     /// The skip state of the current file.
     private var skip = SkipTracker(segments: [])
     /// The pill of the segment playing, as of the last position tick.
@@ -116,7 +116,7 @@ final class VideoPlayerModel {
     init(request: PlaybackCoordinator.Request) {
         self.request = request
         self.card = request.card
-        self.offersFamily = request.offersFamily
+        self.familyOffer = request.familyOffer
     }
 
     // MARK: - Lifecycle
@@ -249,7 +249,7 @@ final class VideoPlayerModel {
         isSwitching = true
         resetSkip(SkipTracker(segments: []))
         // The next episode follows the one just watched: it starts by itself, with no prompt.
-        offersFamily = false
+        familyOffer = .none
         Task {
             await finishCurrent(atEnd: false)
             await open(offer.episode.card, from: .resume)
@@ -323,7 +323,11 @@ final class VideoPlayerModel {
             let detail = try await playableItem(for: target, client: client)
             // The other profiles' places in it (the prompt may offer them), asked beside the
             // saved position; they never hold playback up for long.
-            async let others: [FamilyMember] = otherPlaces(of: detail, start: start, client: client)
+            let scope = FamilyResume.scope(
+                requested: familyOffer, fromBeginning: start == .beginning, cardIsSeries: target.kind == .series || target.kind == .season,
+                kid: appState?.currentUser?.isKid == true
+            )
+            async let others: [FamilyMember] = otherPlaces(of: detail, scope: scope, client: client)
             try setItem(detail, client: client)
             var position: Double = 0
             if start != .beginning {
@@ -336,10 +340,10 @@ final class VideoPlayerModel {
                     position = ResumePolicy.videoStartSec(try await client.progress(itemId: detail.id))
                 }
             }
-            let offers = FamilyResume.offers(await others, playing: detail.id, ownMs: Int(position * 1000))
+            let offers = FamilyResume.offers(await others, playing: detail.id, ownMs: Int(position * 1000), scope: scope)
             if FamilyResume.showsPrompt(asksForOwn: start == .ask, ownSec: position, offers: offers) {
                 isSwitching = false
-                offersFamily = false
+                familyOffer = .none
                 state = .resumePrompt(positionSec: position, family: offers)
                 return
             }
@@ -365,15 +369,13 @@ final class VideoPlayerModel {
         loadArtwork(for: detail, client: client)
     }
 
-    /// The other profiles' places in what is about to play, and in the other episodes of its series,
-    /// for the resume prompt. Nothing for a start from the beginning, for the episode that follows
-    /// by itself, after the prompt has been shown, for a kid (the server lists nobody for a kid),
-    /// on an older server, offline, or when the server is slow: the answer is not worth a wait.
-    private func otherPlaces(of detail: ItemDetail, start: PlaybackCoordinator.StartPoint, client: APIClient) async -> [FamilyMember] {
-        guard start != .beginning, offersFamily, appState?.currentUser?.isKid != true,
-              detail.kind == .movie || detail.kind == .episode
-        else { return [] }
-        let asked = FamilyResume.askedItem(itemId: detail.id, kind: detail.kind, seriesId: detail.seriesId)
+    /// The other profiles' places in what is about to play (and, for `.series`, in the other episodes of its
+    /// series), for the resume prompt. Nothing for `.none` (a start from the beginning, a family jump, the
+    /// episode that follows by itself, a kid: the server lists nobody for a kid), on an older server, offline,
+    /// or when the server is slow: the answer is not worth a wait.
+    private func otherPlaces(of detail: ItemDetail, scope: FamilyOffer, client: APIClient) async -> [FamilyMember] {
+        guard scope != .none, detail.kind == .movie || detail.kind == .episode else { return [] }
+        let asked = FamilyResume.askedItem(itemId: detail.id, kind: detail.kind, seriesId: detail.seriesId, scope: scope)
         return await withTaskGroup(of: [FamilyMember]?.self) { group in
             group.addTask { try? await client.family(itemId: asked) }
             group.addTask {
