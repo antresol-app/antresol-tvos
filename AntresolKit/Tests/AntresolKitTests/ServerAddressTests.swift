@@ -1,6 +1,9 @@
 import Foundation
 import XCTest
 @testable import AntresolKit
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Which addresses are tried, in which order, and which would send the password in the clear.
 final class ServerAddressTests: XCTestCase {
