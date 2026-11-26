@@ -13,7 +13,15 @@ final class AddonWaysTests: XCTestCase {
     /// The request's JSON body is exactly `expected`.
     private func assertBody(_ request: URLRequest, _ expected: [String: Any], file: StaticString = #filePath, line: UInt = #line) {
         guard let body = request.bodyJSON else { return XCTFail("no JSON body", file: file, line: line) }
-        XCTAssertTrue(NSDictionary(dictionary: body).isEqual(to: expected), "\(body) != \(expected)", file: file, line: line)
+        // Both sides as JSON text with sorted keys: the dictionaries' own order is arbitrary, and
+        // NSDictionary.isEqual(to:) is false for equal Swift values in swift-corelibs-foundation (Linux).
+        func canonical(_ object: [String: Any]) -> String? {
+            (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])).flatMap { String(data: $0, encoding: .utf8) }
+        }
+        guard let actual = canonical(body), let wanted = canonical(expected) else {
+            return XCTFail("not JSON: \(body) / \(expected)", file: file, line: line)
+        }
+        XCTAssertEqual(actual, wanted, file: file, line: line)
     }
 
     private func client(_ transport: MockTransport) -> APIClient {
