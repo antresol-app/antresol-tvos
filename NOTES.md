@@ -1585,7 +1585,7 @@ Branch `fix/q-tvos`, from the review in `_antresol-quality-nov24/tvos.md`.
   `.none` when where to start is chosen already: «Restart» / «Play from Beginning» (`.beginning`), «Continue from Their
   Place» on the page (the sheet adopts and plays), the episode that follows by itself (Up Next), a kid, and a Try Again
   after the prompt was shown. A jump in the player's own Family menu is a seek, not a start. With any member the prompt
-  is shown for every start: «Resume from 34:10» (or «Play» without a place of its own, and then no «Start Over»), a row per
+  is shown for every start, under one progress line as wide as the buttons (the bar from their left edge, «76 min left» ending at their right edge): «Resume from 34:10» (or «Play» without a place of its own, and then no «Start Over»), a row per
   profile (avatar, name, the episode when it is another one, the place), «Start Over»; as a list only the focused row is lit
   (all `.glass`; the two-button prompt keeps its lit first button). With none, nothing changes (the prompt only for Continue
   Watching with a place). A row adopts (`POST /api/progress/{theirItemId}/adopt`; a refusal is no error: it plays from

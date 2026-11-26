@@ -297,30 +297,49 @@ private struct ResumePromptView: View {
                     .foregroundStyle(Theme.Colors.label)
                     .lineLimit(2)
                     .minimumScaleFactor(0.6)
-                if hasOwnPlace, durationSec > 0 {
-                    HStack(spacing: 20) {
-                        ProgressBar(value: min(1, positionSec / durationSec), height: 8)
-                            .frame(width: 420)
-                        Text(verbatim: PlaybackTime.remaining(durationSec - positionSec))
-                            .font(Theme.Typography.meta)
-                            .foregroundStyle(Theme.Colors.label2)
-                    }
-                }
-                GlassGroup(spacing: 28) {
-                    if family.isEmpty {
-                        HStack(spacing: 28) { choices }
-                    } else {
-                        VStack(alignment: .leading, spacing: 22) { choices }
-                            .frame(maxWidth: 760, alignment: .leading)
-                    }
-                }
-                .padding(.top, 20)
-                .focusSection()
+                column
+                    .padding(.top, 20)
             }
             .padding(.horizontal, Theme.Layout.margin)
             .padding(.bottom, 110)
         }
         .defaultFocus($focused, .own)
+    }
+
+    private var showsProgress: Bool { hasOwnPlace && durationSec > 0 }
+
+    /// The progress line over the buttons, as wide as they are (the list's column, or the two buttons side by
+    /// side): the bar from their left edge, flexible, and the time left ending at their right edge.
+    @ViewBuilder
+    private var column: some View {
+        let content = VStack(alignment: .leading, spacing: 28) {
+            if showsProgress {
+                HStack(spacing: 20) {
+                    ProgressBar(value: min(1, positionSec / durationSec), height: 8)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("resume.progress")
+                    Text(verbatim: PlaybackTime.remaining(durationSec - positionSec))
+                        .font(Theme.Typography.meta)
+                        .foregroundStyle(Theme.Colors.label2)
+                        .fixedSize()
+                        .accessibilityIdentifier("resume.remaining")
+                }
+            }
+            GlassGroup(spacing: 28) {
+                if family.isEmpty {
+                    HStack(spacing: 28) { choices }
+                } else {
+                    VStack(alignment: .leading, spacing: 22) { choices }
+                }
+            }
+            .focusSection()
+        }
+        if family.isEmpty {
+            // the buttons' own width (the bar has none of its own)
+            content.fixedSize(horizontal: true, vertical: false)
+        } else {
+            content.frame(width: 760, alignment: .leading)
+        }
     }
 
     @ViewBuilder

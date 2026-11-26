@@ -136,6 +136,15 @@ final class ScreenshotTests: XCTestCase {
         remote.press(.select)
         XCTAssertTrue(app.buttons["Start Over"].waitForExistence(timeout: 20))
         pause(3)
+        // one line over the two buttons, as wide as they are: the bar from the first button's left edge (it is a little
+        // bigger focused), the time left ending at the right edge of the second
+        let bar = app.descendants(matching: .any).matching(identifier: "resume.progress").firstMatch
+        let left = app.staticTexts["resume.remaining"]
+        XCTAssertTrue(bar.exists && left.exists, "no progress line on the resume prompt")
+        // (a button's own frame is its label: the pill reaches 44 points further on each side)
+        XCTAssertEqual(left.frame.maxX, app.buttons["Start Over"].frame.maxX + 44, accuracy: 6, "the time left does not end where the buttons do")
+        XCTAssertEqual(bar.frame.minX, app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Resume from")).firstMatch.frame.minX - 44, accuracy: 25, "the bar does not start where the buttons do")
+        XCTAssertLessThan(bar.frame.maxX, left.frame.minX)
         snapshot(app, "18-resume-prompt")
 
         remote.press(.select)

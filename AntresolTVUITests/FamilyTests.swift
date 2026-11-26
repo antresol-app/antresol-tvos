@@ -274,6 +274,18 @@ final class FamilyUITests: XCTestCase {
         sleep(2)
         snapshot("resume-two-members")
 
+        // one line over the rows, as wide as they are: the bar from their left edge, the time left ending at their right edge
+        let bar = app.descendants(matching: .any).matching(identifier: "resume.progress").firstMatch
+        let left = app.staticTexts["resume.remaining"]
+        XCTAssertTrue(bar.exists && left.exists, "no progress line")
+        // the rows' pills run from the page margin (160) over the column's 760 points; a button's own frame is only its label
+        XCTAssertEqual(bar.frame.minX, 160, accuracy: 3, "the bar does not start where the rows do: \(bar.frame)")
+        XCTAssertEqual(left.frame.maxX, 160 + 760, accuracy: 3, "the time left does not end where the rows do: \(left.frame)")
+        XCTAssertLessThan(bar.frame.maxX, left.frame.minX, "the bar runs into the label")
+        XCTAssertGreaterThan(bar.frame.width, 300, "the bar is not flexible: \(bar.frame)")
+        XCTAssertEqual(bar.frame.midY, left.frame.midY, accuracy: 12, "the bar and the label are not on one line")
+        XCTAssertLessThan(left.frame.maxY, app.buttons["resume.own"].frame.minY, "the line is not above the rows")
+
         // the order of the rows on the screen: own, Alex, Kim, Start Over
         let ys = ["resume.own", "resume.family.11", "resume.family.13", "resume.startOver"].map { app.buttons[$0].frame.minY }
         XCTAssertEqual(ys, ys.sorted(), "the rows are not in order: \(ys)")
