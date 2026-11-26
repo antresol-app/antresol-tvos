@@ -152,7 +152,9 @@ jobs:
         run: |
           if ! TEST_RUNNER_ANTRESOL_EXPECT_REDUCE_MOTION=0 xcodebuild test -project Antresol.xcodeproj -scheme AntresolTV \
             -destination "id=$SIM_UDID" -resultBundlePath ui.xcresult > uitest.log 2>&1; then
-            grep -E 'error:|failed|Test Case' uitest.log | head -n 80
+            # The failed assertions first: the Test Case lines of 80 skipped tests would fill the list.
+            grep -E ': error: ' uitest.log | head -n 60
+            grep -E "Test Case .* failed" uitest.log | head -n 40
             tail -n 40 uitest.log
             exit 1
           fi
@@ -167,7 +169,8 @@ jobs:
             -project Antresol.xcodeproj -scheme AntresolTV -destination "id=$SIM_UDID" \
             -only-testing:AntresolTVUITests/RuntimeTests/testHeroAutoAdvance \
             -resultBundlePath reduce-motion.xcresult > reduce-motion.log 2>&1; then
-            grep -E 'error:|failed|Test Case' reduce-motion.log | head -n 40
+            grep -E ': error: ' reduce-motion.log | head -n 40
+            grep -E "Test Case .* failed" reduce-motion.log | head -n 10
             tail -n 40 reduce-motion.log
             exit 1
           fi
